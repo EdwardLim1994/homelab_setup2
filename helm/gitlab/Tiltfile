@@ -1,14 +1,77 @@
-# ponytail: cmd runs relative to root Tiltfile; helm() path is relative to this file
+# ponytail: local_resource cmd cwd is this Tiltfile's own directory, not repo root
 local_resource(
   'gitlab-helm-deps',
-  cmd='helm dependency update helm/gitlab',
-  deps=['helm/gitlab/Chart.yaml'],
+  cmd='helm dependency update .',
+  deps=['Chart.yaml'],
 )
+
+k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: gitlab'))
+
+# ponytail: dev-only secrets, terraform provides real ones outside Tilt.
+# Fixed (not regenerated) because any file change under the Tiltfile tree
+# triggers a full reload, and a re-randomized db password would no longer
+# match the already-initialized postgres data dir. Fine, throwaway cluster.
+gitlab_root_password = 'dev-gitlab-root-password'
+gitlab_db_password = 'dev-gitlab-db-password'
+
+k8s_yaml(blob('''apiVersion: v1
+kind: Secret
+metadata:
+  name: gitlab-initial-root-password
+  namespace: gitlab
+stringData:
+  password: ''' + gitlab_root_password))
+
+# ponytail: dev-fixed client_id/secret matching the Authentik OAuth2 provider
+# created via the API (see homelab-ca-issuer-style one-time setup notes).
+# Split endpoints because GitLab's backend (in-cluster) and the browser
+# (Tailscale) can't reach Authentik the same way: the authorization redirect
+# has to be browser-reachable, token/userinfo/jwks are backend-to-backend and
+# use the in-cluster Service DNS. discovery:false since the two paths would
+# otherwise return conflicting endpoint sets depending on which Host header
+# hit Authentik first.
+gitlab_oidc_client_id = 'dev-gitlab-oidc-client-id'
+gitlab_oidc_client_secret = 'dev-gitlab-oidc-client-secret-not-for-prod-use'
+
+k8s_yaml(blob('''apiVersion: v1
+kind: Secret
+metadata:
+  name: gitlab-omniauth-authentik
+  namespace: gitlab
+stringData:
+  provider: |
+    name: openid_connect
+    label: "Authentik"
+    args:
+      name: openid_connect
+      scope: [openid, profile, email]
+      response_type: code
+      issuer: "http://authentik-server.authentik.svc.cluster.local/application/o/gitlab/"
+      discovery: false
+      uid_field: "preferred_username"
+      client_options:
+        identifier: "''' + gitlab_oidc_client_id + '''"
+        secret: "''' + gitlab_oidc_client_secret + '''"
+        redirect_uri: "https://raspberrypi94.tail60240b.ts.net:8444/users/auth/openid_connect/callback"
+        authorization_endpoint: "https://raspberrypi94.tail60240b.ts.net:8443/application/o/authorize/"
+        token_endpoint: "http://authentik-server.authentik.svc.cluster.local/application/o/token/"
+        userinfo_endpoint: "http://authentik-server.authentik.svc.cluster.local/application/o/userinfo/"
+        jwks_uri: "http://authentik-server.authentik.svc.cluster.local/application/o/gitlab/jwks/"
+'''))
 
 k8s_yaml(helm(
   '.',
   name='gitlab',
   namespace='gitlab',
+  set=[
+    'gitlab.global.initialRootPassword.secret=gitlab-initial-root-password',
+    'gitlab.postgresql.auth.password=' + gitlab_db_password,
+    'gitlab.global.appConfig.omniauth.enabled=true',
+    'gitlab.global.appConfig.omniauth.blockAutoCreatedUsers=false',
+    'gitlab.global.appConfig.omniauth.allowSingleSignOn[0]=openid_connect',
+    'gitlab.global.appConfig.omniauth.providers[0].secret=gitlab-omniauth-authentik',
+    'gitlab.global.appConfig.omniauth.providers[0].key=provider',
+  ],
 ))
 
 k8s_resource(

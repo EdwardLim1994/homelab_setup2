@@ -3,32 +3,74 @@ gitlab:
     edition: ce
     hosts:
       domain: gitlab.local
+      # ponytail: without this, hostname defaults to "gitlab.<domain>" i.e.
+      # gitlab.gitlab.local (domain already includes "gitlab")
+      gitlab:
+        name: gitlab.local
     initialRootPassword:
       secret: ""  # set via terraform
     ingress:
-      enabled: false
+      enabled: true
+      # ponytail: helm template has no live cluster to auto-detect API
+      # versions from; same class of issue as the pdb/hpa overrides above
+      apiVersion: networking.k8s.io/v1
+      provider: traefik
+      class: traefik
+      annotations:
+        cert-manager.io/cluster-issuer: homelab-ca-issuer
+      tls:
+        enabled: true
+        secretName: gitlab-tls
+      # ponytail: defaults true independent of ingress.enabled, keeps
+      # spawning a cert-manager issuer job; we manage our own ClusterIssuer
+      configureCertmanager: false
     # ponytail: local disk storage, skip MinIO/S3 for homelab simplicity
     appConfig:
       object_store:
         enabled: false
+      lfs:
+        enabled: false
+      artifacts:
+        enabled: false
+      uploads:
+        enabled: false
+      packages:
+        enabled: false
+    minio:
+      enabled: false
+    kas:
+      enabled: false
+    # ponytail: Tilt's helm() runs `helm template` with no cluster connection,
+    # so Capabilities-based API auto-detection can't run and falls back to the
+    # long-removed policy/v1beta1 PDB kind. Pin explicitly.
+    pdb:
+      apiVersion: policy/v1
+    hpa:
+      apiVersion: autoscaling/v2
+    # ponytail: gitlab-shell's SSH IngressRouteTCP only renders once
+    # ingress.provider is traefik; same live-cluster-detection gap as above,
+    # this cluster's Traefik (v3) only registers the newer traefik.io group
+    traefik:
+      apiVersion: traefik.io/v1alpha1
 
   # disable non-essential components
-  gitlab-kas:
-    enabled: false
   registry:
     enabled: false
   certmanager:
     install: false
   nginx-ingress:
     enabled: false
+  # ponytail: no ingress means no external hostname for the runner to register
+  # against (dial fails on gitlab.gitlab.local); CI isn't needed for dev testing
+  gitlab-runner:
+    install: false
   prometheus:
     install: false
   grafana:
     enabled: false
-  minio:
-    enabled: false
-
   gitlab:
+    toolbox:
+      enabled: false
     webservice:
       minReplicas: 1
       maxReplicas: 1
@@ -60,6 +102,12 @@ gitlab:
 
   postgresql:
     install: true
+    # ponytail: bitnami moved old image tags to bitnamilegacy on docker.io, upgrade image.tag when bumping chart
+    image:
+      repository: bitnamilegacy/postgresql
+    metrics:
+      image:
+        repository: bitnamilegacy/postgres-exporter
     primary:
       resources:
         requests:
@@ -70,6 +118,14 @@ gitlab:
 
   redis:
     install: true
+    # ponytail: chart's pinned 6.2.7 tag is amd64-only in bitnamilegacy; pinned to a same-minor tag with arm64 support
+    image:
+      repository: bitnamilegacy/redis
+      tag: 6.2.16-debian-12-r3
+    metrics:
+      image:
+        repository: bitnamilegacy/redis-exporter
+        tag: 1.76.0-debian-12-r0
     master:
       resources:
         requests:

@@ -8,6 +8,9 @@ authentik:
 
   postgresql:
     enabled: true
+    # ponytail: bitnami moved old image tags to bitnamilegacy on docker.io, upgrade image.tag when bumping chart
+    image:
+      repository: bitnamilegacy/postgresql
     auth:
       password: ""  # set via terraform variable
     primary:
@@ -20,6 +23,8 @@ authentik:
 
   redis:
     enabled: true
+    image:
+      repository: bitnamilegacy/redis
     master:
       resources:
         requests:
@@ -37,13 +42,22 @@ authentik:
       limits:
         memory: 1Gi
     ingress:
-      enabled: false
+      enabled: true
+      ingressClassName: traefik
+      annotations:
+        cert-manager.io/cluster-issuer: homelab-ca-issuer
+      hosts:
+        - authentik.local
+      tls:
+        - secretName: authentik-tls
+          hosts:
+            - authentik.local
 
   worker:
     replicas: 1
     resources:
       requests:
         cpu: 50m
-        memory: 256Mi
-      limits:
         memory: 512Mi
+      limits:
+        memory: 1Gi

@@ -35,5 +35,5 @@ resource "helm_release" "gitlab" {
     value = var.gitlab_db_password
   }
 
-  depends_on = [kubernetes_namespace.gitlab]
+  depends_on = [kubernetes_namespace.gitlab, kubectl_manifest.homelab_ca_issuer]
 }

@@ -1,2 +1,3 @@
+include('./cert-manager/Tiltfile')
 include('./authentik/Tiltfile')
 include('./gitlab/Tiltfile')

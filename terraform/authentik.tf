@@ -28,5 +28,5 @@ resource "helm_release" "authentik" {
     value = var.authentik_db_password
   }
 
-  depends_on = [kubernetes_namespace.authentik]
+  depends_on = [kubernetes_namespace.authentik, kubectl_manifest.homelab_ca_issuer]
 }

@@ -1,14 +1,39 @@
-# ponytail: cmd runs relative to root Tiltfile; helm() path is relative to this file
+# ponytail: local_resource cmd cwd is this Tiltfile's own directory, not repo root
 local_resource(
   'authentik-helm-deps',
-  cmd='helm dependency update helm/authentik',
-  deps=['helm/authentik/Chart.yaml'],
+  cmd='helm dependency update .',
+  deps=['Chart.yaml'],
 )
+
+k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: authentik'))
+
+# ponytail: dev-only secrets, terraform provides real ones outside Tilt.
+# Fixed (not regenerated) because any file change under the Tiltfile tree
+# triggers a full reload, and a re-randomized db password would no longer
+# match the already-initialized postgres data dir. Fine, throwaway cluster.
+authentik_secret_key = 'dev-authentik-secret-key-not-for-prod-use'
+authentik_db_password = 'dev-authentik-db-password'
+# ponytail: bootstrap token lets Tilt/terraform drive the Authentik API
+# directly (create OAuth2 providers, sources, etc.) without a manual
+# admin-password setup flow. https://docs.goauthentik.io/docs/installation/configuration#bootstrap
+authentik_bootstrap_token = 'dev-authentik-bootstrap-token-not-for-prod-use'
+authentik_bootstrap_password = 'Admin1234!'
 
 k8s_yaml(helm(
   '.',
   name='authentik',
   namespace='authentik',
+  set=[
+    'authentik.authentik.secret_key=' + authentik_secret_key,
+    'authentik.authentik.postgresql.password=' + authentik_db_password,
+    'authentik.postgresql.auth.password=' + authentik_db_password,
+    'authentik.global.env[0].name=AUTHENTIK_BOOTSTRAP_TOKEN',
+    'authentik.global.env[0].value=' + authentik_bootstrap_token,
+    'authentik.global.env[1].name=AUTHENTIK_BOOTSTRAP_PASSWORD',
+    'authentik.global.env[1].value=' + authentik_bootstrap_password,
+    'authentik.global.env[2].name=AUTHENTIK_BOOTSTRAP_EMAIL',
+    'authentik.global.env[2].value=akadmin@authentik.local',
+  ],
 ))
 
 k8s_resource(
