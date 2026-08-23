@@ -1,0 +1,47 @@
+n8n:
+  # ponytail: sqlite (chart default) instead of the bundled postgres subchart
+  # — one more app, one more moving part isn't worth it for a homelab
+  main:
+    persistence:
+      enabled: true
+      # ponytail: chart defaults this to "helm.sh/resource-policy: keep",
+      # which makes Tilt refuse to recreate the PVC after a manual delete
+      # (e.g. wiping it to reset the encryption key) — drop it so Tilt fully
+      # owns the PVC lifecycle like every other app's storage in this repo.
+      annotations: {}
+    resources:
+      requests:
+        cpu: 50m
+        memory: 512Mi
+      limits:
+        # ponytail: 512Mi wasn't enough headroom for Node's heap on top of
+        # n8n's own footprint — OOMKilled with "JavaScript heap out of memory"
+        memory: 1Gi
+
+    # ponytail: n8n gates native OIDC/SSO behind an Enterprise license.
+    # cweagans/n8n-oidc (MIT) bolts it on via n8n's external-hooks system
+    # instead — no license, no fork, just a JS file + env vars. hooks.js is
+    # mounted from a ConfigMap the Tiltfile builds from helm/n8n/hooks.js.
+    volumes:
+      - name: oidc-hooks
+        configMap:
+          name: n8n-oidc-hooks
+    volumeMounts:
+      - name: oidc-hooks
+        mountPath: /hooks
+        readOnly: true
+
+    # ponytail: fixed dev client_id/secret matching the Authentik OAuth2
+    # provider created via the API (same one-time-setup pattern as the
+    # other apps'). OIDC_ISSUER_URL uses the tailscale hostname so the
+    # server-side discovery fetch and the browser redirect agree on the
+    # same authority — same reasoning as minio/gitlab's OIDC wiring.
+    extraEnvVars:
+      EXTERNAL_HOOK_FILES: "/hooks/hooks.js"
+      N8N_ADDITIONAL_NON_UI_ROUTES: "auth"
+      EXTERNAL_FRONTEND_HOOKS_URLS: "/assets/oidc-frontend-hook.js"
+      N8N_PROTOCOL: "https"
+      OIDC_ISSUER_URL: "https://raspberrypi94.tail60240b.ts.net:8443/application/o/n8n/"
+      OIDC_CLIENT_ID: "dev-n8n-oidc-client-id"
+      OIDC_CLIENT_SECRET: "dev-n8n-oidc-client-secret-not-for-prod-use"
+      OIDC_REDIRECT_URI: "https://raspberrypi94.tail60240b.ts.net:8447/auth/oidc/callback"

@@ -1,0 +1,39 @@
+# ponytail: local_resource cmd cwd is this Tiltfile's own directory, not repo root
+local_resource(
+  'n8n-helm-deps',
+  cmd='helm dependency update .',
+  deps=['Chart.yaml'],
+)
+
+k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: n8n'))
+
+# ponytail: cweagans/n8n-oidc (MIT) bolts OIDC login onto n8n via its
+# external-hooks system, bypassing n8n's Enterprise-license-gated native
+# SSO. hooks.js is a plain file in this dir (Tilt auto-watches it via
+# read_file below); ship it as a ConfigMap since the chart has no generic
+# "extra files" mechanism.
+hooks_js = str(read_file('hooks.js'))
+hooks_configmap = 'apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: n8n-oidc-hooks\n  namespace: n8n\ndata:\n  hooks.js: |\n' + '\n'.join(['    ' + line for line in hooks_js.splitlines()])
+k8s_yaml(blob(hooks_configmap))
+
+# ponytail: dev-only secret, fixed for the same reason as authentik/gitlab/
+# minio's fixed passwords — Tilt's helm() runs `helm template`, which is
+# stateless, so the chart's "auto generate once" encryption key would
+# re-randomize on every Tiltfile reload and stop matching the key already
+# baked into the n8n PVC's settings file (n8n hard-fails on that mismatch).
+n8n_encryption_key = 'dev-n8n-encryption-key-not-for-prod-use'
+
+k8s_yaml(helm(
+  '.',
+  name='n8n',
+  namespace='n8n',
+  set=[
+    'n8n.encryptionKey=' + n8n_encryption_key,
+  ],
+))
+
+k8s_resource(
+  'n8n',
+  port_forwards=['5678:5678'],
+  resource_deps=['n8n-helm-deps'],
+)

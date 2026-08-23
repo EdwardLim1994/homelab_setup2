@@ -1,3 +1,5 @@
 include('./cert-manager/Tiltfile')
 include('./authentik/Tiltfile')
 include('./gitlab/Tiltfile')
+include('./minio/Tiltfile')
+include('./n8n/Tiltfile')

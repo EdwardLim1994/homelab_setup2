@@ -24,18 +24,41 @@ gitlab:
       # ponytail: defaults true independent of ingress.enabled, keeps
       # spawning a cert-manager issuer job; we manage our own ClusterIssuer
       configureCertmanager: false
-    # ponytail: local disk storage, skip MinIO/S3 for homelab simplicity
+    # ponytail: backed by the standalone minio app (helm/minio), not the
+    # gitlab chart's own bundled minio subchart (global.minio stays
+    # disabled below) — connection secret wired in gitlab/Tiltfile.
+    # Per-feature blocks below must leave `connection` empty and only set
+    # `bucket` for the chart to treat object_store.connection as the
+    # consolidated one they all inherit (see charts/gitlab/_objectStorage.tpl).
     appConfig:
       object_store:
-        enabled: false
+        enabled: true
       lfs:
-        enabled: false
+        enabled: true
+        bucket: git-lfs
       artifacts:
-        enabled: false
+        enabled: true
+        bucket: gitlab-artifacts
       uploads:
-        enabled: false
+        enabled: true
+        bucket: gitlab-uploads
       packages:
-        enabled: false
+        enabled: true
+        bucket: gitlab-packages
+      externalDiffs:
+        enabled: true
+        bucket: gitlab-mr-diffs
+      dependencyProxy:
+        enabled: true
+        bucket: gitlab-dependency-proxy
+      terraformState:
+        enabled: true
+        bucket: gitlab-terraform-state
+      ciSecureFiles:
+        enabled: true
+        bucket: gitlab-ci-secure-files
+      backups:
+        bucket: gitlab-backups
     minio:
       enabled: false
     kas:

@@ -1,0 +1,63 @@
+minio:
+  image:
+    repository: quay.io/minio/minio
+    # ponytail: pinned — newer builds (tried up through RELEASE.2025-09-07)
+    # have a regression where the WebUI never shows the SSO login button
+    # despite fully correct, live-verified server-side OIDC config. This tag
+    # matches a known-working reference project exactly. Re-test on chart/
+    # image bumps before moving off it.
+    tag: RELEASE.2024-11-07T00-52-20Z
+
+  mode: standalone
+  replicas: 1
+  drivesPerNode: 1
+  pools: 1
+
+  rootUser: admin
+  rootPassword: ""  # set via terraform variable
+
+  persistence:
+    size: 8Gi
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+  # ponytail: fixed dev client_id/secret matching the Authentik OAuth2
+  # provider created via the API (same one-time-setup pattern as GitLab's).
+  environment:
+    MINIO_BROWSER: "on"
+    MINIO_IDENTITY_OPENID_CONFIG_URL: "https://raspberrypi94.tail60240b.ts.net:8443/application/o/minio/.well-known/openid-configuration"
+    MINIO_IDENTITY_OPENID_CLIENT_ID: "dev-minio-oidc-client-id"
+    MINIO_IDENTITY_OPENID_CLIENT_SECRET: "dev-minio-oidc-client-secret-not-for-prod-use"
+    MINIO_IDENTITY_OPENID_CLAIM_NAME: "policy"
+    MINIO_IDENTITY_OPENID_SCOPES: "openid,profile,email,policy"
+    MINIO_IDENTITY_OPENID_REDIRECT_URI: "https://raspberrypi94.tail60240b.ts.net:8445/oauth_callback"
+    MINIO_IDENTITY_OPENID_DISPLAY_NAME: "Authentik"
+
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: homelab-ca-issuer
+    hosts:
+      - minio.local
+    tls:
+      - secretName: minio.local-tls
+        hosts:
+          - minio.local
+
+  consoleIngress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: homelab-ca-issuer
+    hosts:
+      - minio-console.local
+    tls:
+      - secretName: minio-console.local-tls
+        hosts:
+          - minio-console.local

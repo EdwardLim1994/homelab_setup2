@@ -59,6 +59,27 @@ stringData:
         jwks_uri: "http://authentik-server.authentik.svc.cluster.local/application/o/gitlab/jwks/"
 '''))
 
+# ponytail: dev-fixed creds matching minio's Tiltfile (helm/minio/Tiltfile's
+# minio_root_password) — GitLab talks to MinIO's S3 API purely server-to-
+# server via in-cluster Service DNS, no browser involved, so no tailscale/
+# ingress hostname juggling needed here (unlike the OIDC provider above).
+minio_root_password = 'dev-minio-root-password'
+
+k8s_yaml(blob('''apiVersion: v1
+kind: Secret
+metadata:
+  name: gitlab-object-storage
+  namespace: gitlab
+stringData:
+  connection: |
+    provider: AWS
+    region: us-east-1
+    endpoint: http://minio.minio.svc.cluster.local:9000
+    path_style: true
+    aws_access_key_id: admin
+    aws_secret_access_key: ''' + minio_root_password + '''
+'''))
+
 k8s_yaml(helm(
   '.',
   name='gitlab',
@@ -69,8 +90,13 @@ k8s_yaml(helm(
     'gitlab.global.appConfig.omniauth.enabled=true',
     'gitlab.global.appConfig.omniauth.blockAutoCreatedUsers=false',
     'gitlab.global.appConfig.omniauth.allowSingleSignOn[0]=openid_connect',
+    # ponytail: auto-redirects to Authentik on visiting /users/sign_in instead
+    # of showing GitLab's own login form first
+    'gitlab.global.appConfig.omniauth.autoSignInWithProvider=openid_connect',
     'gitlab.global.appConfig.omniauth.providers[0].secret=gitlab-omniauth-authentik',
     'gitlab.global.appConfig.omniauth.providers[0].key=provider',
+    'gitlab.global.appConfig.object_store.connection.secret=gitlab-object-storage',
+    'gitlab.global.appConfig.object_store.connection.key=connection',
   ],
 ))
 
