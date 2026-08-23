@@ -1,0 +1,79 @@
+gitlab:
+  global:
+    edition: ce
+    hosts:
+      domain: gitlab.local
+    initialRootPassword:
+      secret: ""  # set via terraform
+    ingress:
+      enabled: false
+    # ponytail: local disk storage, skip MinIO/S3 for homelab simplicity
+    appConfig:
+      object_store:
+        enabled: false
+
+  # disable non-essential components
+  gitlab-kas:
+    enabled: false
+  registry:
+    enabled: false
+  certmanager:
+    install: false
+  nginx-ingress:
+    enabled: false
+  prometheus:
+    install: false
+  grafana:
+    enabled: false
+  minio:
+    enabled: false
+
+  gitlab:
+    webservice:
+      minReplicas: 1
+      maxReplicas: 1
+      resources:
+        requests:
+          cpu: 100m
+          memory: 1Gi
+        limits:
+          memory: 2Gi
+    sidekiq:
+      minReplicas: 1
+      maxReplicas: 1
+      resources:
+        requests:
+          cpu: 50m
+          memory: 512Mi
+        limits:
+          memory: 1Gi
+    gitaly:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
+    gitlab-shell:
+      minReplicas: 1
+      maxReplicas: 1
+
+  postgresql:
+    install: true
+    primary:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
+
+  redis:
+    install: true
+    master:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          memory: 128Mi

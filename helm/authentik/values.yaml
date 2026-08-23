@@ -1,0 +1,49 @@
+authentik:
+  authentik:
+    secret_key: ""  # set via terraform variable
+    log_level: info
+    postgresql:
+      host: "authentik-postgresql"
+      password: ""  # set via terraform variable
+
+  postgresql:
+    enabled: true
+    auth:
+      password: ""  # set via terraform variable
+    primary:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
+
+  redis:
+    enabled: true
+    master:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+
+  server:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+    ingress:
+      enabled: false
+
+  worker:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 512Mi

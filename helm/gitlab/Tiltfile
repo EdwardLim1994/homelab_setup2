@@ -1,0 +1,18 @@
+# ponytail: cmd runs relative to root Tiltfile; helm() path is relative to this file
+local_resource(
+  'gitlab-helm-deps',
+  cmd='helm dependency update helm/gitlab',
+  deps=['helm/gitlab/Chart.yaml'],
+)
+
+k8s_yaml(helm(
+  '.',
+  name='gitlab',
+  namespace='gitlab',
+))
+
+k8s_resource(
+  'gitlab-webservice-default',
+  port_forwards=['8181:8181'],
+  resource_deps=['gitlab-helm-deps'],
+)

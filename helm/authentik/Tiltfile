@@ -1,0 +1,18 @@
+# ponytail: cmd runs relative to root Tiltfile; helm() path is relative to this file
+local_resource(
+  'authentik-helm-deps',
+  cmd='helm dependency update helm/authentik',
+  deps=['helm/authentik/Chart.yaml'],
+)
+
+k8s_yaml(helm(
+  '.',
+  name='authentik',
+  namespace='authentik',
+))
+
+k8s_resource(
+  'authentik-server',
+  port_forwards=['9000:9000'],
+  resource_deps=['authentik-helm-deps'],
+)
