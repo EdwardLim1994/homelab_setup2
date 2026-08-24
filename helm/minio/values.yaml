@@ -28,6 +28,12 @@ minio:
 
   # ponytail: fixed dev client_id/secret matching the Authentik OAuth2
   # provider created via the API (same one-time-setup pattern as GitLab's).
+  # If minio boots before Authentik/tailscale-serve is reachable (e.g. after
+  # a full cluster/host restart), the discovery fetch below 502s once and
+  # OIDC stays disabled for that pod's lifetime — no retry. Fix: `kubectl
+  # rollout restart deploy/minio -n minio` once Authentik is up. Chart has
+  # no initContainers hook to wait-for-it automatically (only extraContainers,
+  # which doesn't block startup), not worth patching the chart for a homelab.
   environment:
     MINIO_BROWSER: "on"
     MINIO_IDENTITY_OPENID_CONFIG_URL: "https://raspberrypi94.tail60240b.ts.net:8443/application/o/minio/.well-known/openid-configuration"
