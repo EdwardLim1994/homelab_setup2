@@ -1,0 +1,95 @@
+sonarqube:
+  community:
+    enabled: true
+
+  # ponytail: vm.max_map_count for the bundled Elasticsearch needs raising
+  # host-side once (`sudo sysctl -w vm.max_map_count=262144` on the k3d
+  # node/host, persist in /etc/sysctl.d/ if you want it to survive reboots).
+  # Chart's own initSysctl needs a privileged initContainer; skipping that
+  # in favor of the one-time host command.
+  initSysctl:
+    enabled: false
+
+  # monitoringPasscode set via Tiltfile/terraform (.env)
+
+  # ponytail: chart's 1s probe timeout is too tight on this RPi under load
+  # (JVM GC pauses, concurrent image pulls) — caused a liveness-kill restart
+  # loop even though the server was actually up. Same fix as seafile's mariadb.
+  readinessProbe:
+    timeoutSeconds: 10
+  livenessProbe:
+    timeoutSeconds: 10
+  startupProbe:
+    timeoutSeconds: 10
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 1536M
+    limits:
+      memory: 3072M
+
+  persistence:
+    enabled: true
+    size: 5Gi
+
+  # ponytail: SonarQube Community has no native SSO — this OSS plugin
+  # (sonar-auth-oidc, MIT-ish/Apache) bolts on generic OpenID Connect via
+  # the marketplace-jar mechanism, same "no license, no fork" pattern as
+  # n8n's cweagans/n8n-oidc. Its own settings (sonar.auth.oidc.*) are
+  # regular SonarQube global settings, so they load from sonarProperties
+  # below — no manual admin-UI step needed after first boot.
+  plugins:
+    install:
+      - "https://github.com/sonar-auth-oidc/sonar-auth-oidc/releases/download/v3.0.0/sonar-auth-oidc-plugin-3.0.0.jar"
+
+  # ponytail: fixed dev client_id/secret matching the Authentik OAuth2
+  # provider created via the API (same one-time-setup pattern as the other
+  # apps). Server base URL uses the tailscale hostname so the browser
+  # redirect and the plugin's own redirect URI agree on the same authority.
+  sonarProperties:
+    sonar.core.serverBaseURL: "https://raspberrypi94.tail60240b.ts.net:8448"
+    sonar.auth.oidc.enabled: "true"
+    sonar.auth.oidc.issuerUri: "https://raspberrypi94.tail60240b.ts.net:8443/application/o/sonarqube/"
+    # sonar.auth.oidc.clientId.secured set via Tiltfile/terraform (.env)
+    sonar.auth.oidc.loginButtonText: "Log in with Authentik"
+
+  # ponytail: sonarSecretProperties is a *reference* to an existing Secret
+  # (key "secret.properties"), not inline content — the chart concatenates
+  # it after sonarProperties above, so it can override the same keys.
+  # Secret itself is created in the Tiltfile alongside the other apps'
+  # dev-fixed OIDC secrets.
+  sonarSecretProperties: sonarqube-oidc-secret
+
+  jdbcOverwrite:
+    enabled: true
+    jdbcUrl: "jdbc:postgresql://sonarqube-postgresql:5432/sonarqube"
+    jdbcUsername: "sonarqube"
+
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: homelab-ca-issuer
+    hosts:
+      - name: sonarqube.local
+    tls:
+      - secretName: sonarqube.local-tls
+        hosts:
+          - sonarqube.local
+
+postgresql:
+  # ponytail: bitnami moved old image tags to bitnamilegacy on docker.io,
+  # same fix as gitlab's postgresql subchart.
+  image:
+    repository: bitnamilegacy/postgresql
+  auth:
+    username: sonarqube
+    database: sonarqube
+  primary:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 512Mi

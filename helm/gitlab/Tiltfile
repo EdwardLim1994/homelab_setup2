@@ -7,12 +7,15 @@ local_resource(
 
 k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: gitlab'))
 
-# ponytail: dev-only secrets, terraform provides real ones outside Tilt.
-# Fixed (not regenerated) because any file change under the Tiltfile tree
-# triggers a full reload, and a re-randomized db password would no longer
-# match the already-initialized postgres data dir. Fine, throwaway cluster.
-gitlab_root_password = 'dev-gitlab-root-password'
-gitlab_db_password = 'dev-gitlab-db-password'
+# ponytail: read from `.env` (see .env.example), same TF_VAR_-prefixed
+# names terraform uses — `source .env` before `tilt up` is the one place
+# both tools' secrets come from. Falls back to the old dev-fixed values so
+# `tilt up` still works with zero setup. Fixed (not regenerated) because
+# any file change under the Tiltfile tree triggers a full reload, and a
+# re-randomized db password would no longer match the already-initialized
+# postgres data dir. Fine, throwaway cluster.
+gitlab_root_password = os.getenv('TF_VAR_gitlab_root_password', 'dev-gitlab-root-password')
+gitlab_db_password = os.getenv('TF_VAR_gitlab_db_password', 'dev-gitlab-db-password')
 
 k8s_yaml(blob('''apiVersion: v1
 kind: Secret
@@ -30,8 +33,8 @@ stringData:
 # use the in-cluster Service DNS. discovery:false since the two paths would
 # otherwise return conflicting endpoint sets depending on which Host header
 # hit Authentik first.
-gitlab_oidc_client_id = 'dev-gitlab-oidc-client-id'
-gitlab_oidc_client_secret = 'dev-gitlab-oidc-client-secret-not-for-prod-use'
+gitlab_oidc_client_id = os.getenv('TF_VAR_gitlab_oidc_client_id', 'dev-gitlab-oidc-client-id')
+gitlab_oidc_client_secret = os.getenv('TF_VAR_gitlab_oidc_client_secret', 'dev-gitlab-oidc-client-secret-not-for-prod-use')
 
 k8s_yaml(blob('''apiVersion: v1
 kind: Secret
@@ -63,7 +66,7 @@ stringData:
 # minio_root_password) — GitLab talks to MinIO's S3 API purely server-to-
 # server via in-cluster Service DNS, no browser involved, so no tailscale/
 # ingress hostname juggling needed here (unlike the OIDC provider above).
-minio_root_password = 'dev-minio-root-password'
+minio_root_password = os.getenv('TF_VAR_minio_root_password', 'dev-minio-root-password')
 
 k8s_yaml(blob('''apiVersion: v1
 kind: Secret
@@ -104,4 +107,16 @@ k8s_resource(
   'gitlab-webservice-default',
   port_forwards=['8181:8181'],
   resource_deps=['gitlab-helm-deps'],
+)
+
+# ponytail: no-op until ADMIN_EMAIL has logged in via SSO at least once
+# (creates the GitLab user row) — safe to re-run on every Tilt reload, and
+# means the admin promotion survives a full data wipe without a manual
+# re-run once the account exists again.
+admin_email = os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com')
+local_resource(
+  'gitlab-promote-admin',
+  cmd="kubectl exec -i -n gitlab deploy/gitlab-webservice-default -c webservice -- env ADMIN_EMAIL='%s' sh < promote-admin.sh" % admin_email,
+  deps=['promote-admin.sh'],
+  resource_deps=['gitlab-webservice-default'],
 )

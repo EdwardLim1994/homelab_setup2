@@ -10,6 +10,8 @@ apps=(
   "8446:9002"  # minio S3 API
   "8445:9003"  # minio browser UI/WebUI (separate port on this build)
   "8447:5678"  # n8n
+  "8448:9010"  # sonarqube
+  "8449:8082"  # seafile
 )
 
 for entry in "${apps[@]}"; do

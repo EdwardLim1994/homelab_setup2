@@ -7,10 +7,16 @@ local_resource(
 
 k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: minio'))
 
-# ponytail: dev-only secret, fixed for the same reason as authentik/gitlab's
-# db passwords: any Tiltfile-tree change triggers reload, and a re-randomized
-# password would no longer match the already-initialized data dir.
-minio_root_password = 'dev-minio-root-password'
+# ponytail: read from `.env` (see .env.example), same TF_VAR_-prefixed
+# names terraform uses. Falls back to the old dev-fixed values so `tilt up`
+# still works with zero setup. Fixed (not regenerated) because any Tiltfile-
+# tree change triggers reload, and a re-randomized password would no longer
+# match the already-initialized data dir.
+minio_root_password = os.getenv('TF_VAR_minio_root_password', 'dev-minio-root-password')
+# ponytail: fixed dev client_id/secret matching the Authentik OAuth2
+# provider created via the API (same one-time-setup pattern as GitLab's).
+minio_oidc_client_id = os.getenv('TF_VAR_minio_oidc_client_id', 'dev-minio-oidc-client-id')
+minio_oidc_client_secret = os.getenv('TF_VAR_minio_oidc_client_secret', 'dev-minio-oidc-client-secret-not-for-prod-use')
 
 k8s_yaml(helm(
   '.',
@@ -18,6 +24,8 @@ k8s_yaml(helm(
   namespace='minio',
   set=[
     'minio.rootPassword=' + minio_root_password,
+    'minio.environment.MINIO_IDENTITY_OPENID_CLIENT_ID=' + minio_oidc_client_id,
+    'minio.environment.MINIO_IDENTITY_OPENID_CLIENT_SECRET=' + minio_oidc_client_secret,
   ],
 ))
 

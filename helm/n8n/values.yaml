@@ -18,6 +18,15 @@ n8n:
         # n8n's own footprint — OOMKilled with "JavaScript heap out of memory"
         memory: 1Gi
 
+    # ponytail: chart's 1s default probe timeout is too tight on this RPi
+    # under load (6 apps running concurrently) — caused a liveness-kill
+    # restart loop even though n8n was actually up. Same fix as sonarqube/
+    # seafile-mariadb's probe timeouts.
+    livenessProbe:
+      timeoutSeconds: 10
+    readinessProbe:
+      timeoutSeconds: 10
+
     # ponytail: n8n gates native OIDC/SSO behind an Enterprise license.
     # cweagans/n8n-oidc (MIT) bolts it on via n8n's external-hooks system
     # instead — no license, no fork, just a JS file + env vars. hooks.js is
@@ -42,6 +51,5 @@ n8n:
       EXTERNAL_FRONTEND_HOOKS_URLS: "/assets/oidc-frontend-hook.js"
       N8N_PROTOCOL: "https"
       OIDC_ISSUER_URL: "https://raspberrypi94.tail60240b.ts.net:8443/application/o/n8n/"
-      OIDC_CLIENT_ID: "dev-n8n-oidc-client-id"
-      OIDC_CLIENT_SECRET: "dev-n8n-oidc-client-secret-not-for-prod-use"
+      # OIDC_CLIENT_ID / OIDC_CLIENT_SECRET set via Tiltfile/terraform (.env)
       OIDC_REDIRECT_URI: "https://raspberrypi94.tail60240b.ts.net:8447/auth/oidc/callback"

@@ -1,0 +1,60 @@
+# ponytail: local_resource cmd cwd is this Tiltfile's own directory, not repo root
+local_resource(
+  'sonarqube-helm-deps',
+  cmd='helm dependency update .',
+  deps=['Chart.yaml'],
+)
+
+k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: sonarqube'))
+
+# ponytail: read from `.env` (see .env.example), same TF_VAR_-prefixed
+# names terraform uses. Falls back to the old dev-fixed values so `tilt up`
+# still works with zero setup. Fixed (not regenerated) — Tilt's helm() is
+# stateless `helm template`, so a randomized password would desync from
+# the already-initialized postgres data dir on every reload.
+sonarqube_db_password = os.getenv('TF_VAR_sonarqube_db_password', 'dev-sonarqube-db-password')
+sonarqube_monitoring_passcode = os.getenv('TF_VAR_sonarqube_monitoring_passcode', 'dev-sonarqube-monitoring-passcode')
+sonarqube_oidc_client_id = os.getenv('TF_VAR_sonarqube_oidc_client_id', 'dev-sonarqube-oidc-client-id')
+sonarqube_oidc_client_secret = os.getenv('TF_VAR_sonarqube_oidc_client_secret', 'dev-sonarqube-oidc-client-secret-not-for-prod-use')
+
+# ponytail: clientId lives here too (not just clientSecret) — sonarSecretProperties
+# is concatenated after sonarProperties, so putting both in one Secret avoids
+# needing a dot-escaped `--set sonarqube.sonarProperties.sonar\.auth\.oidc\.clientId\.secured=`
+k8s_yaml(blob('''apiVersion: v1
+kind: Secret
+metadata:
+  name: sonarqube-oidc-secret
+  namespace: sonarqube
+stringData:
+  secret.properties: |
+    sonar.auth.oidc.clientId.secured=''' + sonarqube_oidc_client_id + '''
+    sonar.auth.oidc.clientSecret.secured=''' + sonarqube_oidc_client_secret))
+
+k8s_yaml(helm(
+  '.',
+  name='sonarqube',
+  namespace='sonarqube',
+  set=[
+    'postgresql.auth.password=' + sonarqube_db_password,
+    'sonarqube.jdbcOverwrite.jdbcPassword=' + sonarqube_db_password,
+    'sonarqube.monitoringPasscode=' + sonarqube_monitoring_passcode,
+  ],
+))
+
+k8s_resource(
+  'sonarqube-sonarqube',
+  port_forwards=['9010:9000'],
+  resource_deps=['sonarqube-helm-deps'],
+)
+
+# ponytail: no-op until ADMIN_EMAIL has logged in via SSO at least once
+# (JIT-creates the account) — safe to re-run on every Tilt reload, and
+# means the admin promotion survives a full data wipe without a manual
+# re-run once the account exists again.
+admin_email = os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com')
+local_resource(
+  'sonarqube-promote-admin',
+  cmd="ADMIN_EMAIL='%s' sh promote-admin.sh" % admin_email,
+  deps=['promote-admin.sh'],
+  resource_deps=['sonarqube-sonarqube'],
+)

@@ -1,1 +1,3 @@
 charts/*.tgz
+.env
+k3d-storage/

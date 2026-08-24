@@ -12,6 +12,8 @@ apps=(
   "minio (API):9002:minio.local:8446"
   "minio (browser):9003:minio-console.local:8445"
   "n8n:5678::8447"
+  "sonarqube:9010:sonarqube.local:8448"
+  "seafile:8082:seafile.local:8449"
 )
 
 check() {

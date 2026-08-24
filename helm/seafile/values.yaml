@@ -1,0 +1,139 @@
+seafile:
+  # ponytail: chart defaults to 8.0.7, which is amd64-only on this arm64
+  # (RPi) host — pinned to the newest tag that ships an arm64 manifest.
+  image:
+    tag: "13.0.25"
+
+  # ponytail: the chart's default env keys (DB_HOST, DB_ROOT_PASSWD,
+  # SEAFILE_ADMIN_EMAIL/PASSWORD) are for the old pre-9.x seafile-mc image
+  # (matches the chart's default 8.0.7 tag). Image 13.0.25 above renamed all
+  # of these (SEAFILE_MYSQL_DB_*, INIT_SEAFILE_*) — using the old names here
+  # silently no-ops and the bootstrap hangs forever in wait_for_mysql().
+  env:
+    TIME_ZONE: Asia/Singapore
+    SEAFILE_MYSQL_DB_HOST: seafile-mariadb
+    SEAFILE_MYSQL_DB_USER: seafile
+    SEAFILE_MYSQL_DB_PASSWORD: ""  # set via Tiltfile/terraform, matches mariadb.auth.password
+    SEAFILE_MYSQL_DB_CCNET_DB_NAME: ccnet_db
+    SEAFILE_MYSQL_DB_SEAFILE_DB_NAME: seafile_db
+    SEAFILE_MYSQL_DB_SEAHUB_DB_NAME: seahub_db
+    INIT_SEAFILE_MYSQL_ROOT_PASSWORD: ""  # set via Tiltfile/terraform, matches mariadb.auth.rootPassword
+    INIT_SEAFILE_ADMIN_EMAIL: admin@seafile.local
+    INIT_SEAFILE_ADMIN_PASSWORD: ""  # set via Tiltfile/terraform
+    SEAFILE_SERVER_HOSTNAME: seafile.local
+    SEAFILE_SERVER_PROTOCOL: http
+    SEAFILE_SERVER_LETSENCRYPT: false
+    REDIS_HOST: seafile-redis
+    REDIS_PORT: "6379"
+    # ponytail: seafile 13.x added JWT-signed internal auth between
+    # seafile/seahub/fileserver. Without this, first boot's upgrade step
+    # (which always runs once, even on a fresh install) demands a
+    # docker-compose-style .env file that doesn't apply to this single-
+    # container deployment — setting the env var directly skips that check.
+    # JWT_PRIVATE_KEY set via Tiltfile/terraform (.env)
+
+  # ponytail: bitnami moved old image tags to bitnamilegacy on docker.io,
+  # same fix as gitlab/sonarqube's postgres/mariadb subcharts. Chart's
+  # pinned 10.6.11 tag is amd64-only in bitnamilegacy (exec format error
+  # on this arm64 host) — pinned to a tag with arm64 support, same fix as
+  # gitlab's redis image.
+  mariadb:
+    enabled: true
+    image:
+      repository: bitnamilegacy/mariadb
+      tag: 11.8.3-debian-12-r0
+    auth:
+      database: seafile
+      username: seafile
+      password: ""  # set via Tiltfile/terraform
+      rootPassword: ""  # set via Tiltfile/terraform
+    primary:
+      persistence:
+        enabled: true
+        size: 4Gi
+      # ponytail: chart's 1s probe timeout is too tight on this RPi under
+      # load (image pulls / other apps booting concurrently) — mysql client
+      # startup alone can exceed it, causing probe "timed out" false negatives.
+      livenessProbe:
+        timeoutSeconds: 10
+      readinessProbe:
+        timeoutSeconds: 10
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
+
+  persistence:
+    data:
+      enabled: true
+      type: pvc
+      mountPath: /shared
+      accessMode: ReadWriteOnce
+      size: 20Gi
+
+  # ponytail: seahub_settings.py is generated fresh by the main container's
+  # own bootstrap script on first boot (with computed DB creds/secret key),
+  # so there's no initContainer hook-point to inject static OAuth config
+  # before it exists. postStart runs concurrently with the main process
+  # instead — polls until the file appears (fresh install: ~1-3min schema
+  # setup) then appends once, guarded by a sentinel so restarts don't
+  # duplicate it. Matches https://integrations.goauthentik.io/media/seafile/
+  # except the login template only renders a button for SAML SSO, not
+  # generic OAuth — so LOGIN_URL auto-redirect is required too (same
+  # autoSignInWithProvider pattern as this repo's gitlab/Tiltfile).
+  # __SEAFILE_OIDC_CLIENT_ID__/__SEAFILE_OIDC_CLIENT_SECRET__ are replaced
+  # by the Tiltfile via string substitution on the rendered YAML (not
+  # --set — this script is one big multi-line string, and --set with a
+  # value that size is a shell-escaping nightmare). Values come from `.env`.
+  lifecycle:
+    postStart:
+      exec:
+        command:
+          - /bin/sh
+          - -c
+          - >
+            i=0;
+            while [ ! -f /shared/seafile/conf/seahub_settings.py ] && [ $i -lt 240 ]; do sleep 1; i=$((i+1)); done;
+            if [ -f /shared/seafile/conf/seahub_settings.py ] && ! grep -q 'Authentik OIDC login' /shared/seafile/conf/seahub_settings.py; then
+            printf '%s\n' '' '# Authentik OIDC login'
+            'CSRF_TRUSTED_ORIGINS = ["https://raspberrypi94.tail60240b.ts.net:8449"]'
+            'ENABLE_OAUTH = True'
+            'OAUTH_CLIENT_ID = "__SEAFILE_OIDC_CLIENT_ID__"'
+            'OAUTH_CLIENT_SECRET = "__SEAFILE_OIDC_CLIENT_SECRET__"'
+            'OAUTH_REDIRECT_URL = "https://raspberrypi94.tail60240b.ts.net:8449/oauth/callback/"'
+            'OAUTH_PROVIDER = "authentik"'
+            'OAUTH_PROVIDER_DOMAIN = "authentik"'
+            'OAUTH_AUTHORIZATION_URL = "https://raspberrypi94.tail60240b.ts.net:8443/application/o/authorize/"'
+            'OAUTH_TOKEN_URL = "http://authentik-server.authentik.svc.cluster.local/application/o/token/"'
+            'OAUTH_USER_INFO_URL = "http://authentik-server.authentik.svc.cluster.local/application/o/userinfo/"'
+            'OAUTH_SCOPE = ["openid", "profile", "email"]'
+            'OAUTH_ATTRIBUTE_MAP = {"sub": (True, "uid"), "name": (False, "name"), "email": (False, "contact_email")}'
+            'LOGIN_URL = "/oauth/login/"'
+            'CLIENT_SSO_VIA_LOCAL_BROWSER = True'
+            >> /shared/seafile/conf/seahub_settings.py;
+            fi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1536Mi
+
+  ingress:
+    main:
+      enabled: true
+      ingressClassName: traefik
+      annotations:
+        cert-manager.io/cluster-issuer: homelab-ca-issuer
+      hosts:
+        - host: seafile.local
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: seafile.local-tls
+          hosts:
+            - seafile.local

@@ -1,0 +1,101 @@
+# ponytail: local_resource cmd cwd is this Tiltfile's own directory, not repo root
+local_resource(
+  'seafile-helm-deps',
+  cmd='helm dependency update .',
+  deps=['Chart.yaml'],
+)
+
+k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: seafile'))
+
+# ponytail: seafile 13.x hard-requires redis for seahub's cache backend (no
+# opt-out). Just a cache, no persistence needed — a bare redis:7-alpine
+# Deployment is simpler than pulling in a whole bitnami subchart (and its
+# arm64/bitnamilegacy tag-pinning dance) for one cache instance.
+# Service is named "seafile-redis", NOT "redis" — Kubernetes auto-injects
+# Docker-links-style "REDIS_PORT=tcp://..." env vars into every pod in the
+# namespace named after a Service called "redis", which collides with and
+# overrides seahub's own REDIS_PORT config lookup (breaks with an
+# unparseable "tcp:" port error).
+k8s_yaml(blob('''apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seafile-redis
+  namespace: seafile
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seafile-redis
+  template:
+    metadata:
+      labels:
+        app: seafile-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: seafile-redis
+  namespace: seafile
+spec:
+  selector:
+    app: seafile-redis
+  ports:
+    - port: 6379
+'''))
+
+# ponytail: read from `.env` (see .env.example), same TF_VAR_-prefixed
+# names terraform uses. Falls back to the old dev-fixed values so `tilt up`
+# still works with zero setup. Fixed (not regenerated) — Tilt's helm() is
+# stateless `helm template`, so a randomized password would desync from
+# the already-initialized mariadb data dir / seafile admin account on
+# every reload.
+seafile_db_password = os.getenv('TF_VAR_seafile_db_password', 'dev-seafile-db-password')
+seafile_db_root_password = os.getenv('TF_VAR_seafile_db_root_password', 'dev-seafile-db-root-password')
+seafile_admin_password = os.getenv('TF_VAR_seafile_admin_password', 'dev-seafile-admin-password')
+seafile_jwt_private_key = os.getenv('TF_VAR_seafile_jwt_private_key', 'dev-seafile-jwt-private-key-not-for-prod-use')
+seafile_oidc_client_id = os.getenv('TF_VAR_seafile_oidc_client_id', 'dev-seafile-oidc-client-id')
+seafile_oidc_client_secret = os.getenv('TF_VAR_seafile_oidc_client_secret', 'dev-seafile-oidc-client-secret-not-for-prod-use')
+
+rendered = str(helm(
+  '.',
+  name='seafile',
+  namespace='seafile',
+  set=[
+    'seafile.env.INIT_SEAFILE_MYSQL_ROOT_PASSWORD=' + seafile_db_root_password,
+    'seafile.env.SEAFILE_MYSQL_DB_PASSWORD=' + seafile_db_password,
+    'seafile.env.INIT_SEAFILE_ADMIN_PASSWORD=' + seafile_admin_password,
+    'seafile.env.JWT_PRIVATE_KEY=' + seafile_jwt_private_key,
+    'seafile.mariadb.auth.password=' + seafile_db_password,
+    'seafile.mariadb.auth.rootPassword=' + seafile_db_root_password,
+  ],
+))
+# ponytail: postStart script in values.yaml has placeholder tokens instead
+# of --set, since it's one big multi-line shell string (see values.yaml
+# comment above the lifecycle key).
+rendered = rendered.replace('__SEAFILE_OIDC_CLIENT_ID__', seafile_oidc_client_id)
+rendered = rendered.replace('__SEAFILE_OIDC_CLIENT_SECRET__', seafile_oidc_client_secret)
+k8s_yaml(blob(rendered))
+
+k8s_resource(
+  'seafile',
+  port_forwards=['8082:80'],
+  resource_deps=['seafile-helm-deps'],
+)
+
+# ponytail: no-op until ADMIN_EMAIL has logged in via SSO at least once
+# (JIT-creates the account) — safe to re-run on every Tilt reload, and
+# means the admin promotion survives a full data wipe without a manual
+# re-run once the account exists again.
+admin_email = os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com')
+local_resource(
+  'seafile-promote-admin',
+  cmd="kubectl exec -i -n seafile deploy/seafile -- env ADMIN_EMAIL='%s' bash < promote-admin.sh" % admin_email,
+  deps=['promote-admin.sh'],
+  resource_deps=['seafile'],
+)

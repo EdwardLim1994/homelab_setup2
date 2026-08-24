@@ -37,8 +37,7 @@ minio:
   environment:
     MINIO_BROWSER: "on"
     MINIO_IDENTITY_OPENID_CONFIG_URL: "https://raspberrypi94.tail60240b.ts.net:8443/application/o/minio/.well-known/openid-configuration"
-    MINIO_IDENTITY_OPENID_CLIENT_ID: "dev-minio-oidc-client-id"
-    MINIO_IDENTITY_OPENID_CLIENT_SECRET: "dev-minio-oidc-client-secret-not-for-prod-use"
+    # MINIO_IDENTITY_OPENID_CLIENT_ID / _CLIENT_SECRET set via Tiltfile/terraform (.env)
     MINIO_IDENTITY_OPENID_CLAIM_NAME: "policy"
     MINIO_IDENTITY_OPENID_SCOPES: "openid,profile,email,policy"
     MINIO_IDENTITY_OPENID_REDIRECT_URI: "https://raspberrypi94.tail60240b.ts.net:8445/oauth_callback"
