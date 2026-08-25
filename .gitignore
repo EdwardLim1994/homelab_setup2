@@ -1,3 +1,4 @@
 charts/*.tgz
 .env
 k3d-storage/
+terraform/local.auto.tfvars

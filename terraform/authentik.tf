@@ -5,11 +5,10 @@ resource "kubernetes_namespace" "authentik" {
 }
 
 resource "helm_release" "authentik" {
-  name       = "authentik"
-  repository = "https://charts.goauthentik.io"
-  chart      = "authentik"
-  version    = "2024.12.3"
-  namespace  = kubernetes_namespace.authentik.metadata[0].name
+  name              = "authentik"
+  chart             = "${path.module}/../helm/authentik"
+  namespace         = kubernetes_namespace.authentik.metadata[0].name
+  dependency_update = true
 
   values = [file("${path.module}/../helm/authentik/values.yaml")]
 

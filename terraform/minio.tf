@@ -5,17 +5,27 @@ resource "kubernetes_namespace" "minio" {
 }
 
 resource "helm_release" "minio" {
-  name       = "minio"
-  repository = "https://charts.min.io/"
-  chart      = "minio"
-  version    = "5.4.0"
-  namespace  = kubernetes_namespace.minio.metadata[0].name
+  name              = "minio"
+  chart             = "${path.module}/../helm/minio"
+  namespace         = kubernetes_namespace.minio.metadata[0].name
+  timeout           = 600
+  dependency_update = true
 
   values = [replace(file("${path.module}/../helm/minio/values.yaml"), "__TS_HOST__", var.ts_host)]
 
   set_sensitive {
     name  = "minio.rootPassword"
     value = var.minio_root_password
+  }
+
+  set_sensitive {
+    name  = "minio.environment.MINIO_IDENTITY_OPENID_CLIENT_ID"
+    value = var.minio_oidc_client_id
+  }
+
+  set_sensitive {
+    name  = "minio.environment.MINIO_IDENTITY_OPENID_CLIENT_SECRET"
+    value = var.minio_oidc_client_secret
   }
 
   depends_on = [kubernetes_namespace.minio]

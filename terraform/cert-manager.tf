@@ -5,11 +5,10 @@ resource "kubernetes_namespace" "cert_manager" {
 }
 
 resource "helm_release" "cert_manager" {
-  name       = "cert-manager"
-  repository = "https://charts.jetstack.io"
-  chart      = "cert-manager"
-  version    = "v1.21.1"
-  namespace  = kubernetes_namespace.cert_manager.metadata[0].name
+  name             = "cert-manager"
+  chart            = "${path.module}/../helm/cert-manager"
+  namespace        = kubernetes_namespace.cert_manager.metadata[0].name
+  dependency_update = true
 
   values = [file("${path.module}/../helm/cert-manager/values.yaml")]
 

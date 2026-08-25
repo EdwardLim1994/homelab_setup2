@@ -47,12 +47,11 @@ resource "kubernetes_secret" "gitlab_omniauth_authentik" {
 }
 
 resource "helm_release" "gitlab" {
-  name       = "gitlab"
-  repository = "https://charts.gitlab.io"
-  chart      = "gitlab"
-  version    = "8.5.0"
-  namespace  = kubernetes_namespace.gitlab.metadata[0].name
-  timeout    = 600
+  name              = "gitlab"
+  chart             = "${path.module}/../helm/gitlab"
+  namespace         = kubernetes_namespace.gitlab.metadata[0].name
+  timeout           = 600
+  dependency_update = true
 
   values = [file("${path.module}/../helm/gitlab/values.yaml")]
 
@@ -94,6 +93,11 @@ resource "helm_release" "gitlab" {
   set {
     name  = "gitlab.global.appConfig.omniauth.providers[0].key"
     value = "provider"
+  }
+
+  set {
+    name  = "gitlab.certmanager-issuer.email"
+    value = var.admin_email
   }
 
   depends_on = [kubernetes_namespace.gitlab, kubernetes_secret.gitlab_omniauth_authentik, kubectl_manifest.homelab_ca_issuer]
