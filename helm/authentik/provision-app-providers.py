@@ -50,6 +50,9 @@ apps = [
     dict(name='Seafile', slug='seafile',
          client_id=os.environ['SEAFILE_OIDC_CLIENT_ID'], client_secret=os.environ['SEAFILE_OIDC_CLIENT_SECRET'],
          redirect_uris=[f'https://{ts_host}:8449/oauth/callback/']),
+    dict(name='ArgoCD', slug='argocd',
+         client_id=os.environ['ARGOCD_OIDC_CLIENT_ID'], client_secret=os.environ['ARGOCD_OIDC_CLIENT_SECRET'],
+         redirect_uris=[f'https://{ts_host}:8450/auth/callback']),
 ]
 
 for a in apps:

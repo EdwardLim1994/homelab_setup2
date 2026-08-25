@@ -1,0 +1,98 @@
+argo-cd:
+  # ponytail: Dex is an OIDC proxy that ArgoCD bundles for providers that
+  # don't support OIDC natively. Authentik speaks OIDC directly, so Dex is
+  # dead weight here.
+  dex:
+    enabled: false
+
+  # ponytail: notifications controller is off — no alerting infra in this
+  # homelab. Enable when you wire up Slack/email webhooks.
+  notifications:
+    enabled: false
+
+  server:
+    # ponytail: Traefik terminates TLS at the ingress; ArgoCD server runs
+    # plain HTTP internally. Without --insecure the server redirects to its
+    # own HTTPS port which Traefik never sends traffic to.
+    ingress:
+      enabled: true
+      ingressClassName: traefik
+      annotations:
+        cert-manager.io/cluster-issuer: homelab-ca-issuer
+      hosts:
+        - argocd.local
+      tls:
+        - secretName: argocd.local-tls
+          hosts:
+            - argocd.local
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+  controller:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+
+  repoServer:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+  applicationSet:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+  redis:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+  configs:
+    params:
+      # ponytail: run HTTP internally; Traefik ingress handles TLS termination
+      server.insecure: true
+
+    cm:
+      # ponytail: url must match the external Tailscale URL — ArgoCD embeds
+      # it in the OIDC redirect_uri sent to Authentik. Wrong url = callback
+      # mismatch error after login.
+      url: "https://__TS_HOST__:8450"
+      # ponytail: oidc.config drives ArgoCD's built-in OIDC client (no Dex).
+      # clientSecret is plain text here (ConfigMap, not Secret) because helm
+      # template base64-encodes Secret values before rendered.replace() runs —
+      # the placeholder would never match. Homelab trade-off: acceptable.
+      oidc.config: |
+        name: Authentik
+        issuer: https://__TS_HOST__:8443/application/o/argocd/
+        clientID: __ARGOCD_OIDC_CLIENT_ID__
+        clientSecret: __ARGOCD_OIDC_CLIENT_SECRET__
+        requestedScopes:
+          - openid
+          - profile
+          - email
+
+    rbac:
+      # ponytail: scopes tells ArgoCD which OIDC token claims to use as group
+      # subjects for RBAC matching. '[email]' means policy.csv entries like
+      # "g, user@example.com, role:admin" match against the email claim.
+      scopes: '[email]'
+      policy.default: role:readonly
+      policy.csv: |
+        g, __ADMIN_EMAIL__, role:admin

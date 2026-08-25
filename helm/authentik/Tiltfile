@@ -86,6 +86,7 @@ MINIO_OIDC_CLIENT_ID=%s MINIO_OIDC_CLIENT_SECRET=%s \
 N8N_OIDC_CLIENT_ID=%s N8N_OIDC_CLIENT_SECRET=%s \
 SONARQUBE_OIDC_CLIENT_ID=%s SONARQUBE_OIDC_CLIENT_SECRET=%s \
 SEAFILE_OIDC_CLIENT_ID=%s SEAFILE_OIDC_CLIENT_SECRET=%s \
+ARGOCD_OIDC_CLIENT_ID=%s ARGOCD_OIDC_CLIENT_SECRET=%s \
 ADMIN_EMAIL=%s TS_HOST=%s \
 ak shell < provision-app-providers.py''' % (
     os.getenv('TF_VAR_gitlab_oidc_client_id', 'dev-gitlab-oidc-client-id'),
@@ -98,6 +99,8 @@ ak shell < provision-app-providers.py''' % (
     os.getenv('TF_VAR_sonarqube_oidc_client_secret', 'dev-sonarqube-oidc-client-secret-not-for-prod-use'),
     os.getenv('TF_VAR_seafile_oidc_client_id', 'dev-seafile-oidc-client-id'),
     os.getenv('TF_VAR_seafile_oidc_client_secret', 'dev-seafile-oidc-client-secret-not-for-prod-use'),
+    os.getenv('TF_VAR_argocd_oidc_client_id', 'dev-argocd-oidc-client-id'),
+    os.getenv('TF_VAR_argocd_oidc_client_secret', 'dev-argocd-oidc-client-secret-not-for-prod-use'),
     os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com'),
     os.getenv('TS_HOST', ''),
   ),
