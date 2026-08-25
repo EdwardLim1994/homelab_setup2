@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      initContainers:
+        - name: combine-certs
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command:
+            - python3
+            - -c
+            - |
+              import certifi, shutil, os
+              with open('/combined/ca.crt', 'wb') as out:
+                  with open(certifi.where(), 'rb') as f: out.write(f.read())
+                  with open('/homelab-ca/ca.crt', 'rb') as f: out.write(f.read())
+          volumeMounts:
+            - name: homelab-ca
+              mountPath: /homelab-ca
+              readOnly: true
+            - name: combined-ca
+              mountPath: /combined
+      containers:
+        - name: openwebui
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 8080
+          env:
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /app/backend/data
+            - name: combined-ca
+              mountPath: /certs
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-data
+        - name: homelab-ca
+          secret:
+            secretName: homelab-ca
+        - name: combined-ca
+          emptyDir: {}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-data
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.storageSize | quote }}

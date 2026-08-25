@@ -1,0 +1,28 @@
+litellm_oidc_client_id     = os.getenv('TF_VAR_litellm_oidc_client_id', 'dev-litellm-oidc-client-id')
+litellm_oidc_client_secret = os.getenv('TF_VAR_litellm_oidc_client_secret', 'dev-litellm-oidc-client-secret-not-for-prod-use')
+litellm_master_key         = os.getenv('TF_VAR_litellm_master_key', 'sk-dev-litellm-master-key-not-for-prod-use')
+litellm_salt_key           = os.getenv('TF_VAR_litellm_salt_key', 'sk-dev-litellm-salt-key-not-for-prod-use')
+litellm_db_password        = os.getenv('TF_VAR_litellm_db_password', 'dev-litellm-db-password')
+ts_host                    = os.getenv('TS_HOST', '')
+
+k8s_yaml(blob("""apiVersion: v1
+kind: Namespace
+metadata:
+  name: litellm
+"""))
+
+rendered = str(helm('.', name='litellm', namespace='litellm'))
+rendered = rendered.replace('__LITELLM_OIDC_CLIENT_ID__', litellm_oidc_client_id)
+rendered = rendered.replace('__LITELLM_OIDC_CLIENT_SECRET__', litellm_oidc_client_secret)
+rendered = rendered.replace('__LITELLM_MASTER_KEY__', litellm_master_key)
+rendered = rendered.replace('__LITELLM_SALT_KEY__', litellm_salt_key)
+rendered = rendered.replace('__LITELLM_DB_PASSWORD__', litellm_db_password)
+rendered = rendered.replace('__TS_HOST__', ts_host)
+
+k8s_yaml(blob(rendered))
+
+k8s_resource(
+  'litellm',
+  port_forwards=['4000:4000'],
+  resource_deps=['authentik-app-providers'],
+)

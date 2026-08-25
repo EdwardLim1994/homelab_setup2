@@ -1,0 +1,44 @@
+image:
+  repository: ghcr.io/berriai/litellm
+  tag: main-latest
+
+env:
+  DATABASE_URL: "postgresql://litellm:__LITELLM_DB_PASSWORD__@litellm-postgres:5432/litellm"
+  STORE_MODEL_IN_DB: "True"
+  LITELLM_MASTER_KEY: "__LITELLM_MASTER_KEY__"
+  LITELLM_SALT_KEY: "__LITELLM_SALT_KEY__"
+
+  # SSO via Authentik generic OIDC
+  GENERIC_CLIENT_ID: "__LITELLM_OIDC_CLIENT_ID__"
+  GENERIC_CLIENT_SECRET: "__LITELLM_OIDC_CLIENT_SECRET__"
+  # ponytail: browser-navigated endpoint must use Tailscale HTTPS (external).
+  # Token and userinfo are server-side calls — use in-cluster HTTP to avoid
+  # self-signed cert validation against homelab CA.
+  GENERIC_AUTHORIZATION_ENDPOINT: "https://__TS_HOST__:8443/application/o/authorize/"
+  GENERIC_TOKEN_ENDPOINT: "http://authentik-server.authentik.svc.cluster.local/application/o/token/"
+  GENERIC_USERINFO_ENDPOINT: "http://authentik-server.authentik.svc.cluster.local/application/o/userinfo/"
+  GENERIC_SCOPE: "openid profile email litellm_role"
+  GENERIC_USER_ROLE_ATTRIBUTE: "litellm_role"
+  PROXY_BASE_URL: "https://__TS_HOST__:8453"
+  PROXY_LOGOUT_URL: "https://__TS_HOST__:8443/application/o/litellm/end-session/"
+  AUTO_REDIRECT_UI_LOGIN_TO_SSO: "true"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 2Gi
+
+postgres:
+  image: postgres:16
+  database: litellm
+  username: litellm
+  password: "__LITELLM_DB_PASSWORD__"
+  storageSize: 4Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi

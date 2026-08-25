@@ -1,0 +1,40 @@
+openwebui_oidc_client_id     = os.getenv('TF_VAR_openwebui_oidc_client_id', 'dev-openwebui-oidc-client-id')
+openwebui_oidc_client_secret = os.getenv('TF_VAR_openwebui_oidc_client_secret', 'dev-openwebui-oidc-client-secret-not-for-prod-use')
+litellm_master_key           = os.getenv('TF_VAR_litellm_master_key', 'sk-dev-litellm-master-key-not-for-prod-use')
+ts_host                      = os.getenv('TS_HOST', '')
+
+# ponytail: extract CA cert (already base64-encoded in Secret data) and inject
+# into openwebui namespace so OpenWebUI can trust homelab's self-signed TLS
+# when making server-side OIDC calls to Authentik over Tailscale HTTPS.
+ca_cert_b64 = str(local(
+  'kubectl get secret homelab-ca-secret -n cert-manager -o jsonpath={.data.tls\\.crt}',
+  quiet=True,
+)).strip()
+
+k8s_yaml(blob("""apiVersion: v1
+kind: Namespace
+metadata:
+  name: openwebui
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: homelab-ca
+  namespace: openwebui
+data:
+  ca.crt: """ + ca_cert_b64 + """
+"""))
+
+rendered = str(helm('.', name='openwebui', namespace='openwebui'))
+rendered = rendered.replace('__OPENWEBUI_OIDC_CLIENT_ID__', openwebui_oidc_client_id)
+rendered = rendered.replace('__OPENWEBUI_OIDC_CLIENT_SECRET__', openwebui_oidc_client_secret)
+rendered = rendered.replace('__LITELLM_MASTER_KEY__', litellm_master_key)
+rendered = rendered.replace('__TS_HOST__', ts_host)
+
+k8s_yaml(blob(rendered))
+
+k8s_resource(
+  'openwebui',
+  port_forwards=['8080:8080'],
+  resource_deps=['authentik-app-providers'],
+)

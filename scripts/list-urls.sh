@@ -29,6 +29,8 @@ apps=(
   "seafile:8082:seafile.local:8449"
   "argocd:9001:argocd.local:8450"
   "grafana:3000:grafana.local:8451"
+  "openwebui:8080:openwebui.local:8452"
+  "litellm:4000::8453"
 )
 
 check() {

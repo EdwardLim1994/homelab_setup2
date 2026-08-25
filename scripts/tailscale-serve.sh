@@ -14,6 +14,8 @@ apps=(
   "8449:8082"  # seafile
   "8450:9001"  # argocd
   "8451:3000"  # grafana
+  "8452:8080"  # openwebui
+  "8453:4000"  # litellm
 )
 
 for entry in "${apps[@]}"; do
