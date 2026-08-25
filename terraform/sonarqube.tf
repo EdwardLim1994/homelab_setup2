@@ -14,7 +14,7 @@ resource "helm_release" "sonarqube" {
   namespace = kubernetes_namespace.sonarqube.metadata[0].name
   timeout   = 600
 
-  values = [file("${path.module}/../helm/sonarqube/values.yaml")]
+  values = [replace(file("${path.module}/../helm/sonarqube/values.yaml"), "__TS_HOST__", var.ts_host)]
 
   set_sensitive {
     name  = "postgresql.auth.password"

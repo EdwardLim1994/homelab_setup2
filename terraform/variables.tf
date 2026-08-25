@@ -131,3 +131,7 @@ variable "seafile_jwt_private_key" {
   type      = string
   sensitive = true
 }
+
+variable "ts_host" {
+  type = string
+}

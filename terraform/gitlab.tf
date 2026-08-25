@@ -15,6 +15,37 @@ resource "kubernetes_secret" "gitlab_root_password" {
   }
 }
 
+resource "kubernetes_secret" "gitlab_omniauth_authentik" {
+  metadata {
+    name      = "gitlab-omniauth-authentik"
+    namespace = kubernetes_namespace.gitlab.metadata[0].name
+  }
+
+  data = {
+    provider = <<-EOT
+      name: openid_connect
+      label: "Authentik"
+      args:
+        name: openid_connect
+        scope: [openid, profile, email]
+        response_type: code
+        issuer: "http://authentik-server.authentik.svc.cluster.local/application/o/gitlab/"
+        discovery: false
+        uid_field: "preferred_username"
+        client_options:
+          identifier: "${var.gitlab_oidc_client_id}"
+          secret: "${var.gitlab_oidc_client_secret}"
+          redirect_uri: "https://${var.ts_host}:8444/users/auth/openid_connect/callback"
+          authorization_endpoint: "https://${var.ts_host}:8443/application/o/authorize/"
+          token_endpoint: "http://authentik-server.authentik.svc.cluster.local/application/o/token/"
+          userinfo_endpoint: "http://authentik-server.authentik.svc.cluster.local/application/o/userinfo/"
+          jwks_uri: "http://authentik-server.authentik.svc.cluster.local/application/o/gitlab/jwks/"
+    EOT
+  }
+
+  depends_on = [kubernetes_namespace.gitlab]
+}
+
 resource "helm_release" "gitlab" {
   name       = "gitlab"
   repository = "https://charts.gitlab.io"
@@ -35,5 +66,35 @@ resource "helm_release" "gitlab" {
     value = var.gitlab_db_password
   }
 
-  depends_on = [kubernetes_namespace.gitlab, kubectl_manifest.homelab_ca_issuer]
+  set {
+    name  = "gitlab.global.appConfig.omniauth.enabled"
+    value = "true"
+  }
+
+  set {
+    name  = "gitlab.global.appConfig.omniauth.blockAutoCreatedUsers"
+    value = "false"
+  }
+
+  set {
+    name  = "gitlab.global.appConfig.omniauth.allowSingleSignOn[0]"
+    value = "openid_connect"
+  }
+
+  set {
+    name  = "gitlab.global.appConfig.omniauth.autoSignInWithProvider"
+    value = "openid_connect"
+  }
+
+  set {
+    name  = "gitlab.global.appConfig.omniauth.providers[0].secret"
+    value = kubernetes_secret.gitlab_omniauth_authentik.metadata[0].name
+  }
+
+  set {
+    name  = "gitlab.global.appConfig.omniauth.providers[0].key"
+    value = "provider"
+  }
+
+  depends_on = [kubernetes_namespace.gitlab, kubernetes_secret.gitlab_omniauth_authentik, kubectl_manifest.homelab_ca_issuer]
 }

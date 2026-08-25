@@ -48,9 +48,9 @@ sonarqube:
   # apps). Server base URL uses the tailscale hostname so the browser
   # redirect and the plugin's own redirect URI agree on the same authority.
   sonarProperties:
-    sonar.core.serverBaseURL: "https://raspberrypi94.tail60240b.ts.net:8448"
+    sonar.core.serverBaseURL: "https://__TS_HOST__:8448"
     sonar.auth.oidc.enabled: "true"
-    sonar.auth.oidc.issuerUri: "https://raspberrypi94.tail60240b.ts.net:8443/application/o/sonarqube/"
+    sonar.auth.oidc.issuerUri: "https://__TS_HOST__:8443/application/o/sonarqube/"
     # sonar.auth.oidc.clientId.secured set via Tiltfile/terraform (.env)
     sonar.auth.oidc.loginButtonText: "Log in with Authentik"
 

@@ -17,8 +17,9 @@ minio_root_password = os.getenv('TF_VAR_minio_root_password', 'dev-minio-root-pa
 # provider created via the API (same one-time-setup pattern as GitLab's).
 minio_oidc_client_id = os.getenv('TF_VAR_minio_oidc_client_id', 'dev-minio-oidc-client-id')
 minio_oidc_client_secret = os.getenv('TF_VAR_minio_oidc_client_secret', 'dev-minio-oidc-client-secret-not-for-prod-use')
+ts_host = os.getenv('TS_HOST', '')
 
-k8s_yaml(helm(
+rendered = str(helm(
   '.',
   name='minio',
   namespace='minio',
@@ -28,6 +29,8 @@ k8s_yaml(helm(
     'minio.environment.MINIO_IDENTITY_OPENID_CLIENT_SECRET=' + minio_oidc_client_secret,
   ],
 ))
+rendered = rendered.replace('__TS_HOST__', ts_host)
+k8s_yaml(blob(rendered))
 
 k8s_resource(
   'minio',

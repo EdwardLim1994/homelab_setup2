@@ -50,6 +50,6 @@ n8n:
       N8N_ADDITIONAL_NON_UI_ROUTES: "auth"
       EXTERNAL_FRONTEND_HOOKS_URLS: "/assets/oidc-frontend-hook.js"
       N8N_PROTOCOL: "https"
-      OIDC_ISSUER_URL: "https://raspberrypi94.tail60240b.ts.net:8443/application/o/n8n/"
+      OIDC_ISSUER_URL: "https://__TS_HOST__:8443/application/o/n8n/"
       # OIDC_CLIENT_ID / OIDC_CLIENT_SECRET set via Tiltfile/terraform (.env)
-      OIDC_REDIRECT_URI: "https://raspberrypi94.tail60240b.ts.net:8447/auth/oidc/callback"
+      OIDC_REDIRECT_URI: "https://__TS_HOST__:8447/auth/oidc/callback"

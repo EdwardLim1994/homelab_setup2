@@ -50,6 +50,12 @@ spec:
     secretName: homelab-ca-secret
 '''))
 
+local_resource(
+  'cert-manager-webhook-ready',
+  cmd='kubectl wait --for=condition=complete job/cert-manager-startupapicheck -n cert-manager --timeout=120s',
+  resource_deps=['cert-manager-startupapicheck'],
+)
+
 k8s_resource(
   new_name='cert-manager-issuers',
   objects=[
@@ -57,5 +63,5 @@ k8s_resource(
     'homelab-ca:certificate',
     'homelab-ca-issuer:clusterissuer',
   ],
-  resource_deps=['cert-manager-webhook'],
+  resource_deps=['cert-manager-webhook-ready'],
 )

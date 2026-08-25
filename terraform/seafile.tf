@@ -10,7 +10,7 @@ resource "helm_release" "seafile" {
   namespace = kubernetes_namespace.seafile.metadata[0].name
   timeout   = 600
 
-  values = [file("${path.module}/../helm/seafile/values.yaml")]
+  values = [replace(file("${path.module}/../helm/seafile/values.yaml"), "__TS_HOST__", var.ts_host)]
 
   set_sensitive {
     name  = "seafile.env.DB_ROOT_PASSWD"

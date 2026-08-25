@@ -35,6 +35,7 @@ stringData:
 # hit Authentik first.
 gitlab_oidc_client_id = os.getenv('TF_VAR_gitlab_oidc_client_id', 'dev-gitlab-oidc-client-id')
 gitlab_oidc_client_secret = os.getenv('TF_VAR_gitlab_oidc_client_secret', 'dev-gitlab-oidc-client-secret-not-for-prod-use')
+ts_host = os.getenv('TS_HOST', '')
 
 k8s_yaml(blob('''apiVersion: v1
 kind: Secret
@@ -55,8 +56,8 @@ stringData:
       client_options:
         identifier: "''' + gitlab_oidc_client_id + '''"
         secret: "''' + gitlab_oidc_client_secret + '''"
-        redirect_uri: "https://raspberrypi94.tail60240b.ts.net:8444/users/auth/openid_connect/callback"
-        authorization_endpoint: "https://raspberrypi94.tail60240b.ts.net:8443/application/o/authorize/"
+        redirect_uri: "https://''' + ts_host + ''':8444/users/auth/openid_connect/callback"
+        authorization_endpoint: "https://''' + ts_host + ''':8443/application/o/authorize/"
         token_endpoint: "http://authentik-server.authentik.svc.cluster.local/application/o/token/"
         userinfo_endpoint: "http://authentik-server.authentik.svc.cluster.local/application/o/userinfo/"
         jwks_uri: "http://authentik-server.authentik.svc.cluster.local/application/o/gitlab/jwks/"
@@ -116,7 +117,7 @@ k8s_resource(
 admin_email = os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com')
 local_resource(
   'gitlab-promote-admin',
-  cmd="kubectl exec -i -n gitlab deploy/gitlab-webservice-default -c webservice -- env ADMIN_EMAIL='%s' sh < promote-admin.sh" % admin_email,
+  cmd="kubectl exec -i -n gitlab deploy/gitlab-webservice-default -c webservice -- env ADMIN_EMAIL=%s sh < promote-admin.sh" % admin_email,
   deps=['promote-admin.sh'],
   resource_deps=['gitlab-webservice-default'],
 )

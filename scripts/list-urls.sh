@@ -3,7 +3,20 @@
 # instead of trusting a doc that drifts from the actual Tiltfile/tailscale config.
 set -euo pipefail
 
-TS_HOST="raspberrypi94.tail60240b.ts.net"
+# source .env for TS_HOST (per-device, gitignored); tailscale detection as fallback
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+[ -f "$REPO_ROOT/.env" ] && set -a && source "$REPO_ROOT/.env" && set +a
+
+if [ -z "${TS_HOST:-}" ]; then
+  _ts=$(command -v tailscale 2>/dev/null || command -v tailscale.exe 2>/dev/null || true)
+  [ -n "$_ts" ] && TS_HOST="$("$_ts" status --json 2>/dev/null \
+    | grep -o '"DNSName":"[^"]*"' | head -1 \
+    | sed 's/"DNSName":"//;s/"//g;s/\.$//' || true)"
+fi
+if [ -z "${TS_HOST:-}" ]; then
+  echo "WARNING: TS_HOST not set. Add 'TS_HOST=<your-tailscale-hostname>' to .env" >&2
+fi
 
 # name:local-port:ingress-host:tailscale-port
 apps=(

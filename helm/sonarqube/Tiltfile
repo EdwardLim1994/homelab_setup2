@@ -16,10 +16,10 @@ sonarqube_db_password = os.getenv('TF_VAR_sonarqube_db_password', 'dev-sonarqube
 sonarqube_monitoring_passcode = os.getenv('TF_VAR_sonarqube_monitoring_passcode', 'dev-sonarqube-monitoring-passcode')
 sonarqube_oidc_client_id = os.getenv('TF_VAR_sonarqube_oidc_client_id', 'dev-sonarqube-oidc-client-id')
 sonarqube_oidc_client_secret = os.getenv('TF_VAR_sonarqube_oidc_client_secret', 'dev-sonarqube-oidc-client-secret-not-for-prod-use')
+ts_host = os.getenv('TS_HOST', '')
 
-# ponytail: clientId lives here too (not just clientSecret) — sonarSecretProperties
-# is concatenated after sonarProperties, so putting both in one Secret avoids
-# needing a dot-escaped `--set sonarqube.sonarProperties.sonar\.auth\.oidc\.clientId\.secured=`
+# ponytail: clientId/Secret + TS_HOST-dependent URLs all go in the Secret —
+# sonarSecretProperties appends to sonarProperties, avoids dot-escaped --set
 k8s_yaml(blob('''apiVersion: v1
 kind: Secret
 metadata:
@@ -28,9 +28,12 @@ metadata:
 stringData:
   secret.properties: |
     sonar.auth.oidc.clientId.secured=''' + sonarqube_oidc_client_id + '''
-    sonar.auth.oidc.clientSecret.secured=''' + sonarqube_oidc_client_secret))
+    sonar.auth.oidc.clientSecret.secured=''' + sonarqube_oidc_client_secret + '''
+    sonar.core.serverBaseURL=https://''' + ts_host + ''':8448
+    sonar.auth.oidc.issuerUri=https://''' + ts_host + ''':8443/application/o/sonarqube/
+'''))
 
-k8s_yaml(helm(
+rendered = str(helm(
   '.',
   name='sonarqube',
   namespace='sonarqube',
@@ -40,6 +43,8 @@ k8s_yaml(helm(
     'sonarqube.monitoringPasscode=' + sonarqube_monitoring_passcode,
   ],
 ))
+rendered = rendered.replace('__TS_HOST__', ts_host)
+k8s_yaml(blob(rendered))
 
 k8s_resource(
   'sonarqube-sonarqube',
@@ -54,7 +59,7 @@ k8s_resource(
 admin_email = os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com')
 local_resource(
   'sonarqube-promote-admin',
-  cmd="ADMIN_EMAIL='%s' sh promote-admin.sh" % admin_email,
+  cmd="ADMIN_EMAIL=%s sh promote-admin.sh" % admin_email,
   deps=['promote-admin.sh'],
   resource_deps=['sonarqube-sonarqube'],
 )

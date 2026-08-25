@@ -67,7 +67,7 @@ k8s_resource(
 # live pod to exec into.
 local_resource(
   'authentik-github-source',
-  cmd='kubectl exec -i -n authentik deploy/authentik-server -- ak shell < provision-github-source.py',
+  cmd="kubectl exec -i -n authentik deploy/authentik-server -- env GITHUB_OAUTH_CLIENT_ID=%s GITHUB_OAUTH_CLIENT_SECRET=%s ADMIN_EMAIL=%s ak shell < provision-github-source.py" % (os.getenv('TF_VAR_github_oauth_client_id', 'changeme'), os.getenv('TF_VAR_github_oauth_client_secret', 'changeme'), os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com')),
   deps=['provision-github-source.py'],
   resource_deps=['authentik-server'],
 )
@@ -81,12 +81,12 @@ local_resource(
 local_resource(
   'authentik-app-providers',
   cmd='''kubectl exec -i -n authentik deploy/authentik-server -- env \
-GITLAB_OIDC_CLIENT_ID='%s' GITLAB_OIDC_CLIENT_SECRET='%s' \
-MINIO_OIDC_CLIENT_ID='%s' MINIO_OIDC_CLIENT_SECRET='%s' \
-N8N_OIDC_CLIENT_ID='%s' N8N_OIDC_CLIENT_SECRET='%s' \
-SONARQUBE_OIDC_CLIENT_ID='%s' SONARQUBE_OIDC_CLIENT_SECRET='%s' \
-SEAFILE_OIDC_CLIENT_ID='%s' SEAFILE_OIDC_CLIENT_SECRET='%s' \
-ADMIN_EMAIL='%s' \
+GITLAB_OIDC_CLIENT_ID=%s GITLAB_OIDC_CLIENT_SECRET=%s \
+MINIO_OIDC_CLIENT_ID=%s MINIO_OIDC_CLIENT_SECRET=%s \
+N8N_OIDC_CLIENT_ID=%s N8N_OIDC_CLIENT_SECRET=%s \
+SONARQUBE_OIDC_CLIENT_ID=%s SONARQUBE_OIDC_CLIENT_SECRET=%s \
+SEAFILE_OIDC_CLIENT_ID=%s SEAFILE_OIDC_CLIENT_SECRET=%s \
+ADMIN_EMAIL=%s TS_HOST=%s \
 ak shell < provision-app-providers.py''' % (
     os.getenv('TF_VAR_gitlab_oidc_client_id', 'dev-gitlab-oidc-client-id'),
     os.getenv('TF_VAR_gitlab_oidc_client_secret', 'dev-gitlab-oidc-client-secret-not-for-prod-use'),
@@ -99,6 +99,7 @@ ak shell < provision-app-providers.py''' % (
     os.getenv('TF_VAR_seafile_oidc_client_id', 'dev-seafile-oidc-client-id'),
     os.getenv('TF_VAR_seafile_oidc_client_secret', 'dev-seafile-oidc-client-secret-not-for-prod-use'),
     os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com'),
+    os.getenv('TS_HOST', ''),
   ),
   deps=['provision-app-providers.py'],
   resource_deps=['authentik-server'],

@@ -18,7 +18,7 @@ for entry in "${apps[@]}"; do
   https_port="${entry%%:*}"
   local_port="${entry##*:}"
   echo "serving https://\$(tailscale-hostname):${https_port} -> 127.0.0.1:${local_port}"
-  sudo tailscale serve --bg --https="${https_port}" "http://127.0.0.1:${local_port}"
+  tailscale serve --bg --https="${https_port}" "http://127.0.0.1:${local_port}"
 done
 
 tailscale serve status

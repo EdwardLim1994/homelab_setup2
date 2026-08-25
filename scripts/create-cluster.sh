@@ -20,8 +20,8 @@ fi
 mkdir -p "$K3D_STORAGE_PATH"
 storage_path_abs="$(cd "$K3D_STORAGE_PATH" && pwd)"
 
-k3d cluster create "$K3D_CLUSTER_NAME" \
-  --volume "${storage_path_abs}:/var/lib/rancher/k3s/storage@server:0"
+MSYS_NO_PATHCONV=1 k3d cluster create "$K3D_CLUSTER_NAME" \
+  --volume "${storage_path_abs}://var/lib/rancher/k3s/storage@server:0"
 
 echo
 echo "Cluster '$K3D_CLUSTER_NAME' created. PVC data persists at: $storage_path_abs"

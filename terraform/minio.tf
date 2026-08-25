@@ -11,7 +11,7 @@ resource "helm_release" "minio" {
   version    = "5.4.0"
   namespace  = kubernetes_namespace.minio.metadata[0].name
 
-  values = [file("${path.module}/../helm/minio/values.yaml")]
+  values = [replace(file("${path.module}/../helm/minio/values.yaml"), "__TS_HOST__", var.ts_host)]
 
   set_sensitive {
     name  = "minio.rootPassword"

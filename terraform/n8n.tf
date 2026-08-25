@@ -11,7 +11,7 @@ resource "helm_release" "n8n" {
   version    = "1.24.32"
   namespace  = kubernetes_namespace.n8n.metadata[0].name
 
-  values = [file("${path.module}/../helm/n8n/values.yaml")]
+  values = [replace(file("${path.module}/../helm/n8n/values.yaml"), "__TS_HOST__", var.ts_host)]
 
   depends_on = [kubernetes_namespace.n8n]
 }

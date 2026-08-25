@@ -33,22 +33,23 @@ mappings = PropertyMapping.objects.filter(name__in=[
     "authentik default OAuth Mapping: OpenID 'profile'",
 ])
 
+ts_host = os.environ["TS_HOST"]
 apps = [
     dict(name='GitLab', slug='gitlab',
          client_id=os.environ['GITLAB_OIDC_CLIENT_ID'], client_secret=os.environ['GITLAB_OIDC_CLIENT_SECRET'],
-         redirect_uris=['https://raspberrypi94.tail60240b.ts.net:8444/users/auth/openid_connect/callback']),
+         redirect_uris=[f'https://{ts_host}:8444/users/auth/openid_connect/callback']),
     dict(name='MinIO', slug='minio',
          client_id=os.environ['MINIO_OIDC_CLIENT_ID'], client_secret=os.environ['MINIO_OIDC_CLIENT_SECRET'],
-         redirect_uris=['https://raspberrypi94.tail60240b.ts.net:8445/oauth_callback']),
+         redirect_uris=[f'https://{ts_host}:8445/oauth_callback']),
     dict(name='n8n', slug='n8n',
          client_id=os.environ['N8N_OIDC_CLIENT_ID'], client_secret=os.environ['N8N_OIDC_CLIENT_SECRET'],
-         redirect_uris=['https://raspberrypi94.tail60240b.ts.net:8447/auth/oidc/callback']),
+         redirect_uris=[f'https://{ts_host}:8447/auth/oidc/callback']),
     dict(name='SonarQube', slug='sonarqube',
          client_id=os.environ['SONARQUBE_OIDC_CLIENT_ID'], client_secret=os.environ['SONARQUBE_OIDC_CLIENT_SECRET'],
-         redirect_uris=['https://raspberrypi94.tail60240b.ts.net:8448/oauth2/callback/oidc']),
+         redirect_uris=[f'https://{ts_host}:8448/oauth2/callback/oidc']),
     dict(name='Seafile', slug='seafile',
          client_id=os.environ['SEAFILE_OIDC_CLIENT_ID'], client_secret=os.environ['SEAFILE_OIDC_CLIENT_SECRET'],
-         redirect_uris=['https://raspberrypi94.tail60240b.ts.net:8449/oauth/callback/']),
+         redirect_uris=[f'https://{ts_host}:8449/oauth/callback/']),
 ]
 
 for a in apps:
@@ -95,9 +96,11 @@ sm, created = ScopeMapping.objects.get_or_create(
 if not created:
     sm.expression = minio_policy_expression
     sm.save()
+
 minio_provider = OAuth2Provider.objects.get(name='MinIO')
 current = list(minio_provider.property_mappings.all())
 if sm not in current:
     minio_provider.property_mappings.set(current + [sm])
     minio_provider.save()
+
 print('minio policy mapping ready, created=', created)

@@ -61,6 +61,7 @@ seafile_admin_password = os.getenv('TF_VAR_seafile_admin_password', 'dev-seafile
 seafile_jwt_private_key = os.getenv('TF_VAR_seafile_jwt_private_key', 'dev-seafile-jwt-private-key-not-for-prod-use')
 seafile_oidc_client_id = os.getenv('TF_VAR_seafile_oidc_client_id', 'dev-seafile-oidc-client-id')
 seafile_oidc_client_secret = os.getenv('TF_VAR_seafile_oidc_client_secret', 'dev-seafile-oidc-client-secret-not-for-prod-use')
+ts_host = os.getenv('TS_HOST', '')
 
 rendered = str(helm(
   '.',
@@ -80,6 +81,7 @@ rendered = str(helm(
 # comment above the lifecycle key).
 rendered = rendered.replace('__SEAFILE_OIDC_CLIENT_ID__', seafile_oidc_client_id)
 rendered = rendered.replace('__SEAFILE_OIDC_CLIENT_SECRET__', seafile_oidc_client_secret)
+rendered = rendered.replace('__TS_HOST__', ts_host)
 k8s_yaml(blob(rendered))
 
 k8s_resource(
@@ -95,7 +97,7 @@ k8s_resource(
 admin_email = os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com')
 local_resource(
   'seafile-promote-admin',
-  cmd="kubectl exec -i -n seafile deploy/seafile -- env ADMIN_EMAIL='%s' bash < promote-admin.sh" % admin_email,
+  cmd="kubectl exec -i -n seafile deploy/seafile -- env ADMIN_EMAIL=%s bash < promote-admin.sh" % admin_email,
   deps=['promote-admin.sh'],
   resource_deps=['seafile'],
 )

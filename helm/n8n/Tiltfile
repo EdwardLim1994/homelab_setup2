@@ -29,8 +29,9 @@ n8n_encryption_key = os.getenv('TF_VAR_n8n_encryption_key', 'dev-n8n-encryption-
 # other apps').
 n8n_oidc_client_id = os.getenv('TF_VAR_n8n_oidc_client_id', 'dev-n8n-oidc-client-id')
 n8n_oidc_client_secret = os.getenv('TF_VAR_n8n_oidc_client_secret', 'dev-n8n-oidc-client-secret-not-for-prod-use')
+ts_host = os.getenv('TS_HOST', '')
 
-k8s_yaml(helm(
+rendered = str(helm(
   '.',
   name='n8n',
   namespace='n8n',
@@ -40,6 +41,8 @@ k8s_yaml(helm(
     'n8n.main.extraEnvVars.OIDC_CLIENT_SECRET=' + n8n_oidc_client_secret,
   ],
 ))
+rendered = rendered.replace('__TS_HOST__', ts_host)
+k8s_yaml(blob(rendered))
 
 k8s_resource(
   'n8n',
