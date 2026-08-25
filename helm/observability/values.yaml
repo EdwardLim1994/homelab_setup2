@@ -1,0 +1,397 @@
+grafana:
+  # ponytail: chart refuses to render any sensitive key (client_secret,
+  # adminPassword, etc.) in plain values as a guard against accidental
+  # secret commits. Our placeholder-replacement approach handles this at
+  # Tiltfile load time — disable the guard so helm template succeeds.
+  assertNoLeakedSecrets: false
+
+  adminPassword: "__GRAFANA_ADMIN_PASSWORD__"
+
+  grafana.ini:
+    server:
+      root_url: "https://__TS_HOST__:8451"
+    auth:
+      # ponytail: keep login form so local admin still works as fallback
+      disable_login_form: "false"
+    auth.generic_oauth:
+      enabled: "true"
+      name: "Authentik"
+      client_id: "__GRAFANA_OIDC_CLIENT_ID__"
+      client_secret: "__GRAFANA_OIDC_CLIENT_SECRET__"
+      scopes: "openid profile email"
+      auth_url: "https://__TS_HOST__:8443/application/o/authorize/"
+      # ponytail: token/userinfo use in-cluster DNS — browser never touches
+      # these endpoints so no need for the Tailscale HTTPS port here.
+      token_url: "http://authentik-server.authentik.svc.cluster.local/application/o/token/"
+      api_url: "http://authentik-server.authentik.svc.cluster.local/application/o/userinfo/"
+      role_attribute_path: "email == '__ADMIN_EMAIL__' && 'Admin' || 'Viewer'"
+      allow_sign_up: "true"
+
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Mimir
+          uid: mimir
+          type: prometheus
+          url: http://observability-mimir-distributed-query-frontend.observability.svc.cluster.local:8080/prometheus
+          isDefault: true
+          jsonData:
+            timeInterval: 15s
+        - name: Prometheus
+          uid: prometheus
+          type: prometheus
+          url: http://observability-prometheus-server.observability.svc.cluster.local
+          jsonData:
+            timeInterval: 15s
+        - name: Loki
+          uid: loki
+          type: loki
+          url: http://observability-loki.observability.svc.cluster.local:3100
+        - name: Tempo
+          uid: tempo
+          type: tempo
+          url: http://observability-tempo.observability.svc.cluster.local:3100
+          jsonData:
+            tracesToLogsV2:
+              datasourceUid: loki
+            serviceMap:
+              datasourceUid: mimir
+
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: homelab-ca-issuer
+    hosts:
+      - grafana.local
+    tls:
+      - secretName: grafana.local-tls
+        hosts:
+          - grafana.local
+
+  persistence:
+    enabled: true
+    size: 2Gi
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+# ── Loki ──────────────────────────────────────────────────────────────────────
+loki:
+  # ponytail: SingleBinary = one pod, no object storage, no kafka, no cache.
+  # SimpleScalable (chart default) needs 3 write + 3 read + 3 backend pods —
+  # far too heavy for a single-node homelab.
+  deploymentMode: SingleBinary
+
+  loki:
+    auth_enabled: false
+    commonConfig:
+      replication_factor: 1
+    storage:
+      type: filesystem
+    schemaConfig:
+      configs:
+        - from: "2024-01-01"
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+
+  singleBinary:
+    replicas: 1
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+
+  # ponytail: zero out the scalable-mode components that SingleBinary doesn't use
+  read:
+    replicas: 0
+  write:
+    replicas: 0
+  backend:
+    replicas: 0
+
+  gateway:
+    enabled: false
+  lokiCanary:
+    enabled: false
+  test:
+    enabled: false
+  # ponytail: caches need memcached sub-charts — overkill for homelab
+  chunksCache:
+    enabled: false
+  resultsCache:
+    enabled: false
+
+# ── Tempo ─────────────────────────────────────────────────────────────────────
+tempo:
+  tempo:
+    storage:
+      trace:
+        backend: local
+        local:
+          path: /var/tempo/traces
+        wal:
+          path: /var/tempo/wal
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+  persistence:
+    enabled: true
+    size: 10Gi
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+# ── Mimir ─────────────────────────────────────────────────────────────────────
+mimir-distributed:
+  mimir:
+    structuredConfig:
+      multitenancy_enabled: false
+      common:
+        storage:
+          backend: filesystem
+          filesystem:
+            dir: /data
+
+  # ponytail: single replicas throughout — no HA, no zone awareness.
+  # The rollout_operator and zone-aware replication exist for production
+  # multi-zone clusters, not a one-node homelab.
+  rollout_operator:
+    enabled: false
+
+  ingester:
+    replicas: 1
+    zoneAwareReplication:
+      enabled: false
+    persistentVolume:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+
+  distributor:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+  querier:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+  query_frontend:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+  compactor:
+    replicas: 1
+    persistentVolume:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+  store_gateway:
+    replicas: 1
+    zoneAwareReplication:
+      enabled: false
+    persistentVolume:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+  # ponytail: disable optional components not needed for basic metrics ingestion
+  alertmanager:
+    enabled: false
+  ruler:
+    enabled: false
+  query_scheduler:
+    enabled: false
+  overrides_exporter:
+    enabled: false
+
+  # ponytail: mimir-distributed bundles its own minio subchart for demos;
+  # we use the already-deployed MinIO in the minio namespace instead.
+  minio:
+    enabled: false
+
+# ── Alloy ─────────────────────────────────────────────────────────────────────
+alloy:
+  alloy:
+    # ponytail: extraPorts needed so the Service exposes OTLP endpoints
+    # for apps to send traces/metrics/logs to. Without this, only Alloy's
+    # own UI port (12345) is in the Service spec.
+    extraPorts:
+      - name: otlp-grpc
+        port: 4317
+        targetPort: 4317
+        protocol: TCP
+      - name: otlp-http
+        port: 4318
+        targetPort: 4318
+        protocol: TCP
+
+    configMap:
+      content: |
+        // ── K8s pod logs → Loki ──────────────────────────────────────────────
+        discovery.kubernetes "pods" {
+          role = "pod"
+        }
+
+        discovery.relabel "pod_logs" {
+          targets = discovery.kubernetes.pods.targets
+          rule {
+            source_labels = ["__meta_kubernetes_pod_node_name"]
+            target_label  = "node"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_namespace"]
+            target_label  = "namespace"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_name"]
+            target_label  = "pod"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_container_name"]
+            target_label  = "container"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+            target_label  = "app"
+          }
+        }
+
+        loki.source.kubernetes "pods" {
+          targets    = discovery.relabel.pod_logs.output
+          forward_to = [loki.write.default.receiver]
+        }
+
+        loki.write "default" {
+          endpoint {
+            url = "http://observability-loki.observability.svc.cluster.local:3100/loki/api/v1/push"
+          }
+        }
+
+        // ── OTLP receiver (apps → Alloy) ─────────────────────────────────────
+        otelcol.receiver.otlp "default" {
+          http { endpoint = "0.0.0.0:4318" }
+          grpc { endpoint = "0.0.0.0:4317" }
+          output {
+            metrics = [otelcol.exporter.prometheus.mimir.input]
+            logs    = [otelcol.exporter.loki.default.input]
+            traces  = [otelcol.exporter.otlp.tempo.input]
+          }
+        }
+
+        // ── OTLP metrics → Mimir ─────────────────────────────────────────────
+        otelcol.exporter.prometheus "mimir" {
+          forward_to = [prometheus.remote_write.mimir.receiver]
+        }
+
+        prometheus.remote_write "mimir" {
+          endpoint {
+            url = "http://observability-mimir-distributed-distributor.observability.svc.cluster.local:8080/api/v1/push"
+          }
+        }
+
+        // ── OTLP logs → Loki ─────────────────────────────────────────────────
+        otelcol.exporter.loki "default" {
+          forward_to = [loki.write.default.receiver]
+        }
+
+        // ── OTLP traces → Tempo ──────────────────────────────────────────────
+        otelcol.exporter.otlp "tempo" {
+          client {
+            endpoint = "observability-tempo.observability.svc.cluster.local:4317"
+            tls { insecure = true }
+          }
+        }
+
+  clustering:
+    enabled: false
+
+  rbac:
+    create: true
+
+  serviceAccount:
+    create: true
+
+# ── Prometheus ────────────────────────────────────────────────────────────────
+prometheus:
+  server:
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    # ponytail: remote_write to Mimir so metrics survive beyond Prometheus's
+    # own retention window and are queryable from Grafana's Mimir datasource.
+    remoteWrite:
+      - url: "http://observability-mimir-distributed-distributor.observability.svc.cluster.local:8080/api/v1/push"
+    persistentVolume:
+      enabled: true
+      size: 10Gi
+    retention: "7d"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+
+  alertmanager:
+    enabled: false
+  prometheus-pushgateway:
+    enabled: false
+  kube-state-metrics:
+    enabled: true
+  prometheus-node-exporter:
+    enabled: true

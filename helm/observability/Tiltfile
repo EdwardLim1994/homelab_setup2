@@ -1,0 +1,28 @@
+# ponytail: local_resource cmd cwd is this Tiltfile's own directory, not repo root
+local_resource(
+  'observability-helm-deps',
+  cmd='helm dependency update .',
+  deps=['Chart.yaml'],
+)
+
+k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: observability'))
+
+grafana_admin_password = os.getenv('TF_VAR_grafana_admin_password', 'dev-grafana-admin-password')
+grafana_oidc_client_id = os.getenv('TF_VAR_grafana_oidc_client_id', 'dev-grafana-oidc-client-id')
+grafana_oidc_client_secret = os.getenv('TF_VAR_grafana_oidc_client_secret', 'dev-grafana-oidc-client-secret-not-for-prod-use')
+ts_host = os.getenv('TS_HOST', '')
+admin_email = os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com')
+
+rendered = str(helm('.', name='observability', namespace='observability'))
+rendered = rendered.replace('__GRAFANA_ADMIN_PASSWORD__', grafana_admin_password)
+rendered = rendered.replace('__GRAFANA_OIDC_CLIENT_ID__', grafana_oidc_client_id)
+rendered = rendered.replace('__GRAFANA_OIDC_CLIENT_SECRET__', grafana_oidc_client_secret)
+rendered = rendered.replace('__TS_HOST__', ts_host)
+rendered = rendered.replace('__ADMIN_EMAIL__', admin_email)
+k8s_yaml(blob(rendered))
+
+k8s_resource(
+  'observability-grafana',
+  port_forwards=['3000:3000'],
+  resource_deps=['observability-helm-deps'],
+)

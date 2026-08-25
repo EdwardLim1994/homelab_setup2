@@ -53,6 +53,9 @@ apps = [
     dict(name='ArgoCD', slug='argocd',
          client_id=os.environ['ARGOCD_OIDC_CLIENT_ID'], client_secret=os.environ['ARGOCD_OIDC_CLIENT_SECRET'],
          redirect_uris=[f'https://{ts_host}:8450/auth/callback']),
+    dict(name='Grafana', slug='grafana',
+         client_id=os.environ['GRAFANA_OIDC_CLIENT_ID'], client_secret=os.environ['GRAFANA_OIDC_CLIENT_SECRET'],
+         redirect_uris=[f'https://{ts_host}:8451/login/generic_oauth']),
 ]
 
 for a in apps:

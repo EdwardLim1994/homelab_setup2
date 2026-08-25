@@ -28,6 +28,7 @@ apps=(
   "sonarqube:9010:sonarqube.local:8448"
   "seafile:8082:seafile.local:8449"
   "argocd:9001:argocd.local:8450"
+  "grafana:3000:grafana.local:8451"
 )
 
 check() {

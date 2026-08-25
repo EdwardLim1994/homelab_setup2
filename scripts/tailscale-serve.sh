@@ -13,6 +13,7 @@ apps=(
   "8448:9010"  # sonarqube
   "8449:8082"  # seafile
   "8450:9001"  # argocd
+  "8451:3000"  # grafana
 )
 
 for entry in "${apps[@]}"; do

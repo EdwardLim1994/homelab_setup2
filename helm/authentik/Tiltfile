@@ -87,6 +87,7 @@ N8N_OIDC_CLIENT_ID=%s N8N_OIDC_CLIENT_SECRET=%s \
 SONARQUBE_OIDC_CLIENT_ID=%s SONARQUBE_OIDC_CLIENT_SECRET=%s \
 SEAFILE_OIDC_CLIENT_ID=%s SEAFILE_OIDC_CLIENT_SECRET=%s \
 ARGOCD_OIDC_CLIENT_ID=%s ARGOCD_OIDC_CLIENT_SECRET=%s \
+GRAFANA_OIDC_CLIENT_ID=%s GRAFANA_OIDC_CLIENT_SECRET=%s \
 ADMIN_EMAIL=%s TS_HOST=%s \
 ak shell < provision-app-providers.py''' % (
     os.getenv('TF_VAR_gitlab_oidc_client_id', 'dev-gitlab-oidc-client-id'),
@@ -101,6 +102,8 @@ ak shell < provision-app-providers.py''' % (
     os.getenv('TF_VAR_seafile_oidc_client_secret', 'dev-seafile-oidc-client-secret-not-for-prod-use'),
     os.getenv('TF_VAR_argocd_oidc_client_id', 'dev-argocd-oidc-client-id'),
     os.getenv('TF_VAR_argocd_oidc_client_secret', 'dev-argocd-oidc-client-secret-not-for-prod-use'),
+    os.getenv('TF_VAR_grafana_oidc_client_id', 'dev-grafana-oidc-client-id'),
+    os.getenv('TF_VAR_grafana_oidc_client_secret', 'dev-grafana-oidc-client-secret-not-for-prod-use'),
     os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com'),
     os.getenv('TS_HOST', ''),
   ),
