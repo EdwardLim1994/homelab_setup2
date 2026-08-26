@@ -1,4 +1,5 @@
 from authentik.providers.oauth2.models import OAuth2Provider, ClientTypes, RedirectURI, RedirectURIMatchingMode, ScopeMapping
+from authentik.providers.saml.models import SAMLProvider
 from authentik.core.models import Application, PropertyMapping, User, Group, UserTypes
 from authentik.flows.models import Flow
 from authentik.crypto.models import CertificateKeyPair
@@ -6,6 +7,7 @@ import os
 
 admin_email = os.environ['ADMIN_EMAIL']
 ts_host = os.environ['TS_HOST']
+nx_cloud_app_url = os.environ.get('NX_CLOUD_APP_URL', '')
 
 admin_user = User.objects.filter(email=admin_email).first()
 if admin_user:
@@ -114,3 +116,48 @@ for a in apps:
     print('provider ready:', a['slug'], 'provider_created=', created, 'app_created=', created2)
 
 print('all providers done')
+
+# Nx Cloud SAML provider — nx-cloud only supports SAML (no generic OIDC).
+# ACS URL = <nx-cloud-url>/auth-callback, SP entity ID = 'nx-private-cloud' (hardcoded by nx-cloud).
+if nx_cloud_app_url:
+    from authentik.providers.saml.models import SAMLPropertyMapping
+    # ponytail: nx-cloud expects attribute name 'email', not the default WS-Federation URI
+    nx_cloud_email_map, _ = SAMLPropertyMapping.objects.get_or_create(
+        name='Nx Cloud SAML email',
+        defaults=dict(saml_name='email', friendly_name='email', expression='return request.user.email'),
+    )
+    saml_p, saml_created = SAMLProvider.objects.get_or_create(
+        name='Nx Cloud',
+        defaults=dict(
+            authorization_flow=auth_flow,
+            acs_url=nx_cloud_app_url + '/auth-callback',
+            issuer='https://' + ts_host + ':8443/application/saml/nx-cloud/',
+            audience='nx-private-cloud',
+            signing_kp=signing_key,
+            sign_assertion=True,
+            sign_response=True,
+            sp_binding='post',
+        ),
+    )
+    if not saml_created:
+        saml_p.acs_url = nx_cloud_app_url + '/auth-callback'
+        saml_p.issuer = 'https://' + ts_host + ':8443/application/saml/nx-cloud/'
+        saml_p.audience = 'nx-private-cloud'
+        saml_p.sign_response = True
+        saml_p.sp_binding = 'post'
+        saml_p.save()
+    saml_p.property_mappings.set([nx_cloud_email_map])
+    saml_app, saml_app_created = Application.objects.get_or_create(
+        slug='nx-cloud',
+        defaults=dict(name='Nx Cloud', provider=saml_p),
+    )
+    if not saml_app_created:
+        saml_app.provider = saml_p
+        saml_app.save()
+    # Print the signing cert so callers can capture it for SAML_CERT env var.
+    print('NX_CLOUD_SAML_CERT_START')
+    print(signing_key.certificate_data)
+    print('NX_CLOUD_SAML_CERT_END')
+    print('nx-cloud SAML provider ready, provider_created=', saml_created, 'app_created=', saml_app_created)
+else:
+    print('nx-cloud SAML provider skipped: NX_CLOUD_APP_URL not set')

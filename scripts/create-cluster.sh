@@ -9,7 +9,7 @@
 # this repo's history (all app data + Authentik's config wiped).
 set -euo pipefail
 
-: "${K3D_CLUSTER_NAME:=internal}"
+: "${K3D_CLUSTER_NAME:=internal-dev}"
 : "${K3D_STORAGE_PATH:=./k3d-storage}"
 
 if k3d cluster list "$K3D_CLUSTER_NAME" &>/dev/null; then

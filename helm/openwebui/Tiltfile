@@ -6,17 +6,17 @@ ts_host                      = os.getenv('TS_HOST', '')
 # ponytail: extract CA cert (already base64-encoded in Secret data) and inject
 # into openwebui namespace so OpenWebUI can trust homelab's self-signed TLS
 # when making server-side OIDC calls to Authentik over Tailscale HTTPS.
+# Falls back to empty string when cert-manager isn't deployed yet so Tilt
+# can still load; the Secret will be applied with empty ca.crt until cert-manager is ready.
 ca_cert_b64 = str(local(
-  'kubectl get secret homelab-ca-secret -n cert-manager -o jsonpath={.data.tls\\.crt}',
+  'kubectl get secret homelab-ca-secret -n cert-manager -o jsonpath={.data.tls\\.crt} 2>nul || echo.',
   quiet=True,
 )).strip()
 
-k8s_yaml(blob("""apiVersion: v1
-kind: Namespace
-metadata:
-  name: openwebui
----
-apiVersion: v1
+k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: openwebui'))
+
+if ca_cert_b64 != '':
+  k8s_yaml(blob("""apiVersion: v1
 kind: Secret
 metadata:
   name: homelab-ca

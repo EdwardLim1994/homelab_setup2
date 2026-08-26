@@ -20,10 +20,11 @@ spec:
             - python3
             - -c
             - |
-              import certifi, shutil, os
+              import certifi, os
               with open('/combined/ca.crt', 'wb') as out:
                   with open(certifi.where(), 'rb') as f: out.write(f.read())
-                  with open('/homelab-ca/ca.crt', 'rb') as f: out.write(f.read())
+                  if os.path.exists('/homelab-ca/ca.crt'):
+                      with open('/homelab-ca/ca.crt', 'rb') as f: out.write(f.read())
           volumeMounts:
             - name: homelab-ca
               mountPath: /homelab-ca
@@ -55,6 +56,7 @@ spec:
         - name: homelab-ca
           secret:
             secretName: homelab-ca
+            optional: true
         - name: combined-ca
           emptyDir: {}
 ---

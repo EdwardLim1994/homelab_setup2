@@ -1,0 +1,12 @@
+dependencies:
+- name: nx-cloud
+  repository: https://nrwl.github.io/nx-cloud-helm/
+  version: 1.2.6
+- name: mongodb
+  repository: https://charts.bitnami.com/bitnami
+  version: 19.1.36
+- name: valkey
+  repository: https://charts.bitnami.com/bitnami
+  version: 6.2.12
+digest: sha256:0c59f5dc8bd9390c1e7b5f4cc0621c060bf3260d7455261c8c85100d25687f45
+generated: "2026-08-26T14:02:57.7818556+08:00"

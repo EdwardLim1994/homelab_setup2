@@ -90,7 +90,7 @@ ARGOCD_OIDC_CLIENT_ID=%s ARGOCD_OIDC_CLIENT_SECRET=%s \
 GRAFANA_OIDC_CLIENT_ID=%s GRAFANA_OIDC_CLIENT_SECRET=%s \
 OPENWEBUI_OIDC_CLIENT_ID=%s OPENWEBUI_OIDC_CLIENT_SECRET=%s \
 LITELLM_OIDC_CLIENT_ID=%s LITELLM_OIDC_CLIENT_SECRET=%s \
-ADMIN_EMAIL=%s TS_HOST=%s \
+ADMIN_EMAIL=%s TS_HOST=%s NX_CLOUD_APP_URL=%s \
 ak shell < provision-app-providers.py''' % (
     os.getenv('TF_VAR_gitlab_oidc_client_id', 'dev-gitlab-oidc-client-id'),
     os.getenv('TF_VAR_gitlab_oidc_client_secret', 'dev-gitlab-oidc-client-secret-not-for-prod-use'),
@@ -112,6 +112,7 @@ ak shell < provision-app-providers.py''' % (
     os.getenv('TF_VAR_litellm_oidc_client_secret', 'dev-litellm-oidc-client-secret-not-for-prod-use'),
     os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com'),
     os.getenv('TS_HOST', ''),
+    ('https://' + os.getenv('TS_HOST', '') + ':8454') if os.getenv('TS_HOST', '') else 'https://nx-cloud.local',
   ),
   deps=['provision-app-providers.py'],
   resource_deps=['authentik-server'],
