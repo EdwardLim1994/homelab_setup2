@@ -1,0 +1,38 @@
+{{- range $name, $srv := .Values.servers }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Release.Name }}-{{ $name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $.Release.Name }}-{{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $.Release.Name }}-{{ $name }}
+    spec:
+      containers:
+        - name: {{ $name }}
+          image: {{ $srv.image }}
+          {{- with $srv.command }}
+          command: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $srv.args }}
+          args: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - containerPort: {{ $srv.port }}
+          {{- with $srv.env }}
+          env:
+            {{- range $key, $value := . }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml ($srv.resources | default $.Values.defaultResources) | nindent 12 }}
+---
+{{- end }}

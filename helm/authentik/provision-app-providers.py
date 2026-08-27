@@ -161,3 +161,4 @@ if nx_cloud_app_url:
     print('nx-cloud SAML provider ready, provider_created=', saml_created, 'app_created=', saml_app_created)
 else:
     print('nx-cloud SAML provider skipped: NX_CLOUD_APP_URL not set')
+

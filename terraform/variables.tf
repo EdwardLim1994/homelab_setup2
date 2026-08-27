@@ -160,3 +160,137 @@ variable "seafile_jwt_private_key" {
   sensitive = true
   default   = "dev-seafile-jwt-private-key-not-for-prod-use"
 }
+
+variable "nx_cloud_admin_password" {
+  type      = string
+  sensitive = true
+  default   = "dev-nx-cloud-admin-password"
+}
+
+variable "nx_cloud_mongo_password" {
+  type      = string
+  sensitive = true
+  default   = "dev-nx-cloud-mongo-password"
+}
+
+variable "nx_cloud_valkey_password" {
+  type      = string
+  sensitive = true
+  default   = "dev-nx-cloud-valkey-password"
+}
+
+# ponytail: no default — SAML SSO stays disabled (chart's optional secretKeyRef)
+# til this is set, same as Tiltfile's TF_VAR_nx_cloud_saml_cert fallback of "".
+variable "nx_cloud_saml_cert" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "argocd_oidc_client_id" {
+  type      = string
+  sensitive = true
+  default   = "dev-argocd-oidc-client-id"
+}
+
+variable "argocd_oidc_client_secret" {
+  type      = string
+  sensitive = true
+  default   = "dev-argocd-oidc-client-secret-not-for-prod-use"
+}
+
+variable "argocd_server_secret_key" {
+  type      = string
+  sensitive = true
+  default   = "dev-argocd-server-secret-key-not-for-prod-use"
+}
+
+variable "grafana_admin_password" {
+  type      = string
+  sensitive = true
+  default   = "dev-grafana-admin-password"
+}
+
+variable "grafana_oidc_client_id" {
+  type      = string
+  sensitive = true
+  default   = "dev-grafana-oidc-client-id"
+}
+
+variable "grafana_oidc_client_secret" {
+  type      = string
+  sensitive = true
+  default   = "dev-grafana-oidc-client-secret-not-for-prod-use"
+}
+
+variable "openwebui_oidc_client_id" {
+  type      = string
+  sensitive = true
+  default   = "dev-openwebui-oidc-client-id"
+}
+
+variable "openwebui_oidc_client_secret" {
+  type      = string
+  sensitive = true
+  default   = "dev-openwebui-oidc-client-secret-not-for-prod-use"
+}
+
+variable "litellm_oidc_client_id" {
+  type      = string
+  sensitive = true
+  default   = "dev-litellm-oidc-client-id"
+}
+
+variable "litellm_oidc_client_secret" {
+  type      = string
+  sensitive = true
+  default   = "dev-litellm-oidc-client-secret-not-for-prod-use"
+}
+
+variable "litellm_master_key" {
+  type      = string
+  sensitive = true
+  default   = "sk-dev-litellm-master-key-not-for-prod-use"
+}
+
+variable "litellm_salt_key" {
+  type      = string
+  sensitive = true
+  default   = "sk-dev-litellm-salt-key-not-for-prod-use"
+}
+
+variable "litellm_db_password" {
+  type      = string
+  sensitive = true
+  default   = "dev-litellm-db-password"
+}
+
+variable "grafana_mcp_token" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "sonarqube_mcp_token" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "gitlab_mcp_token" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "gitlab_mcp_auth_token" {
+  type      = string
+  sensitive = true
+  default   = "dev-gitlab-mcp-auth-token"
+}
+
+variable "nx_cloud_mcp_token" {
+  type      = string
+  sensitive = true
+  default   = ""
+}

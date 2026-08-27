@@ -2,3 +2,5 @@ charts/*.tgz
 .env
 k3d-storage/
 terraform/local.auto.tfvars
+terraform/.authentik-app-providers.sh
+terraform/.seafile-promote-admin.sh

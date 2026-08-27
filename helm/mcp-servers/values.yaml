@@ -1,0 +1,72 @@
+# ponytail: one Deployment+Service template looped over this map instead of
+# 5 near-identical template files — every server here is the same shape
+# (image, optional command/args override, one HTTP port, env vars).
+defaultResources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+servers:
+  grafana:
+    image: grafana/mcp-grafana:latest
+    args: ["-t", "streamable-http", "--address", ":8000"]
+    port: 8000
+    env:
+      GRAFANA_URL: http://observability-grafana.observability.svc.cluster.local
+      GRAFANA_SERVICE_ACCOUNT_TOKEN: ""  # set via Tiltfile/terraform
+
+  sonarqube:
+    image: sonarsource/sonarqube-mcp:latest
+    port: 8080
+    env:
+      SONARQUBE_TRANSPORT: "http"
+      SONARQUBE_HTTP_PORT: "8080"
+      SONARQUBE_HTTP_HOST: "0.0.0.0"
+      SONARQUBE_MCP_IN_CONTAINER: "true"
+      SONARQUBE_URL: http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000
+      SONARQUBE_TOKEN: ""  # set via Tiltfile/terraform
+
+  gitlab:
+    # ponytail: NOT mcp/gitlab (Docker's own catalog wrapper, stdio-only) —
+    # this is the actual zereight/gitlab-mcp project, which supports HTTP
+    # transport via env vars.
+    image: zereight050/gitlab-mcp:latest
+    port: 3002
+    env:
+      STREAMABLE_HTTP: "true"
+      HOST: "0.0.0.0"
+      PORT: "3002"
+      GITLAB_API_URL: http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/api/v4
+      GITLAB_PERSONAL_ACCESS_TOKEN: ""  # set via Tiltfile/terraform
+      # ponytail: server holds a static PAT (not per-client OAuth), so this
+      # is the "who's allowed to call this server" bearer token — required
+      # by the image whenever STREAMABLE_HTTP + a static PAT are combined.
+      STREAMABLE_HTTP_AUTH_TOKEN: ""  # set via Tiltfile/terraform
+
+  playwright:
+    image: mcr.microsoft.com/playwright/mcp:latest
+    command: ["node", "/app/cli.js"]
+    args: ["--headless", "--browser", "chromium", "--no-sandbox", "--port", "8931", "--host", "0.0.0.0"]
+    port: 8931
+    # ponytail: real chromium instance, not a thin API wrapper — needs more
+    # than the other servers' default resources.
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+
+  # ponytail: no official nx-mcp Docker image — runs via `npx` on a bare
+  # node image. It's designed to introspect a *live Nx workspace directory*,
+  # which isn't mounted here (this repo isn't an Nx workspace); expect only
+  # Nx Cloud-facing tools to work until/unless a workspace volume is added.
+  nx:
+    image: node:20-alpine
+    command: ["npx"]
+    args: ["-y", "nx-mcp@latest", "--transport", "sse", "--port", "9921"]
+    port: 9921
+    env:
+      NX_CLOUD_ACCESS_TOKEN: ""  # set via Tiltfile/terraform

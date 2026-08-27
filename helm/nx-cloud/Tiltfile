@@ -32,7 +32,9 @@ ts_host = os.getenv('TS_HOST', '')
 # (<release>-mongodb) with the nx-cloud db user created by the chart.
 mongo_conn = 'mongodb://nx-cloud:' + nx_cloud_mongo_password + '@nx-cloud-mongodb-0.nx-cloud-mongodb-headless:27017/nx-cloud?replicaSet=rs0'
 
-saml_entry_point = 'https://' + ts_host + ':8443/application/saml/nx-cloud/sso/binding/redirect/' if ts_host else ''
+# ponytail: frontend throws SAML_NO_CERT_ERROR at boot if entry point is set
+# but cert isn't — keep both empty together until nx_cloud_saml_cert is real.
+saml_entry_point = 'https://' + ts_host + ':8443/application/saml/nx-cloud/sso/binding/redirect/' if (ts_host and nx_cloud_saml_cert) else ''
 nx_cloud_app_url = 'https://' + ts_host + ':8454' if ts_host else 'https://nx-cloud.local'
 
 # ponytail: S3 creds NOT in this Secret — passed as plain Deployment env via helm set below.

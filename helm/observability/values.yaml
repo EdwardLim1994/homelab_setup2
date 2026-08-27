@@ -167,14 +167,42 @@ tempo:
 
 # ── Mimir ─────────────────────────────────────────────────────────────────────
 mimir-distributed:
+  # ponytail: chart defaults to ingest-storage architecture (Kafka between
+  # distributor and ingester) — one more stateful thing to babysit for no
+  # benefit on a single-node homelab. Classic push-based ingesters instead.
+  kafka:
+    enabled: false
+
   mimir:
     structuredConfig:
       multitenancy_enabled: false
+      # ponytail: usage-stats reporter defaults to its own S3 bucket client
+      # regardless of common.storage.backend — fails hard with no S3 endpoint
+      # configured. No need for anonymous telemetry on a homelab anyway.
+      usage_stats:
+        enabled: false
       common:
         storage:
           backend: filesystem
           filesystem:
             dir: /data
+      # ponytail: chart's base config hardcodes blocks_storage.backend: s3
+      # (for its bundled minio demo) — component-specific config always wins
+      # over `common`, so filesystem must be set here explicitly too.
+      blocks_storage:
+        backend: filesystem
+        # ponytail: must differ from tsdb.dir (chart default /data/tsdb) —
+        # filesystem.dir is the simulated "bucket", tsdb.dir is local WAL/head.
+        filesystem:
+          dir: /data/blocks
+      # ponytail: chart default compactor.data_dir is "/data", which is a
+      # parent of blocks_storage.filesystem.dir above — must be a sibling.
+      compactor:
+        data_dir: /data/compactor
+      ingest_storage:
+        enabled: false
+      ingester:
+        push_grpc_method_enabled: true
 
   # ponytail: single replicas throughout — no HA, no zone awareness.
   # The rollout_operator and zone-aware replication exist for production
