@@ -1,0 +1,37 @@
+---
+name: <%= fileName %>-service
+description: Work on the <%= className %> NestJS REST API (apps/<%= fileName %>). USE WHEN adding or changing controllers, routes, DTOs, or services, or running/debugging this API.
+---
+
+# <%= className %> REST API
+
+Location: `apps/<%= fileName %>`. Stock NestJS HTTP application (`nest new` defaults).
+
+## Layout
+
+- `src/main.ts` — HTTP bootstrap (`PORT` env, default 3000).
+- `src/app.module.ts` — root module; register feature modules here.
+- `src/app.controller.ts` / `src/app.service.ts` — the sample route + logic.
+
+## Adding a resource
+
+Use the Nest CLI from inside the project:
+
+```bash
+cd apps/<%= fileName %>
+nest g resource <name> --no-spec=false
+```
+
+That generates a module, controller, service, DTOs, and entity stub. Then import
+the module in `app.module.ts` if the CLI didn't. Keep controllers thin — validation
+via `class-validator` DTOs + a global `ValidationPipe`, logic in services.
+
+## Running
+
+```bash
+nx serve <%= fileName %>      # nest start --watch
+nx build <%= fileName %>
+nx test <%= fileName %>
+```
+
+Deps are not installed by the generator — run `npm install` in `apps/<%= fileName %>` first.

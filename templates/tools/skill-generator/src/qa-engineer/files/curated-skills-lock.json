@@ -1,0 +1,35 @@
+{
+	"version": 1,
+	"skills": {
+		"debugging-wizard": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/debugging-wizard/SKILL.md",
+			"computedHash": "7c578adb7a39ff6c4018f87055e4191e965c5e440119116914efd86318646a69"
+		},
+		"monitoring-expert": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/monitoring-expert/SKILL.md",
+			"computedHash": "7dd714ccb8f39bb9885cc5cc08768e50c6886e841c6e134d761f1bc0eafc3314"
+		},
+		"playwright-expert": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/playwright-expert/SKILL.md",
+			"computedHash": "3718cb4e6c11f8875f94f78924652dccdd397bf093dddda8eab2589f3edf6e03"
+		},
+		"spec-miner": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/spec-miner/SKILL.md",
+			"computedHash": "26142fd358a934651f5370b4ab616bde9e4a6034f78eac60f42a8164f61d6f01"
+		},
+		"test-master": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/test-master/SKILL.md",
+			"computedHash": "4ebd69e573e2a5596703340810e734505f102a76062cf836303758addea17cbd"
+		}
+	}
+}

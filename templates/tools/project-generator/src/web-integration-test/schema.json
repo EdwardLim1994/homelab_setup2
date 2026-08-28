@@ -1,0 +1,28 @@
+{
+	"$schema": "https://json-schema.org/schema",
+	"$id": "WebIntegrationTest",
+	"title": "Generate a Playwright web integration test project (headless)",
+	"type": "object",
+	"properties": {
+		"name": {
+			"type": "string",
+			"description": "Project name (also the directory under apps/).",
+			"$default": {
+				"$source": "argv",
+				"index": 0
+			},
+			"x-prompt": "What name would you like to use?"
+		},
+		"directory": {
+			"type": "string",
+			"description": "Parent directory for the project.",
+			"default": "apps"
+		},
+		"curatedSkills": {
+			"type": "boolean",
+			"description": "Add the bundled test skills to .opencode/skills/.",
+			"default": true
+		}
+	},
+	"required": ["name"]
+}

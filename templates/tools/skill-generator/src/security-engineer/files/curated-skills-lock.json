@@ -1,0 +1,23 @@
+{
+	"version": 1,
+	"skills": {
+		"secure-code-guardian": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/secure-code-guardian/SKILL.md",
+			"computedHash": "f140b4582963766a374047e417792459f19f7964dd7aa5b76c5ca3cadcd6fdf9"
+		},
+		"security-reviewer": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/security-reviewer/SKILL.md",
+			"computedHash": "cca56045dd49c756546d74d46034c91be2159875e358050d40c7d1905700e8fd"
+		},
+		"spec-miner": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/spec-miner/SKILL.md",
+			"computedHash": "26142fd358a934651f5370b4ab616bde9e4a6034f78eac60f42a8164f61d6f01"
+		}
+	}
+}

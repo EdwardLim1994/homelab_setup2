@@ -1,0 +1,41 @@
+{
+	"version": 1,
+	"skills": {
+		"database-optimizer": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/database-optimizer/SKILL.md",
+			"computedHash": "68cf96c6db0436f5a98b72cfa976ba583c87495a409b7bcb414a7c49ad5955d1"
+		},
+		"debugging-wizard": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/debugging-wizard/SKILL.md",
+			"computedHash": "7c578adb7a39ff6c4018f87055e4191e965c5e440119116914efd86318646a69"
+		},
+		"nestjs-expert": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/nestjs-expert/SKILL.md",
+			"computedHash": "ad9fa965c867945f974d631ee290691f6ff14bf930390ca30e61679c8d854e4e"
+		},
+		"sql-pro": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/sql-pro/SKILL.md",
+			"computedHash": "9e885b2dde7c91ec9026191e1f5b2c6216d28ed14b13dfc830c7721c15a89012"
+		},
+		"test-master": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/test-master/SKILL.md",
+			"computedHash": "4ebd69e573e2a5596703340810e734505f102a76062cf836303758addea17cbd"
+		},
+		"typescript-pro": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/typescript-pro/SKILL.md",
+			"computedHash": "c6fb76eac620470f63ad24e3b35760f12624072f75d5b43b4f00bb9961f08bec"
+		}
+	}
+}

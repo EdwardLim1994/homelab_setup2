@@ -1,0 +1,17 @@
+{
+	"version": 1,
+	"skills": {
+		"playwright-expert": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/playwright-expert/SKILL.md",
+			"computedHash": "3718cb4e6c11f8875f94f78924652dccdd397bf093dddda8eab2589f3edf6e03"
+		},
+		"test-master": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/test-master/SKILL.md",
+			"computedHash": "4ebd69e573e2a5596703340810e734505f102a76062cf836303758addea17cbd"
+		}
+	}
+}

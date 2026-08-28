@@ -1,0 +1,19 @@
+{
+	"$schema": "https://json-schema.org/schema",
+	"$id": "BackendDeveloper",
+	"title": "Install the backend-developer agent skills",
+	"type": "object",
+	"properties": {
+		"roleSkill": {
+			"type": "boolean",
+			"description": "Install the backend-developer SKILL.md.",
+			"default": true
+		},
+		"curatedSkills": {
+			"type": "boolean",
+			"description": "Install the supporting skill pack.",
+			"default": true
+		}
+	},
+	"required": []
+}

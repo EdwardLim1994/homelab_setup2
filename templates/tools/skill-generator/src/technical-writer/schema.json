@@ -1,0 +1,19 @@
+{
+	"$schema": "https://json-schema.org/schema",
+	"$id": "TechnicalWriter",
+	"title": "Install the technical-writer agent skills",
+	"type": "object",
+	"properties": {
+		"roleSkill": {
+			"type": "boolean",
+			"description": "Install the technical-writer SKILL.md.",
+			"default": true
+		},
+		"curatedSkills": {
+			"type": "boolean",
+			"description": "Install the supporting skill pack.",
+			"default": true
+		}
+	},
+	"required": []
+}

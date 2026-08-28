@@ -1,0 +1,33 @@
+{
+	"$schema": "https://json-schema.org/schema",
+	"$id": "NestGraphql",
+	"title": "Generate a new NestJS code-first GraphQL server",
+	"type": "object",
+	"properties": {
+		"name": {
+			"type": "string",
+			"description": "Project name (also the app directory under apps/).",
+			"$default": {
+				"$source": "argv",
+				"index": 0
+			},
+			"x-prompt": "What name would you like to use?"
+		},
+		"directory": {
+			"type": "string",
+			"description": "Parent directory for the app.",
+			"default": "apps"
+		},
+		"skill": {
+			"type": "boolean",
+			"description": "Generate a per-service agent skill under .opencode/skills/.",
+			"default": true
+		},
+		"curatedSkills": {
+			"type": "boolean",
+			"description": "Add the bundled third-party skills (nestjs-expert, typescript-pro, debugging-wizard, test-master) to .opencode/skills/.",
+			"default": true
+		}
+	},
+	"required": ["name"]
+}

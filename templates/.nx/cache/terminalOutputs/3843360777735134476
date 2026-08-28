@@ -1,0 +1,48 @@
+[1m[33mThe `@nx/vitest:test` executor is deprecated and will be removed in Nx v24. Run `nx g @nx/vitest:convert-to-inferred` to migrate to the `@nx/vitest/plugin` inferred targets. See https://nx.dev/docs/guides/tasks--caching/convert-to-inferred for details.[39m[22m
+[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - `__dirname` (tools/skill-generator/vitest.config.mts:6:8). Use `import.meta.dirname` instead
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.[39m
+[1m[33mThe `nxViteTsPaths` plugin from `@nx/vite/plugins/nx-tsconfig-paths.plugin` is deprecated and will be removed in Nx v24. Replace it with `tsconfigPaths()` from the `vite-tsconfig-paths` package. See https://nx.dev/docs/technologies/build-tools/vite/guides/configure-vite for details.[39m[22m
+[1m[33mThe `nxCopyAssetsPlugin` plugin from `@nx/vite/plugins/nx-copy-assets.plugin` is deprecated and will be removed in Nx v24. Use Vite's native `publicDir` option or the `vite-plugin-static-copy` package instead. See https://nx.dev/docs/technologies/build-tools/vite/guides/configure-vite for details.[39m[22m
+[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - `__dirname` (vitest.config.mts:6:8). Use `import.meta.dirname` instead
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.[39m
+
+ RUN  v4.1.11 C:/Users/User/Desktop/projects/homelab_setup2/templates/tools/skill-generator
+
+ [32m✓[39m |skill-generator| src/product-owner/product-owner.spec.ts (2 tests) 511ms
+     ✓ installs the product-owner skills  485ms
+ [32m✓[39m |skill-generator| src/project-manager/project-manager.spec.ts (2 tests) 609ms
+     ✓ installs the project-manager skills  574ms
+ [32m✓[39m |skill-generator| src/release-manager/release-manager.spec.ts (2 tests) 649ms
+     ✓ installs the release-manager skills  614ms
+ [32m✓[39m |skill-generator| src/frontend-developer/frontend-developer.spec.ts (2 tests) 798ms
+     ✓ installs the frontend-developer skills  762ms
+ [32m✓[39m |skill-generator| src/backend-developer/backend-developer.spec.ts (2 tests) 809ms
+     ✓ installs the backend-developer skills  774ms
+ [32m✓[39m |skill-generator| src/technical-writer/technical-writer.spec.ts (2 tests) 1993ms
+     ✓ installs the technical-writer skills  1961ms
+ [32m✓[39m |skill-generator| src/security-engineer/security-engineer.spec.ts (2 tests) 2166ms
+     ✓ installs the security-engineer skills  2130ms
+ [32m✓[39m |skill-generator| src/react-native-developer/react-native-developer.spec.ts (2 tests) 3020ms
+     ✓ installs the react-native-developer skills  2999ms
+ [32m✓[39m |skill-generator| src/data-engineer/data-engineer.spec.ts (2 tests) 3355ms
+     ✓ installs the data-engineer skills  3334ms
+ [32m✓[39m |skill-generator| src/react-developer/react-developer.spec.ts (2 tests) 3397ms
+     ✓ installs the react-developer skills  3373ms
+ [32m✓[39m |skill-generator| src/qa-engineer/qa-engineer.spec.ts (2 tests) 3489ms
+     ✓ installs the qa-engineer skills  3466ms
+ [32m✓[39m |skill-generator| src/solution-architect/solution-architect.spec.ts (2 tests) 3537ms
+     ✓ installs the solution-architect skills  3524ms
+ [32m✓[39m |skill-generator| src/devops-engineer/devops-engineer.spec.ts (2 tests) 3674ms
+     ✓ installs the devops-engineer skills  3663ms
+ [32m✓[39m |skill-generator| src/uiux-designer/uiux-designer.spec.ts (2 tests) 3796ms
+     ✓ installs the uiux-designer skills  3778ms
+ [32m✓[39m |skill-generator| src/tech-lead/tech-lead.spec.ts (2 tests) 3892ms
+     ✓ installs the tech-lead skills  3877ms
+
+ Test Files  15 passed (15)
+      Tests  30 passed (30)
+   Start at  19:41:43
+   Duration  24.71s (transform 2.44s, setup 0ms, import 43.04s, tests 35.70s, environment 254.19s)
+

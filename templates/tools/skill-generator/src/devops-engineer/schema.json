@@ -1,0 +1,19 @@
+{
+	"$schema": "https://json-schema.org/schema",
+	"$id": "DevopsEngineer",
+	"title": "Install the devops-engineer agent skills",
+	"type": "object",
+	"properties": {
+		"roleSkill": {
+			"type": "boolean",
+			"description": "Install the devops-engineer SKILL.md.",
+			"default": true
+		},
+		"curatedSkills": {
+			"type": "boolean",
+			"description": "Install the supporting skill pack.",
+			"default": true
+		}
+	},
+	"required": []
+}

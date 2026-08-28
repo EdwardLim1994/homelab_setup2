@@ -1,0 +1,26 @@
+# <%= className %> web integration tests
+
+Browser integration tests with [Playwright](https://playwright.dev). Headless by
+default (`use.headless: true`), Chromium only out of the box.
+
+## Setup
+
+```bash
+cd <%= fileName %>
+npm install
+npx playwright install chromium   # one-time browser download
+cp .env.example .env              # or export BASE_URL
+```
+
+## Running
+
+```bash
+nx test <%= fileName %>           # headless
+npm run test:headed               # watch it drive the browser
+npm run test:ui                   # Playwright UI mode
+npm run report                    # open the last HTML report
+```
+
+Point `BASE_URL` at the environment under test. Uncomment the `webServer` block
+in `playwright.config.ts` to have Playwright start the app itself. Nx does not
+cache this target.

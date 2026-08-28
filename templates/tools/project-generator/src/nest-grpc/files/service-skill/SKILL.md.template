@@ -1,0 +1,34 @@
+---
+name: <%= fileName %>-service
+description: Work on the <%= className %> NestJS gRPC microservice (apps/<%= fileName %>). USE WHEN adding or changing RPC methods, editing the .proto contract, or running/debugging this service.
+---
+
+# <%= className %> gRPC service
+
+Location: `apps/<%= fileName %>`. NestJS microservice, `Transport.GRPC`.
+
+## Layout
+
+- `proto/<%= fileName %>.proto` — the wire contract. Package `<%= propertyName %>`, service `<%= className %>`.
+- `src/main.ts` — bootstraps the gRPC microservice (`GRPC_URL` env, default `0.0.0.0:5000`).
+- `src/app.controller.ts` — RPC handlers, one `@GrpcMethod('<%= className %>', '<Rpc>')` per proto `rpc`.
+- `src/app.service.ts` — business logic the handlers call.
+- `nest-cli.json` — copies `proto/**/*.proto` into `dist/` on build.
+
+## Adding an RPC
+
+1. Add the `rpc` plus its request/response `message`s to `proto/<%= fileName %>.proto`.
+2. Add a matching handler in `src/app.controller.ts` decorated
+   `@GrpcMethod('<%= className %>', '<RpcName>')`. The method name may be camelCase;
+   the decorator's second arg must match the proto `rpc` name exactly.
+3. Keep request/response shapes as plain interfaces that mirror the proto messages.
+
+## Running
+
+```bash
+nx serve <%= fileName %>      # nest start --watch
+nx build <%= fileName %>
+nx test <%= fileName %>
+```
+
+Deps are not installed by the generator — run `npm install` in `apps/<%= fileName %>` first.

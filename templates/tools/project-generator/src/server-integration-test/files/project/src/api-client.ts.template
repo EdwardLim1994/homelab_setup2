@@ -1,0 +1,51 @@
+export interface ApiResponse<T = unknown> {
+  status: number;
+  headers: Headers;
+  body: T;
+}
+
+/** Thin `fetch` wrapper: absolute URLs from a base, JSON in/out, never throws on non-2xx. */
+export interface ApiClient {
+  request<T = unknown>(method: string, path: string, init?: RequestInit): Promise<ApiResponse<T>>;
+  get<T = unknown>(path: string, init?: RequestInit): Promise<ApiResponse<T>>;
+  post<T = unknown>(path: string, body?: unknown, init?: RequestInit): Promise<ApiResponse<T>>;
+  put<T = unknown>(path: string, body?: unknown, init?: RequestInit): Promise<ApiResponse<T>>;
+  patch<T = unknown>(path: string, body?: unknown, init?: RequestInit): Promise<ApiResponse<T>>;
+  delete<T = unknown>(path: string, init?: RequestInit): Promise<ApiResponse<T>>;
+}
+
+export function createApiClient(baseUrl: string, defaults: RequestInit = {}): ApiClient {
+  const base = baseUrl.replace(/\/+$/, '');
+
+  async function request<T>(method: string, path: string, init: RequestInit = {}): Promise<ApiResponse<T>> {
+    const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
+    const res = await fetch(url, {
+      ...defaults,
+      ...init,
+      method,
+      headers: { ...defaults.headers, ...init.headers },
+    });
+    const text = await res.text();
+    const isJson = (res.headers.get('content-type') ?? '').includes('application/json');
+    const body = isJson && text ? JSON.parse(text) : text;
+    return { status: res.status, headers: res.headers, body: body as T };
+  }
+
+  const withJson = (body: unknown, init: RequestInit): RequestInit =>
+    body === undefined
+      ? init
+      : {
+          ...init,
+          body: JSON.stringify(body),
+          headers: { 'content-type': 'application/json', ...init.headers },
+        };
+
+  return {
+    request,
+    get: (path, init) => request('GET', path, init),
+    post: (path, body, init) => request('POST', path, withJson(body, init ?? {})),
+    put: (path, body, init) => request('PUT', path, withJson(body, init ?? {})),
+    patch: (path, body, init) => request('PATCH', path, withJson(body, init ?? {})),
+    delete: (path, init) => request('DELETE', path, init),
+  };
+}

@@ -1,0 +1,48 @@
+{
+	"name": "project-generator",
+	"$schema": "../../node_modules/nx/schemas/project-schema.json",
+	"sourceRoot": "tools/project-generator/src",
+	"projectType": "library",
+	"tags": [],
+	"targets": {
+		"build": {
+			"executor": "@nx/js:tsc",
+			"outputs": ["{options.outputPath}"],
+			"options": {
+				"outputPath": "dist/tools/project-generator",
+				"main": "tools/project-generator/src/index.ts",
+				"tsConfig": "tools/project-generator/tsconfig.lib.json",
+				"assets": [
+					"tools/project-generator/*.md",
+					{
+						"input": "./tools/project-generator/src",
+						"glob": "**/!(*.ts)",
+						"output": "./src"
+					},
+					{
+						"input": "./tools/project-generator/src",
+						"glob": "**/*.d.ts",
+						"output": "./src"
+					},
+					{
+						"input": "./tools/project-generator",
+						"glob": "generators.json",
+						"output": "."
+					},
+					{
+						"input": "./tools/project-generator",
+						"glob": "executors.json",
+						"output": "."
+					}
+				]
+			}
+		},
+		"test": {
+			"executor": "@nx/vitest:test",
+			"outputs": ["{options.reportsDirectory}"],
+			"options": {
+				"reportsDirectory": "coverage/tools/project-generator"
+			}
+		}
+	}
+}

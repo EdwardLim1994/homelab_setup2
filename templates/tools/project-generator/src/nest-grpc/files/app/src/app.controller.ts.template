@@ -1,0 +1,17 @@
+import { Controller } from '@nestjs/common';
+import { GrpcMethod } from '@nestjs/microservices';
+import { AppService } from './app.service';
+
+interface HelloRequest {
+  name: string;
+}
+
+@Controller()
+export class AppController {
+  constructor(private readonly appService: AppService) {}
+
+  @GrpcMethod('<%= className %>', 'Hello')
+  hello({ name }: HelloRequest): { message: string } {
+    return { message: this.appService.hello(name) };
+  }
+}

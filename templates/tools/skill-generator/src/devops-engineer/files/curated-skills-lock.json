@@ -1,0 +1,35 @@
+{
+	"version": 1,
+	"skills": {
+		"cloud-architect": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/cloud-architect/SKILL.md",
+			"computedHash": "78a785e1fa0e5481b8caebd5feee12773ba47afb08e3422f8f3444a9362d0e2d"
+		},
+		"devops-engineer": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/devops-engineer/SKILL.md",
+			"computedHash": "843a76090e22b577181bbdcd041046c0efdab3fa8e3d2c0264ce3330c97dee02"
+		},
+		"kubernetes-specialist": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/kubernetes-specialist/SKILL.md",
+			"computedHash": "7a8183bfb9230dc6800b911470d0ac8b8aefe77518f74f75b268e6f49afa58da"
+		},
+		"spec-miner": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/spec-miner/SKILL.md",
+			"computedHash": "26142fd358a934651f5370b4ab616bde9e4a6034f78eac60f42a8164f61d6f01"
+		},
+		"terraform-engineer": {
+			"source": "jeffallan/claude-skills",
+			"sourceType": "github",
+			"skillPath": "skills/terraform-engineer/SKILL.md",
+			"computedHash": "4b75cf4338a1e4dd7533d77d40982c47da362ecd41b9dfc0e25b0c3a661329fe"
+		}
+	}
+}

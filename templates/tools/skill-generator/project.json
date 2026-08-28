@@ -1,0 +1,48 @@
+{
+	"name": "skill-generator",
+	"$schema": "../../node_modules/nx/schemas/project-schema.json",
+	"sourceRoot": "tools/skill-generator/src",
+	"projectType": "library",
+	"tags": [],
+	"targets": {
+		"build": {
+			"executor": "@nx/js:tsc",
+			"outputs": ["{options.outputPath}"],
+			"options": {
+				"outputPath": "dist/tools/skill-generator",
+				"main": "tools/skill-generator/src/index.ts",
+				"tsConfig": "tools/skill-generator/tsconfig.lib.json",
+				"assets": [
+					"tools/skill-generator/*.md",
+					{
+						"input": "./tools/skill-generator/src",
+						"glob": "**/!(*.ts)",
+						"output": "./src"
+					},
+					{
+						"input": "./tools/skill-generator/src",
+						"glob": "**/*.d.ts",
+						"output": "./src"
+					},
+					{
+						"input": "./tools/skill-generator",
+						"glob": "generators.json",
+						"output": "."
+					},
+					{
+						"input": "./tools/skill-generator",
+						"glob": "executors.json",
+						"output": "."
+					}
+				]
+			}
+		},
+		"test": {
+			"executor": "@nx/vitest:test",
+			"outputs": ["{options.reportsDirectory}"],
+			"options": {
+				"reportsDirectory": "coverage/tools/skill-generator"
+			}
+		}
+	}
+}

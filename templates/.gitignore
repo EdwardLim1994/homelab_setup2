@@ -1,0 +1,10 @@
+.nx/polygraph
+.claude/worktrees
+.claude/settings.local.json
+vitest.config.*.timestamp*
+
+/**/*/dist
+/**/*/tmp
+
+dist
+tmp

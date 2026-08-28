@@ -1,0 +1,19 @@
+import { beforeAll } from 'vitest';
+import { config } from '../src/config';
+
+// Fail the whole run fast with a clear message if a target API is down, rather
+// than letting every test time out.
+beforeAll(async () => {
+  await Promise.all(
+    Object.entries(config.services).map(async ([name, url]) => {
+      try {
+        await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5_000) });
+      } catch (cause) {
+        throw new Error(
+          `API "${name}" is not reachable at ${url}. Start the service or set its env var.`,
+          { cause },
+        );
+      }
+    }),
+  );
+});

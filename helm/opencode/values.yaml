@@ -1,0 +1,35 @@
+# ponytail: one Deployment + Service + PVC. No HPA, no ServiceAccount, no
+# Ingress until something needs them.
+image: opencode-box:dev
+
+# ponytail: scale-to-zero by default = "waked on demand". Wake it with
+#   kubectl -n opencode scale deploy/opencode --replicas=1
+# and let it idle back to 0 (cron, or by hand). Swap in KEDA http-add-on
+# only if you want an inbound request to trigger the wake.
+replicas: 0
+
+# ponytail: keep `port` and args `--port` in sync — single knob not worth
+# templating across two files.
+port: 4096
+command: ["opencode"]
+args: ["serve", "--hostname", "0.0.0.0", "--port", "4096"]
+
+env: {}
+
+persistence:
+  enabled: true
+  size: 20Gi
+
+# ponytail: mount the host's docker socket instead of running a dind daemon
+# in-pod (no privileged container). Switch to sysbox/dind if you need real
+# isolation between this pod and the host's other containers.
+dockerSocket:
+  enabled: true
+  hostPath: /var/run/docker.sock
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    memory: 2Gi
