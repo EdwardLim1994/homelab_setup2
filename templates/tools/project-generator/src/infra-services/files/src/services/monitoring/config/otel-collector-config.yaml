@@ -1,0 +1,44 @@
+receivers:
+  otlp:
+    protocols:
+      # This is the address every server's OtelPlugin (packages/server) and, eventually, the
+      # React web app point at (OTEL_EXPORTER_OTLP_ENDPOINT) — the single OTLP ingress for this
+      # whole stack.
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+
+  # Loki's native OTLP log endpoint is POST /otlp/v1/logs — the otlphttp exporter appends
+  # /v1/<signal> to whatever "endpoint" is configured, so this must be the bare /otlp prefix, not
+  # the full path, and this exporter must only be used in the logs pipeline (it would otherwise
+  # also try posting traces/metrics to paths Loki doesn't have).
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheusremotewrite]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/loki]

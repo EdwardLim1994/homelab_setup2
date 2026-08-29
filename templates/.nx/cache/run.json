@@ -1,18 +1,18 @@
 {
   "run": {
-    "command": "nx build skill-generator --skip-nx-cache",
-    "startTime": "2026-08-28T11:42:16.352Z",
-    "endTime": "2026-08-28T11:42:19.197Z",
+    "command": "nx test project-generator --skip-nx-cache",
+    "startTime": "2026-08-29T10:13:43.429Z",
+    "endTime": "2026-08-29T10:14:02.624Z",
     "inner": false
   },
   "tasks": [
     {
-      "taskId": "skill-generator:build",
-      "target": "build",
-      "projectName": "skill-generator",
-      "hash": "6854993840042474788",
-      "startTime": "2026-08-28T11:42:16.364Z",
-      "endTime": "2026-08-28T11:42:19.191Z",
+      "taskId": "project-generator:test",
+      "target": "test",
+      "projectName": "project-generator",
+      "hash": "8170354462933979077",
+      "startTime": "2026-08-29T10:13:43.447Z",
+      "endTime": "2026-08-29T10:14:02.611Z",
       "params": "",
       "cacheStatus": "cache-miss",
       "status": 0

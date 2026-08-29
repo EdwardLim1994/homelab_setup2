@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unleash
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "unleash.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "unleash.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "unleash.labels" . | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      # Waits on the bundled Postgres the same way authentik's server/worker wait on
+      # authentik-postgresql — Unleash doesn't retry a refused DB connection on boot, it just
+      # crashes.
+      initContainers:
+        - name: wait-for-unleash-postgresql
+          image: postgres:17-alpine
+          command: ["sh", "-c", "until pg_isready -h unleash-postgresql -p 5432 -U {{ .Values.postgresql.auth.username }}; do sleep 2; done"]
+      containers:
+        - name: unleash
+          image: "{{ .Values.image }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 512Mi
+          ports:
+            - name: http
+              containerPort: 4242
+          envFrom:
+            - secretRef:
+                name: unleash-secret
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20

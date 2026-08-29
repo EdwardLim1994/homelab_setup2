@@ -1,0 +1,52 @@
+namespace: infra
+
+prometheus:
+  image: prom/prometheus:v3.1.0
+  persistence:
+    size: 5Gi
+
+loki:
+  image: grafana/loki:3.3.2
+  persistence:
+    size: 5Gi
+
+alloy:
+  image: grafana/alloy:v1.5.1
+
+tempo:
+  image: grafana/tempo:2.6.1
+  persistence:
+    size: 5Gi
+
+grafana:
+  image: grafana/grafana-oss:11.4.0
+  adminUser: admin
+  adminPassword: admin
+  persistence:
+    size: 1Gi
+  # Native OIDC login against Authentik (https://integrations.goauthentik.io/grafana) — must
+  # match services/authentik/helm/values.yaml's grafanaOidcClientSecret.
+  oidcClientSecret: grafanaoidcclientsecret
+  # Grafana's own redirect_uri is always "<rootUrl>/login/generic_oauth" — must be one of the
+  # registered entries on the Authentik side (see the blueprint's grafana-provider redirect_uris).
+  # https + :8443 because traefik's default TLS cert (services/traefik/helm/values.yaml's
+  # tlsStore) now covers grafana.lan — switch to grafana.localhost (no port) for same-machine
+  # access once the `kubectl port-forward -n infra svc/traefik --address 0.0.0.0 8080:80
+  # 8443:443` LAN path is no longer running.
+  rootUrl: https://grafana.lan:8443/
+  # Where Grafana redirects the *browser* to log in — must stay reachable from wherever the
+  # browser actually is, which is why this (unlike TOKEN_URL/API_URL in grafana-secret.yaml,
+  # backend-to-backend calls that go straight to authentik-server's in-cluster Service DNS name,
+  # unaffected by how the browser got here) is its own values field: see values-tailscale.yaml
+  # for the override used when accessing Grafana through scripts/port-forward.sh from another
+  # device instead of the LAN.
+  authUrl: https://authentik.lan:8443/application/o/authorize/
+
+otelCollector:
+  image: otel/opentelemetry-collector-contrib:0.116.1
+
+nodeExporter:
+  image: prom/node-exporter:v1.8.2
+
+kubeStateMetrics:
+  image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0

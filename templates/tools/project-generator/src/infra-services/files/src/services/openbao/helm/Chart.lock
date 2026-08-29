@@ -1,0 +1,6 @@
+dependencies:
+- name: openbao
+  repository: https://openbao.github.io/openbao-helm
+  version: 0.16.2
+digest: sha256:d3fd735b0f21e0e78bd864c78a698d103e26ee715adde3f0c76c35e3c3e3d11d
+generated: "2026-08-11T19:22:55.4759238+08:00"

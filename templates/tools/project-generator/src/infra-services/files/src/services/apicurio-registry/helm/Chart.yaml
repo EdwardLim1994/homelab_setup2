@@ -1,0 +1,6 @@
+apiVersion: v2
+name: apicurio-registry
+description: Apicurio Registry (in-memory storage) — schema registry, shared infra, deployed independently of any app
+type: application
+version: 0.1.0
+appVersion: "3.0.6"

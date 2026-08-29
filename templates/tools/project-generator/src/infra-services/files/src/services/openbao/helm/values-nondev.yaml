@@ -1,0 +1,9 @@
+# Layered on top of values.yaml for any non-dev apply (services/terraform's
+# `environment != "dev"` — sit, uat, staging, prod).
+openbao:
+  server:
+    dev:
+      enabled: false
+    # standalone.dataStorage defaults to a 10Gi PVC (chart default) — real persistence across
+    # restarts, needed once dev mode (in-memory) is off. k8s-auth-provision-job.yaml's own
+    # "already initialized" branch handles every apply after the first.

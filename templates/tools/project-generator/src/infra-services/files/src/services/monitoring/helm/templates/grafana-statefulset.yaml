@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: grafana
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "grafana.labels" . | nindent 4 }}
+spec:
+  serviceName: grafana
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "grafana.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "grafana.labels" . | nindent 8 }}
+      annotations:
+        # envFrom: secretRef (below) only names the Secret — the pod template itself doesn't
+        # change when the Secret's own content does, so a `helm upgrade` that only edits
+        # grafana-secret.yaml's values (authUrl/rootUrl etc.) silently no-ops: same pod spec
+        # hash, no rollout, old env vars stay live until something else restarts the pod.
+        # Hashing the rendered Secret into an annotation here forces a new pod template hash
+        # (and therefore an actual rollout) whenever it changes — standard Helm idiom.
+        checksum/secret: {{ include (print $.Template.BasePath "/grafana-secret.yaml") . | sha256sum }}
+    spec:
+      enableServiceLinks: false
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
+      containers:
+        - name: grafana
+          image: "{{ .Values.grafana.image }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 512Mi
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: grafana-secret
+          env:
+            # Grafana core ships a Postgres datasource built in but not Redis — this installs the
+            # community redis-datasource plugin at container start (Grafana's own documented
+            # mechanism, https://grafana.com/docs/grafana/latest/setup-grafana/configure-docker/#install-plugins-from-other-sources).
+            #
+            # A GraphQL-via-Infinity-plugin datasource (yesoreyeram-infinity-datasource) was tried
+            # here for querying Apollo Router from Grafana — dropped: clunky query editor (has to
+            # hand-write the full GraphQL body per panel) for something Apollo Router already
+            # serves natively, its own Sandbox playground. See scripts/port-forward.sh instead.
+            - name: GF_INSTALL_PLUGINS
+              value: redis-datasource
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+              subPath: datasources.yaml
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/datasources/payroll.yaml
+              subPath: payroll-datasources.yaml
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+              subPath: dashboards.yaml
+            - name: dashboards-json
+              mountPath: /etc/grafana/provisioning/dashboards/json
+            - name: data
+              mountPath: /var/lib/grafana
+      volumes:
+        - name: provisioning
+          configMap:
+            name: grafana-provisioning
+        - name: dashboards-json
+          configMap:
+            name: grafana-dashboards-json
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.grafana.persistence.size }}

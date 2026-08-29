@@ -1,0 +1,137 @@
+# Declaratively registers a native-OIDC Provider + Application per admin UI this repo puts
+# behind Authentik (minio/grafana) — no ansible/terraform provider needed, the
+# chart applies blueprints on boot. Both now integrate this way (see each entry's own
+# comment for the app-specific wiring); the original shared forward_single/embedded-outpost
+# gate (services/traefik's authentik-forward-auth Middleware) was retired once every app moved to
+# native OIDC.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authentik-proxy-blueprint
+  namespace: {{ .Release.Namespace }}
+data:
+  proxy-apps.yaml: |
+    version: 1
+    metadata:
+      name: proxy-apps
+    entries:
+      # MinIO integrates via native OIDC (https://integrations.goauthentik.io/minio) — it
+      # understands per-user identity and a "policy" claim MinIO maps to its own RBAC. See
+      # services/minio/helm for the client secret + MINIO_IDENTITY_OPENID_* wiring.
+      - model: authentik_providers_oauth2.scopemapping
+        id: minio-policy-mapping
+        identifiers:
+          name: minio-policy-mapping
+        attrs:
+          scope_name: minio
+          description: MinIO policy claim
+          # ponytail: every authenticated user maps to consoleAdmin (single fixed policy) —
+          # switch to a group-based expression (e.g. "minio-readonly" group -> "readonly" policy)
+          # if per-user MinIO permissions are ever needed.
+          expression: "return {'policy': 'consoleAdmin'}"
+      - model: authentik_providers_oauth2.oauth2provider
+        id: minio-provider
+        identifiers:
+          name: minio-provider
+        attrs:
+          client_type: confidential
+          client_id: minio
+          client_secret: {{ .Values.minioOidcClientSecret | quote }}
+          # No signing_key means Authentik falls back to HS256 (client-secret-signed, no "kid"
+          # header) — MinIO's OIDC library insists on RS256 + a JWKS-resolvable kid and fails
+          # with "Invalid kid value <nil>" otherwise.
+          signing_key: !Find [authentik_crypto.certificatekeypair, [managed, "goauthentik.io/crypto/jwt-managed"]]
+          # Defaults to an empty list (no grants allowed at all) — without this the token
+          # endpoint rejects MinIO's authorization_code exchange with a bare "invalid_request",
+          # no more specific error.
+          grant_types:
+            - authorization_code
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+          property_mappings:
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-openid"]]
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-email"]]
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-profile"]]
+            - !KeyOf minio-policy-mapping
+          # One entry per host services/minio/helm's MINIO_IDENTITY_OPENID_REDIRECT_URI might be
+          # pointed at — values-driven (see this chart's own values.yaml's minioRedirectUris) so
+          # an overlay like values-tailscale.yaml can add another host without editing this
+          # template, same as grafana-provider below.
+          redirect_uris:
+            {{- range .Values.minioRedirectUris }}
+            - matching_mode: strict
+              url: {{ . }}
+              redirect_uri_type: authorization
+            {{- end }}
+      - model: authentik_core.application
+        id: minio-app
+        identifiers:
+          slug: minio
+        attrs:
+          name: minio
+          provider: !KeyOf minio-provider
+      # Grafana integrates via native OIDC too (https://integrations.goauthentik.io/grafana),
+      # generic_oauth — see services/monitoring/helm for the client secret + GF_AUTH_GENERIC_OAUTH_*
+      # wiring, and grafana-ingress.yaml for why forward-auth was dropped from grafana.localhost.
+      - model: authentik_providers_oauth2.oauth2provider
+        id: grafana-provider
+        identifiers:
+          name: grafana-provider
+        attrs:
+          client_type: confidential
+          client_id: grafana
+          client_secret: {{ .Values.grafanaOidcClientSecret | quote }}
+          signing_key: !Find [authentik_crypto.certificatekeypair, [managed, "goauthentik.io/crypto/jwt-managed"]]
+          grant_types:
+            - authorization_code
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+          property_mappings:
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-openid"]]
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-email"]]
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-profile"]]
+          # Grafana's redirect_uri is fixed as "<root_url>/login/generic_oauth" (not user
+          # configurable) — one entry per host GF_SERVER_ROOT_URL might be pointed at, values-driven
+          # (see this chart's own values.yaml's grafanaRedirectUris) so an overlay like
+          # values-tailscale.yaml can add another host without editing this template.
+          redirect_uris:
+            {{- range .Values.grafanaRedirectUris }}
+            - matching_mode: strict
+              url: {{ . }}
+              redirect_uri_type: authorization
+            {{- end }}
+      - model: authentik_core.application
+        id: grafana-app
+        identifiers:
+          slug: grafana
+        attrs:
+          name: grafana
+          provider: !KeyOf grafana-provider
+      # Restricts both apps to "authentik Admins" (built-in, akadmin is a member by default)
+      # or "internal-users" members only — an Application with zero access bindings is open to
+      # any authenticated user; adding bindings switches it to allow-listed. policy_engine_mode
+      # defaults to "any" per Application, so either group independently grants access (OR, not
+      # AND). Add non-admin users to "internal-users" via Authentik's own UI (Directory > Groups
+      # > internal-users > Users) — blueprints don't manage group *membership* declaratively here
+      # since that'd mean hardcoding specific users' PKs into checked-in YAML.
+      - model: authentik_core.group
+        id: internal-users-group
+        identifiers:
+          name: internal-users
+        attrs: {}
+      {{- range tuple "minio" "grafana" }}
+      - model: authentik_policies.policybinding
+        id: {{ . }}-access-admins
+        identifiers:
+          target: !KeyOf {{ . }}-app
+          group: !Find [authentik_core.group, [name, "authentik Admins"]]
+        attrs:
+          order: 0
+      - model: authentik_policies.policybinding
+        id: {{ . }}-access-internal-users
+        identifiers:
+          target: !KeyOf {{ . }}-app
+          group: !KeyOf internal-users-group
+        attrs:
+          order: 1
+      {{- end }}

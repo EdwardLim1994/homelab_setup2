@@ -1,0 +1,22 @@
+namespace: infra
+
+image: unleashorg/unleash-server:8.1.0
+
+# No ingress — Unleash OSS has no native OIDC/SSO login (that's an enterprise-only feature), and
+# this repo has no precedent for gating an app via Traefik forward-auth (see apicurio-registry,
+# same situation: internal Service only, reach it with `kubectl port-forward` when needed).
+# Revisit if the admin UI needs LAN/browser access.
+
+# dev mode: bitnami's bundled Postgres has no TLS listener by default — same story as
+# authentik's own dev default. values-nondev.yaml flips this once the bundled Postgres actually
+# offers TLS.
+databaseSsl: false
+
+postgresql:
+  auth:
+    username: unleash
+    password: unleashpostgrespassword
+    database: unleash
+  primary:
+    persistence:
+      size: 1Gi

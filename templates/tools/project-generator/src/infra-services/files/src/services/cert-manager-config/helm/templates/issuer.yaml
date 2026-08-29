@@ -1,0 +1,15 @@
+# Namespaced Issuer, not ClusterIssuer — every app here already lives in one shared "infra"
+# namespace (see services/*/helm/values.yaml's `namespace: infra`), so there's no cross-namespace
+# case to support and ClusterIssuer's extra `--cluster-resource-namespace` wiring would be dead
+# weight.
+#
+# cert-manager's own built-in selfSigned type — Vault's PKI-backed Issuer (root+intermediate CA,
+# Kubernetes-auth/root-token plumbing to reach it) was removed along with the rest of Vault; this
+# needs no auth at all, and dev/non-dev no longer differ.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: {{ .Values.namespace }}
+spec:
+  selfSigned: {}

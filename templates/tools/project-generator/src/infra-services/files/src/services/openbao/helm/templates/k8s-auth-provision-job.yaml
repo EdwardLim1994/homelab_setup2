@@ -1,0 +1,49 @@
+# Enables OpenBao's kubernetes auth method, mounts a KV v2 engine at "secret/", and writes ONE
+# shared role + ONE identity-templated policy scoping every apps/servers/* pod to only its own
+# secret/data/servers/<its-own-ServiceAccount-name>/* path — see files/k8s-auth-provision.sh for
+# the full mechanics and why one templated policy replaces per-server provisioning entirely.
+#
+# hook-weight -5: after openbao-init-job.yaml (-10, needs a real root token in non-dev) but before
+# anything that expects this role/policy to already exist.
+#
+# No RBAC needed for this Job's own ServiceAccount beyond the default — unlike the old
+# services/vault chart's provisioning jobs (which used kubectl to patch app Secrets/roll
+# Deployments), this one only ever talks to OpenBao's own HTTP API.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: openbao-k8s-auth-provision
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: Never
+      {{- if not .Values.openbao.server.dev.enabled }}
+      serviceAccountName: openbao-init
+      automountServiceAccountToken: true
+      {{- else }}
+      automountServiceAccountToken: false
+      {{- end }}
+      containers:
+        - name: k8s-auth-provision
+          image: "quay.io/openbao/openbao:{{ trimPrefix "v" .Chart.AppVersion }}"
+          env:
+            - name: BAO_ADDR
+              value: "http://openbao:8200"
+            {{- if .Values.openbao.server.dev.enabled }}
+            - name: BAO_TOKEN
+              value: {{ .Values.openbao.server.dev.devRootToken | quote }}
+            {{- else }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+            {{- end }}
+          command:
+            - sh
+            - -c
+            - |
+              {{ .Files.Get "files/k8s-auth-provision.sh" | nindent 14 }}

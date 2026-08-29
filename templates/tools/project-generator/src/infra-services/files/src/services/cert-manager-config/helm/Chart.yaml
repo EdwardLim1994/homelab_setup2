@@ -1,0 +1,5 @@
+apiVersion: v2
+name: cert-manager-config
+description: cert-manager's Issuer + Certificate for traefik — separate release from services/cert-manager so the CRDs are already established by the time these apply (same-release CRD-then-CR ordering races the API server)
+type: application
+version: 0.1.0

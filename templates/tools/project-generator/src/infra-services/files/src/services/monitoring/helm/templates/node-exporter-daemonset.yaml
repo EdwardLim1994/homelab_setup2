@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "nodeExporter.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "nodeExporter.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nodeExporter.labels" . | nindent 8 }}
+    spec:
+      hostNetwork: true
+      hostPID: true
+      automountServiceAccountToken: false
+      containers:
+        - name: node-exporter
+          image: "{{ .Values.nodeExporter.image }}"
+          args:
+            - --path.rootfs=/host
+          ports:
+            - name: metrics
+              containerPort: 9100
+              hostPort: 9100
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          volumeMounts:
+            - name: rootfs
+              mountPath: /host
+              readOnly: true
+      volumes:
+        - name: rootfs
+          hostPath:
+            path: /

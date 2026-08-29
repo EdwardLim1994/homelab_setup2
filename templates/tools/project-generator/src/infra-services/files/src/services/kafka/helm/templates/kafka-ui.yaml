@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-ui
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kafkaUi.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kafkaUi.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kafkaUi.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: kafka-ui
+          image: "{{ .Values.kafkaUi.image }}"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: KAFKA_CLUSTERS_0_NAME
+              value: kafka
+            - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
+              value: "kafka.{{ .Values.namespace }}.svc.cluster.local:9092"
+            # services/apicurio-registry's Confluent-compatible API — same registry app-side
+            # SCHEMA_REGISTRY_URL clients talk to (see turbo/generators/templates/kafka), assumed
+            # co-located in the same namespace since neither chart parameterizes cross-chart refs.
+            - name: KAFKA_CLUSTERS_0_SCHEMAREGISTRY
+              value: "http://apicurio-registry.{{ .Values.namespace }}.svc.cluster.local:8080/apis/ccompat/v7"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-ui
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kafkaUi.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "kafkaUi.labels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+---
+# No forward-auth/OIDC gate — dev-only topic/message browser, same as ca-distribution.localhost;
+# add Authentik forward-auth (see services/authentik's proxy-blueprint pattern) if this ever needs
+# to be reachable outside a trusted dev cluster.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kafka-ui
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kafkaUi.labels" . | nindent 4 }}
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: kafka-ui.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kafka-ui
+                port:
+                  number: 8080
+    - host: kafka-ui.lan
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kafka-ui
+                port:
+                  number: 8080

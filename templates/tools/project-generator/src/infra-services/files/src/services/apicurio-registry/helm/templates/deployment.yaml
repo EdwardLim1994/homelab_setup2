@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apicurio-registry
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "apicurioRegistry.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "apicurioRegistry.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "apicurioRegistry.labels" . | nindent 8 }}
+    spec:
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
+      containers:
+        - name: apicurio-registry
+          image: "{{ .Values.image }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 512Mi
+          ports:
+            - name: http
+              containerPort: 8080
+          # No APICURIO_STORAGE_KIND set — defaults to in-memory storage, no persistence,
+          # resets on restart. Matches this repo's other dev-default infra (no Postgres/Kafka
+          # backing store wired up here); set it to sql or kafkasql if schemas need to survive restarts.
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20

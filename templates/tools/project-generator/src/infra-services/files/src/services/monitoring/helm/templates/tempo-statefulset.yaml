@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tempo
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "tempo.labels" . | nindent 4 }}
+spec:
+  serviceName: tempo
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "tempo.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tempo.labels" . | nindent 8 }}
+    spec:
+      enableServiceLinks: false
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
+      containers:
+        - name: tempo
+          image: "{{ .Values.tempo.image }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 512Mi
+          args:
+            - -config.file=/etc/tempo/tempo.yaml
+          ports:
+            - name: http
+              containerPort: 3200
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: otlp-http
+              containerPort: 4318
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: config
+              mountPath: /etc/tempo/tempo.yaml
+              subPath: tempo.yaml
+            - name: data
+              mountPath: /var/tempo
+      volumes:
+        - name: config
+          configMap:
+            name: tempo-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.tempo.persistence.size }}

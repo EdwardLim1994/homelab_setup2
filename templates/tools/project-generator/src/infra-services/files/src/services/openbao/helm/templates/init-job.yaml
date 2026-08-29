@@ -1,0 +1,80 @@
+# Prod-only (openbao.server.dev.enabled: false). Dev mode's "-dev" server is always already
+# initialized and unsealed by the image's own entrypoint — this job exists purely for the real
+# file-backed server (standalone mode) that values-nondev.yaml switches to, which boots sealed and
+# uninitialized every first install, and sealed (not uninitialized) again after any pod restart
+# since no auto-unseal is wired up here.
+#
+# hook-weight -10 — must run before k8s-auth-provision-job.yaml (weight -5), which needs a real
+# root token to provision against.
+#
+# Known gap, by design for a cloud-agnostic repo: this is Shamir key-share unsealing, not cloud
+# auto-unseal (AWS/GCP/Azure KMS) — same accepted tradeoff the old services/vault chart made (see
+# git history). If deploying to a specific cloud, replace this job's storage of unseal keys with
+# that cloud's seal stanza in the sub-chart's own `server.extraEnvironmentVars`/config instead.
+{{- if not .Values.openbao.server.dev.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: openbao-init
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: openbao-init
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["openbao-init"]
+    verbs: ["get", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: openbao-init
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: openbao-init
+subjects:
+  - kind: ServiceAccount
+    name: openbao-init
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: openbao-init
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      # Never, not OnFailure — a failed pod sticks around for `kubectl logs` instead of being
+      # replaced in place with nothing left to inspect.
+      restartPolicy: Never
+      serviceAccountName: openbao-init
+      automountServiceAccountToken: true
+      containers:
+        - name: openbao-init
+          image: "quay.io/openbao/openbao:{{ trimPrefix "v" .Chart.AppVersion }}"
+          env:
+            - name: BAO_ADDR
+              value: "http://openbao:8200"
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+          command:
+            - sh
+            - -c
+            - |
+              {{ .Files.Get "files/init.sh" | nindent 14 }}
+{{- end }}

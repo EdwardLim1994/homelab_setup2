@@ -1,0 +1,7 @@
+namespace: infra
+
+# Traefik's default TLS cert (see services/traefik/helm/values.yaml's tlsStore) — one wildcard
+# cert covers every *.localhost/*.lan host instead of a per-app Certificate.
+certificateSecretName: traefik-default-tls
+
+tailscaleHostname: ""  # set via values-tailscale.yaml; empty = no extra SAN

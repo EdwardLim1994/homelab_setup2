@@ -1,0 +1,20 @@
+namespace: infra
+
+image: minio/minio:RELEASE.2024-11-07T00-52-20Z
+
+rootUser: minioadmin
+rootPassword: minioadmin
+
+persistence:
+  size: 1Gi
+
+# Native OIDC login against Authentik (https://integrations.goauthentik.io/minio) — must match
+# services/authentik/helm/values.yaml's minioOidcClientSecret.
+oidcClientSecret: miniooidcclientsecret
+
+# See templates/secret.yaml's own comments for what these are and why they're LAN-hostname
+# literals, not in-cluster Service DNS.
+tailscaleHostname: ""  # set via values-tailscale.yaml (Terraform templatefile); empty = no tailscale hostAlias entry
+
+oidcConfigUrl: "https://authentik.lan:8443/application/o/minio/.well-known/openid-configuration"
+redirectUri: "https://minio.lan:8443/oauth_callback"

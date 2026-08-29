@@ -1,0 +1,6 @@
+apiVersion: v2
+name: monitoring
+description: Prometheus + Loki + Tempo + Grafana (LGTM stack) + an OTel Collector — shared infra, deployed independently of any app
+type: application
+version: 0.2.0
+appVersion: "11.4.0"

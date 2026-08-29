@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "minio.labels" . | nindent 4 }}
+spec:
+  serviceName: minio
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "minio.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "minio.labels" . | nindent 8 }}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      # Two separate hostAlias entries — different Traefik services because the two oidcConfigUrl
+      # variants use different ports/schemes:
+      # - authentik.lan:8443 (HTTPS, values.yaml default) → traefik-websecure-8443 ClusterIP
+      # - raspberrypi94....:8080 (HTTP, values-tailscale.yaml override) → traefik-web-8080 ClusterIP
+      # Splitting them keeps each hostname on the right entrypoint; a single shared alias would
+      # break whichever scheme's port isn't served by that one ClusterIP.
+      {{- $traefikHttpsSvc := lookup "v1" "Service" .Values.namespace "traefik-websecure-8443" }}
+      hostAliases:
+        - ip: {{ if $traefikHttpsSvc }}{{ $traefikHttpsSvc.spec.clusterIP }}{{ else }}127.0.0.1{{ end }}
+          hostnames:
+            - authentik.lan
+            {{- if .Values.tailscaleHostname }}
+            - {{ .Values.tailscaleHostname }}
+            {{- end }}
+      initContainers:
+        # Authentik's OIDC discovery endpoint must be reachable before MinIO starts — MinIO fetches
+        # it exactly once at startup and never retries, so a connection refused (Traefik not ready
+        # yet) silently disables SSO for the pod's entire lifetime. Same pattern as
+        # services/authentik/helm/values.yaml's wait-for-authentik-postgresql initContainer.
+        - name: wait-for-authentik-oidc
+          image: "{{ .Values.image }}"
+          env:
+            - name: SSL_CERT_FILE
+              value: /etc/ssl/cluster-ca/ca.crt
+          command:
+            - sh
+            - -c
+            - |
+              until curl -sfk --max-time 5 "{{ .Values.oidcConfigUrl }}" > /dev/null; do
+                sleep 5
+              done
+          volumeMounts:
+            - name: cluster-ca
+              mountPath: /etc/ssl/cluster-ca
+              readOnly: true
+      containers:
+        - name: minio
+          image: "{{ .Values.image }}"
+          args: ["server", "/data", "--console-address", ":9001"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 512Mi
+          ports:
+            - name: api
+              containerPort: 9000
+            - name: console
+              containerPort: 9001
+          env:
+            # SSL_CERT_FILE tells Go's crypto/x509 to trust the cluster's self-signed CA so
+            # MinIO can fetch oidcConfigUrl via HTTPS without a certificate error.
+            - name: SSL_CERT_FILE
+              value: /etc/ssl/cluster-ca/ca.crt
+          envFrom:
+            - secretRef:
+                name: minio-secret
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: api
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: api
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: cluster-ca
+              mountPath: /etc/ssl/cluster-ca
+              readOnly: true
+      volumes:
+        - name: cluster-ca
+          secret:
+            secretName: traefik-default-tls
+            optional: true  # cert-manager-config deploys after minio; missing secret = empty mount, not a pod block
+            items:
+              - key: ca.crt
+                path: ca.crt
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}

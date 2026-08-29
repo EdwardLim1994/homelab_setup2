@@ -1,0 +1,19 @@
+# Lets in-cluster clients (see services/minio/helm/templates/statefulset.yaml's hostAliases)
+# reach Traefik's websecure entrypoint on port 8443 — matching the external k3d port mapping
+# (8443:30443, see k3d/dev.yaml). Without this, a discovery fetch with an explicit ":8443"
+# authority can't connect, since the chart's own Service only listens on 443. Mirror of
+# traefik-web-8080-service.yaml for the HTTPS entrypoint.
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik-websecure-8443
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: "traefik-{{ .Release.Namespace }}"
+    app.kubernetes.io/name: traefik
+  ports:
+    - name: websecure-8443
+      port: 8443
+      targetPort: websecure

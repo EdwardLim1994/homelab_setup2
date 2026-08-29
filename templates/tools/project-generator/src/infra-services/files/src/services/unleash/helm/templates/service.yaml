@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: unleash
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "unleash.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "unleash.labels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 4242
+      targetPort: http

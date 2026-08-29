@@ -1,0 +1,7 @@
+{
+	"name": "apollo",
+	"private": true,
+	"scripts": {
+		"supergraph": "bun ../../packages/script/src/bin/compose-supergraph.ts"
+	}
+}

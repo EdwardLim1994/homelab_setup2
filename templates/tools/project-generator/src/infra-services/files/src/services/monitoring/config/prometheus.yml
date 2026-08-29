@@ -1,0 +1,70 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # No Kubernetes service discovery configured in this repo yet (see root CLAUDE.md) — each
+  # per-server exporter/healthcheck gets a manually-added static target here, cross-namespace via
+  # its own chart's Service FQDN (<service>.<namespace>.svc.cluster.local:<port>).
+
+  # Native Prometheus exporter, enabled via services/apollo/helm/values.yaml's
+  # telemetry.exporters.metrics.prometheus block — no auth, plain HTTP.
+  - job_name: apollo-router
+    static_configs:
+      - targets: ["apollo-router.infra.svc.cluster.local:9090"]
+
+  # Sidecar exporter (services/kafka/helm/templates/statefulset.yaml) — talks Kafka's wire
+  # protocol directly, no JMX agent, no auth.
+  - job_name: kafka
+    static_configs:
+      - targets: ["kafka.infra.svc.cluster.local:9308"]
+
+  # Meilisearch's experimental /metrics (services/meilisearch/helm's MEILI_EXPERIMENTAL_METRICS),
+  # gated behind an API key — the master key qualifies, see prometheus-statefulset.yaml's
+  # meilisearch-token volume mount.
+  - job_name: meilisearch
+    metrics_path: /metrics
+    authorization:
+      credentials_file: /etc/prometheus/secrets/meilisearch/token
+    static_configs:
+      - targets: ["meilisearch.infra.svc.cluster.local:7700"]
+
+  # Per-workload up/down for every Deployment/StatefulSet in the cluster (kube-state-metrics.yaml)
+  # — covers services with no app-level Prometheus metrics of their own (traefik, authentik,
+  # minio, apicurio-registry, cert-manager, otel-collector, loki, tempo, grafana) without wiring
+  # bespoke scraping/auth into each of those charts. Drives the services-overview dashboard's grid.
+  - job_name: kube-state-metrics
+    static_configs:
+      - targets: ["kube-state-metrics.infra.svc.cluster.local:8080"]
+
+  # Host-level CPU/mem/disk for the cluster's nodes. Static, per the convention above — fine for
+  # the single-node k3d dev cluster this repo targets; a real multi-node cluster would need
+  # kubernetes_sd_config (role: node) instead, same as the cadvisor job below, since a Service
+  # only ever load-balances to one of the DaemonSet's pods.
+  - job_name: node-exporter
+    static_configs:
+      - targets: ["node-exporter.infra.svc.cluster.local:9100"]
+
+  # Per-pod/container CPU/mem, scraped straight from each node's kubelet. Unlike the static
+  # targets above, node IPs aren't known ahead of time and change across cluster
+  # recreates/restarts, so this is the one job that needs Kubernetes service discovery — see
+  # prometheus-rbac.yaml for the ClusterRole this relies on.
+  - job_name: cadvisor
+    scheme: https
+    kubernetes_sd_configs:
+      - role: node
+    tls_config:
+      insecure_skip_verify: true
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor

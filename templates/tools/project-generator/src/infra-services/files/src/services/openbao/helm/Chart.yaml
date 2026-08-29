@@ -1,0 +1,10 @@
+apiVersion: v2
+name: openbao
+description: OpenBao (MPL-2.0 Vault fork) — KV v2 store for apps/servers/* app-level secrets only, never DB/Redis credentials (those stay static, see services/terraform's own variables). Deployed independently of any app.
+type: application
+version: 0.1.0
+appVersion: "2.3.1"
+dependencies:
+  - name: openbao
+    version: "0.16.2"
+    repository: "https://openbao.github.io/openbao-helm"

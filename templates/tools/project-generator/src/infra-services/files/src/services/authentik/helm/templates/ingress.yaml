@@ -1,0 +1,49 @@
+# The login/consent/authorize pages (unlike /outpost.goauthentik.io, which each app's own
+# Ingress proxies through) are served directly by authentik-server and need their own reachable
+# domain — the embedded outpost's config.authentik_host_browser (see proxy-blueprint-configmap.yaml)
+# is what the browser actually gets redirected to for login.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: authentik
+  namespace: {{ .Release.Namespace }}
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: authentik.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: authentik-server
+                port:
+                  number: 80
+    - host: authentik.lan
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: authentik-server
+                port:
+                  number: 80
+    # Extra hosts (e.g. values-tailscale.yaml's tailnet hostname) — Traefik routes purely by
+    # Host header via Ingress rules like the two above; a hostAliases entry alone (see
+    # minio's own statefulset.yaml comments) only gets an in-cluster
+    # request as far as Traefik's ClusterIP, which then 404s with no matching route for a host
+    # that isn't registered here too.
+    {{- range .Values.extraIngressHosts }}
+    - host: {{ . }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: authentik-server
+                port:
+                  number: 80
+    {{- end }}

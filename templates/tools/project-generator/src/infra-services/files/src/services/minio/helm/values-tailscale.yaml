@@ -1,0 +1,23 @@
+# Layered on top of values.yaml (see services/terraform/main.tf's for_each) for local dev when
+# MinIO is reached through scripts/port-forward.sh from another device, not the LAN —
+# "authentik.lan"/"minio.lan" (values.yaml's defaults) aren't reachable from off-LAN, only from a
+# browser that already has LAN access, so both the server-side discovery fetch (oidcConfigUrl,
+# whose response fields get handed straight to the browser — see templates/secret.yaml's own
+# comment) and the browser-facing redirectUri need to point at the tailscale tunnel
+# scripts/port-forward.sh already opens for authentik-server/minio instead.
+#
+# Same tradeoff as services/monitoring/helm/values-tailscale.yaml: this makes MinIO's login
+# always redirect through the tailscale hostname, even for LAN-direct access — MINIO_IDENTITY_*
+# are single static values, MinIO can't pick a different one per how the browser arrived.
+#
+# Ports (8080 for authentik-server, 8095 for minio itself) must match
+# scripts/port-forward.sh's own APPS map. Must also match
+# services/authentik/helm/values-tailscale.yaml's minioRedirectUris exactly.
+# http, not https: this fetch resolves to Traefik's ClusterIP in-cluster (see the tailnet
+# hostAliases entry in statefulset.yaml), which only ever serves plain HTTP on this port — an
+# https:// URL here would attempt a TLS handshake against a plain-HTTP port and fail outright
+# (this is almost certainly why the login option went missing rather than just redirecting
+# wrong: MinIO silently drops OIDC entirely if the discovery fetch itself errors).
+tailscaleHostname: "${tailscale_hostname}"
+oidcConfigUrl: "https://${tailscale_hostname}:8443/application/o/minio/.well-known/openid-configuration"
+redirectUri: "https://${tailscale_hostname}:8095/oauth_callback"

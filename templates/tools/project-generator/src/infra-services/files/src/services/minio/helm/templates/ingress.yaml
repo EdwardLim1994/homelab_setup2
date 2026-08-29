@@ -1,0 +1,35 @@
+# No forward-auth middleware here — MinIO gates itself via native OIDC login against Authentik
+# (see services/authentik/helm/templates/proxy-blueprint-configmap.yaml's minio-provider), so the
+# Traefik-level gate that the other apps still use would just be a redundant second login.
+# Only the console (9001), not the S3 API (9000) — app clients hit the API directly with access
+# keys, no browser login involved.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minio
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "minio.labels" . | nindent 4 }}
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: minio.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9001
+    - host: minio.lan
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9001

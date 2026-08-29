@@ -1,0 +1,24 @@
+openbao:
+  injector:
+    # ponytail: not using the Vault-Agent-style sidecar injector — packages/server's own
+    # OpenBaoPlugin (a plain fetch client, same shape as AuthentikPlugin/RedisPlugin) reads
+    # secrets in-process instead. Enable if a future need calls for injecting secrets into
+    # non-Node workloads that can't run that plugin.
+    enabled: false
+
+  server:
+    # dev mode: in-memory, auto-unsealed, no init/unseal Job needed at all — this alone avoids
+    # the init/unseal/lease-lifecycle fragility that made the old services/vault chart (removed
+    # earlier) so much operational trouble. values-nondev.yaml flips this off for real clusters.
+    dev:
+      enabled: true
+      # Matches this repo's existing "vaultroottoken"-style dev placeholder idiom (see the old
+      # services/vault/helm/values.yaml, now removed, for precedent) — never a real secret in a
+      # dev-mode, throwaway cluster.
+      devRootToken: openbaoroottoken
+
+    # Single instance — dev/test scope, same as every other bundled-infra chart in this repo
+    # (Kafka, Meilisearch, etc.). standalone (file-backed storage) only matters in non-dev mode,
+    # where dev.enabled is false and real persistence is needed across restarts.
+    standalone:
+      enabled: true

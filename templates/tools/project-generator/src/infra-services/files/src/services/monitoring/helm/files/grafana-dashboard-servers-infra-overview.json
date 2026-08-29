@@ -1,0 +1,119 @@
+{
+  "title": "Servers Infra Overview",
+  "uid": "servers-infra-overview",
+  "description": "Postgres/Redis/Debezium for every apps/servers/*-infra chart (server-infra namespace, Terraform-applied via apps/terraform — see root CLAUDE.md). The app Deployments themselves live in the separate Servers App Overview dashboard instead, on purpose — the two tiers don't mix into one grid. Empty rows mean that namespace/chart hasn't been applied yet, not a dashboard error.",
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "templating": {
+    "list": [
+      {
+        "name": "deployment",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(kube_deployment_status_replicas{namespace=~\"server-infra\"}, deployment)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "current": { "text": "All", "value": ["$__all"] }
+      },
+      {
+        "name": "statefulset",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(kube_statefulset_status_replicas{namespace=~\"server-infra\"}, statefulset)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "current": { "text": "All", "value": ["$__all"] }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Deployments (Postgres / Redis / Debezium)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "$deployment",
+      "repeat": "deployment",
+      "repeatDirection": "h",
+      "maxPerRow": 6,
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "kube_deployment_status_replicas_ready{namespace=~\"server-infra\", deployment=\"$deployment\"} / kube_deployment_spec_replicas{namespace=~\"server-infra\", deployment=\"$deployment\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "up", "color": "green" } } },
+            { "type": "range", "options": { "from": 0, "to": 0.999999, "result": { "text": "degraded", "color": "red" } } }
+          ],
+          "noValue": "not deployed",
+          "links": [
+            {
+              "title": "Detail",
+              "url": "/d/k8s-workload-detail?var-app=${__field.labels.deployment}&var-namespace=${__field.labels.namespace}",
+              "targetBlank": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "StatefulSets",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 }
+    },
+    {
+      "type": "stat",
+      "title": "$statefulset",
+      "repeat": "statefulset",
+      "repeatDirection": "h",
+      "maxPerRow": 6,
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "kube_statefulset_status_replicas_ready{namespace=~\"server-infra\", statefulset=\"$statefulset\"} / kube_statefulset_replicas{namespace=~\"server-infra\", statefulset=\"$statefulset\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "up", "color": "green" } } },
+            { "type": "range", "options": { "from": 0, "to": 0.999999, "result": { "text": "degraded", "color": "red" } } }
+          ],
+          "noValue": "not deployed",
+          "links": [
+            {
+              "title": "Detail",
+              "url": "/d/k8s-workload-detail?var-app=${__field.labels.statefulset}&var-namespace=${__field.labels.namespace}",
+              "targetBlank": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "text",
+      "title": "",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 12 },
+      "options": {
+        "mode": "markdown",
+        "content": "No tiles above? `server-infra` namespace hasn't been Terraform-applied yet (`apps/terraform`, after `services/terraform` — see root CLAUDE.md), or nothing there is a Deployment/StatefulSet yet. This isn't a scrape failure — it means kube-state-metrics simply has nothing to report for that namespace."
+      }
+    }
+  ]
+}

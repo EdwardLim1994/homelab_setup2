@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "alloy.labels" . | nindent 4 }}
+data:
+  # Real copy of services/monitoring/config/alloy-config.alloy — see prometheus-configmap.yaml's
+  # comment for why (Helm .Files.Get chart-directory restriction).
+  config.alloy: |
+{{ .Files.Get "files/alloy-config.alloy" | indent 4 }}

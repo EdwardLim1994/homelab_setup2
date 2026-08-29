@@ -1,0 +1,8 @@
+namespace: infra
+
+image: getmeili/meilisearch:v1.14
+
+masterKey: meilimasterkey
+
+persistence:
+  size: 1Gi

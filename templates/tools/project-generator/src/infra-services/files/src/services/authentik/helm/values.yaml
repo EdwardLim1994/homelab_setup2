@@ -1,0 +1,117 @@
+# Must match services/minio/helm/values.yaml's oidcClientSecret and
+# services/monitoring/helm/values.yaml's grafanaOidcClientSecret — separate Helm releases, no
+# shared values, so these are duplicated by hand like every other cross-chart dev secret here
+# (authentiksecretkey, ...).
+minioOidcClientSecret: miniooidcclientsecret
+grafanaOidcClientSecret: grafanaoidcclientsecret
+
+# Every host grafana-provider must accept an OAuth callback from — Grafana's own redirect_uri is
+# always "<rootUrl>/login/generic_oauth" (not user configurable), one entry per host
+# services/monitoring/helm/values.yaml's grafana.rootUrl might be pointed at. See
+# values-tailscale.yaml for the extra entry needed when that rootUrl is overridden to a tailscale
+# hostname (Helm list values replace rather than merge, so that overlay repeats these four too).
+# Extra Ingress Host rules for templates/ingress.yaml, beyond authentik.localhost/authentik.lan
+# — empty by default, see values-tailscale.yaml for the tailnet hostname entry.
+extraIngressHosts: []
+
+grafanaRedirectUris:
+  - http://grafana.localhost/login/generic_oauth
+  - http://grafana.lan/login/generic_oauth
+  - http://grafana.lan:8080/login/generic_oauth
+  - https://grafana.lan:8443/login/generic_oauth
+
+# Same story as grafanaRedirectUris above, for services/minio/helm's
+# MINIO_IDENTITY_OPENID_REDIRECT_URI.
+minioRedirectUris:
+  - http://minio.localhost/oauth_callback
+  - http://minio.lan/oauth_callback
+  # :8080 matches the temporary port-forward used for LAN device access — see
+  # services/minio/helm/templates/secret.yaml's MINIO_IDENTITY_OPENID_REDIRECT_URI.
+  - http://minio.lan:8080/oauth_callback
+  # :8443 https — MINIO_IDENTITY_OPENID_REDIRECT_URI now points here (see secret.yaml); the
+  # plain-http entries above are kept for anyone still on the docker-compose backup / bare-nodePort
+  # path, not actually requested by MinIO anymore.
+  - https://minio.lan:8443/oauth_callback
+
+authentik:
+  # akadmin's login — only takes effect on the very first bootstrap (an already-provisioned
+  # install, like this one originally was, needs its password set by hand once via
+  # `ak shell -c "u = User.objects.get(username='akadmin'); u.set_password(...); u.save()"`).
+  global:
+    env:
+      - name: AUTHENTIK_BOOTSTRAP_PASSWORD
+        value: authentikadmin
+      - name: AUTHENTIK_BOOTSTRAP_EMAIL
+        value: akadmin@authentik.local
+      # Trust X-Forwarded-Proto: https from Traefik so Authentik generates HTTPS URLs in
+      # OAuth discovery docs and sets Secure cookies. Without this, login flows over :8443
+      # break because Authentik sees all traffic as HTTP.
+      - name: AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS
+        value: "0.0.0.0/0"
+  # Registers minio/grafana as native OIDC apps on boot — see
+  # templates/proxy-blueprint-configmap.yaml. The configmap name must match the release's
+  # rendered name exactly (Helm doesn't template values.yaml itself).
+  blueprints:
+    configMaps:
+      - authentik-proxy-blueprint
+  authentik:
+    secret_key: authentiksecretkey
+    # Must match postgresql.auth.password below — the chart doesn't auto-wire the
+    # bundled Postgres's generated secret, both sides need the same plain value.
+    postgresql:
+      password: authentikpostgrespassword
+  # Chart defaults to no bundled DB (expects external Postgres) — enable the bundled
+  # one, matching this repo's other dev infra (kafka runs in-cluster too).
+  postgresql:
+    enabled: true
+    auth:
+      password: authentikpostgrespassword
+      # Fixed, not left to the chart's own randAlphaNum-if-unset default — that default is only
+      # stable across a `helm upgrade` as long as its own `lookup`-the-existing-secret-first logic
+      # actually finds it every time, and in practice here (repeated `terraform apply` retries
+      # during initial setup) it didn't always: the Secret ended up holding a different password
+      # than whatever Postgres was actually initialized with at its own first `initdb` — since a
+      # secret-volume-mounted file updates live but Postgres only ever reads it once, that
+      # silently desyncs the two with no error until something tries to authenticate. A fixed
+      # value here is stable across every apply/retry, same as authentik's own custom-user
+      # password right above.
+      postgresPassword: authentikpostgressuperuserpassword
+      # Confirmed by hand (kubectl exec + psql, both via TCP and the local socket): with the
+      # chart's own default (usePasswordFiles: true), the custom "authentik" user's password —
+      # mounted the same way, via POSTGRES_PASSWORD_FILE — works correctly, but the superuser's
+      # (POSTGRES_POSTGRES_PASSWORD_FILE) does not; postgres rejects every value for "postgres"
+      # even immediately after a from-scratch initdb where the file's content is provably correct.
+      # That's a real asymmetry in this chart/image's own entrypoint script, not a config mistake
+      # on this repo's side. Forcing plain env vars instead routes both users through the exact
+      # same, simpler, apparently-not-buggy code path — also what every other chart in this repo
+      # already uses (none of them use usePasswordFiles).
+      usePasswordFiles: false
+    # minikube's default hostpath storage class provisions volumes owned by root; the
+    # postgres container runs as non-root and can't write to them without this.
+    # This chart's shell-image substitution renders "registry-1.docker.io/debian:13-slim"
+    # (missing the "library/" namespace segment Docker Hub needs for official images),
+    # which containerd can't resolve — pin an explicit, correct repository instead.
+    volumePermissions:
+      enabled: true
+      image:
+        repository: library/debian
+        tag: 13-slim
+  # Without this, server/worker hit "PostgreSQL connection failed, retrying..." in a loop for as
+  # long as authentik-postgresql takes to become reachable (worse right after a real crash —
+  # confirmed the hard way after an unclean minikube shutdown left it doing WAL replay on next
+  # boot, "database system was interrupted" / "redo in progress" — several minutes of retries and
+  # readiness-probe failures on server/worker while postgres was still recovering, not actually
+  # broken, just not there yet). pg_isready blocks the app container from starting at all until
+  # the DB genuinely accepts connections — same pattern as apps/servers/server1-grpc's own
+  # wait-for-server1-grpc-db initContainer. 17-alpine to match this chart's own bundled Postgres
+  # major version (image tag above resolves to postgres:17.x-bookworm).
+  server:
+    initContainers:
+      - name: wait-for-authentik-postgresql
+        image: postgres:17-alpine
+        command: ["sh", "-c", "until pg_isready -h authentik-postgresql -p 5432 -U authentik; do sleep 2; done"]
+  worker:
+    initContainers:
+      - name: wait-for-authentik-postgresql
+        image: postgres:17-alpine
+        command: ["sh", "-c", "until pg_isready -h authentik-postgresql -p 5432 -U authentik; do sleep 2; done"]

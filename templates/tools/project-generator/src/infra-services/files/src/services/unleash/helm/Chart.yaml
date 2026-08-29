@@ -1,0 +1,14 @@
+apiVersion: v2
+name: unleash
+description: Unleash feature-flag server — shared infra, deployed independently of any app
+type: application
+version: 0.1.0
+appVersion: "8.1.0"
+dependencies:
+  # Real, trustworthy upstream chart for the one genuinely complex piece (StatefulSet, PVC,
+  # secrets) — matches this repo's Traefik/Authentik/cert-manager precedent. Unleash itself is a
+  # single stateless container reading env vars, no RBAC/CRDs, so it's hand-rolled below like
+  # meilisearch/minio/apicurio-registry instead of pulled in as a chart of its own.
+  - name: postgresql
+    version: "16.x.x"
+    repository: "https://charts.bitnami.com/bitnami"

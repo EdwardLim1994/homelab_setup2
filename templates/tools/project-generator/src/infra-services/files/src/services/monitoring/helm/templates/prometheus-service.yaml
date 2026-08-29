@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "prometheus.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "prometheus.labels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 9090
+      targetPort: http

@@ -1,0 +1,5 @@
+federation_version: 2
+# No subgraphs yet — server1-graphql/server2-graphql were removed. `rover supergraph compose`
+# needs at least one subgraph to produce a valid schema; add the first new subgraph here before
+# running `bun run supergraph` again.
+subgraphs: {}

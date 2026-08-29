@@ -13,51 +13,119 @@
   "fileMap": {
     "nonProjectFiles": [
       {
-        "file": ".prettierrc",
-        "hash": "16267754514737964994"
+        "file": ".opencode/skills/nx-import/references/JEST.md",
+        "hash": "17388362190464741914"
       },
       {
-        "file": ".opencode/skills/nx-generate/SKILL.md",
-        "hash": "3358630942574540984"
+        "file": ".opencode/skills/monitor-ci/scripts/ci-poll-decide.mjs",
+        "hash": "17947661465624026971"
       },
       {
-        "file": ".opencode/skills/monitor-ci/SKILL.md",
-        "hash": "3864522841306718739"
+        "file": ".opencode/skills/nx-run-tasks/SKILL.md",
+        "hash": "6310165843200780094"
+      },
+      {
+        "file": ".opencode/commands/monitor-ci.md",
+        "hash": "325933896700411024"
+      },
+      {
+        "file": ".opencode/skills/nx-import/references/NEXT.md",
+        "hash": "10590097548337933652"
+      },
+      {
+        "file": ".opencode/skills/nx-plugins/SKILL.md",
+        "hash": "17761452540263218782"
+      },
+      {
+        "file": "CLAUDE.md",
+        "hash": "3693179293707062853"
+      },
+      {
+        "file": ".gitignore",
+        "hash": "4459766590097515105"
+      },
+      {
+        "file": "biome.json",
+        "hash": "16419074164176413013"
       },
       {
         "file": ".opencode/skills/nx-workspace/references/AFFECTED.md",
         "hash": "5689225252238354455"
       },
       {
-        "file": "bun.lock",
-        "hash": "4374388759396078780"
+        "file": ".opencode/skills/monitor-ci/references/fix-flows.md",
+        "hash": "10043923144049437139"
+      },
+      {
+        "file": ".prettierrc",
+        "hash": "16267754514737964994"
+      },
+      {
+        "file": "nx.json",
+        "hash": "16104567096559654939"
+      },
+      {
+        "file": ".opencode/agents/ci-monitor-subagent.md",
+        "hash": "15590325861656077491"
+      },
+      {
+        "file": ".opencode/skills/nx-generate/SKILL.md",
+        "hash": "3358630942574540984"
+      },
+      {
+        "file": "opencode.json",
+        "hash": "8191607578836129025"
       },
       {
         "file": ".codegraph/.gitignore",
         "hash": "3697384128401905561"
       },
       {
-        "file": ".claude/settings.json",
-        "hash": "790924927305982316"
-      },
-      {
-        "file": ".opencode/skills/nx-import/SKILL.md",
-        "hash": "5320545115991037698"
+        "file": ".opencode/skills/nx-import/references/GRADLE.md",
+        "hash": "3571850575232446918"
       },
       {
         "file": ".opencode/skills/nx-import/references/VITE.md",
         "hash": "18159188461087437582"
       },
       {
+        "file": "bun.lock",
+        "hash": "4374388759396078780"
+      },
+      {
+        "file": "package.json",
+        "hash": "7974399988688664532"
+      },
+      {
+        "file": ".opencode/skills/nx-import/references/ESLINT.md",
+        "hash": "13530282936503679323"
+      },
+      {
+        "file": "tsconfig.base.json",
+        "hash": "14236486107999583000"
+      },
+      {
+        "file": ".claude/settings.json",
+        "hash": "790924927305982316"
+      },
+      {
+        "file": ".opencode/skills/monitor-ci/SKILL.md",
+        "hash": "3864522841306718739"
+      },
+      {
+        "file": "vitest.config.ts",
+        "hash": "8162562971994051878"
+      },
+      {
         "file": ".prettierignore",
         "hash": "14688272390704683536"
       },
       {
-        "file": ".gitignore",
-        "hash": "4523138781018672898"
+        "file": ".opencode/skills/monitor-ci/scripts/ci-state-update.mjs",
+        "hash": "10337086218990061662"
       },
       {
-        "file": "CLAUDE.md",
+        "file": "AGENTS.md",
         "hash": "3693179293707062853"
       },
       {
@@ -65,87 +133,1752 @@
         "hash": "16683618674426785182"
       },
       {
-        "file": ".opencode/skills/nx-import/references/JEST.md",
-        "hash": "17388362190464741914"
-      },
-      {
-        "file": "biome.json",
-        "hash": "16419074164176413013"
-      },
-      {
-        "file": ".opencode/skills/nx-run-tasks/SKILL.md",
-        "hash": "6310165843200780094"
-      },
-      {
-        "file": "opencode.json",
-        "hash": "8191607578836129025"
-      },
-      {
-        "file": ".opencode/skills/monitor-ci/scripts/ci-poll-decide.mjs",
-        "hash": "17947661465624026971"
-      },
-      {
         "file": ".opencode/skills/nx-workspace/SKILL.md",
         "hash": "12877893594506374684"
-      },
-      {
-        "file": "tsconfig.base.json",
-        "hash": "14236486107999583000"
       },
       {
         "file": ".opencode/skills/link-workspace-packages/SKILL.md",
         "hash": "15436383388001770446"
       },
       {
-        "file": "vitest.config.ts",
-        "hash": "8162562971994051878"
-      },
-      {
-        "file": ".opencode/skills/nx-import/references/GRADLE.md",
-        "hash": "3571850575232446918"
-      },
-      {
-        "file": ".opencode/commands/monitor-ci.md",
-        "hash": "325933896700411024"
-      },
-      {
-        "file": ".opencode/skills/monitor-ci/references/fix-flows.md",
-        "hash": "10043923144049437139"
-      },
-      {
-        "file": ".opencode/agents/ci-monitor-subagent.md",
-        "hash": "15590325861656077491"
-      },
-      {
-        "file": "nx.json",
-        "hash": "16104567096559654939"
-      },
-      {
-        "file": ".opencode/skills/nx-import/references/NEXT.md",
-        "hash": "10590097548337933652"
-      },
-      {
-        "file": ".opencode/skills/nx-import/references/ESLINT.md",
-        "hash": "13530282936503679323"
-      },
-      {
-        "file": ".opencode/skills/nx-plugins/SKILL.md",
-        "hash": "17761452540263218782"
-      },
-      {
-        "file": "AGENTS.md",
-        "hash": "3693179293707062853"
-      },
-      {
-        "file": "package.json",
-        "hash": "7974399988688664532"
-      },
-      {
-        "file": ".opencode/skills/monitor-ci/scripts/ci-state-update.mjs",
-        "hash": "10337086218990061662"
+        "file": ".opencode/skills/nx-import/SKILL.md",
+        "hash": "5320545115991037698"
       }
     ],
     "projectFileMap": {
+      "project-generator": [
+        {
+          "file": "tools/project-generator/README.md",
+          "hash": "1222115609754453745"
+        },
+        {
+          "file": "tools/project-generator/generators.json",
+          "hash": "16941130348674769389"
+        },
+        {
+          "file": "tools/project-generator/package.json",
+          "hash": "11749838300996742119",
+          "deps": [
+            "npm:@nx/devkit@23.1.2",
+            "npm:tslib@2.8.1"
+          ]
+        },
+        {
+          "file": "tools/project-generator/project.json",
+          "hash": "8407367192637010703"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/e2e-test.spec.ts",
+          "hash": "13971696247916296046",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/e2e-test.ts",
+          "hash": "2913426020929511017",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills-lock.json",
+          "hash": "3135136015547659808"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/playwright-expert/SKILL.md",
+          "hash": "3427557920349159998"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/playwright-expert/references/api-mocking.md",
+          "hash": "13372385036242524799"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/playwright-expert/references/configuration.md",
+          "hash": "12172563702483846394"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/playwright-expert/references/debugging-flaky.md",
+          "hash": "7496389197644947031"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/playwright-expert/references/page-object-model.md",
+          "hash": "14953680218131593278"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/playwright-expert/references/selectors-locators.md",
+          "hash": "3260404563839266146"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/SKILL.md",
+          "hash": "15104228521098291060"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/automation-frameworks.md",
+          "hash": "4942667397815466102"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/e2e-testing.md",
+          "hash": "6348496962202956658"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/integration-testing.md",
+          "hash": "15267627726577253860"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/performance-testing.md",
+          "hash": "10882271607681160607"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/qa-methodology.md",
+          "hash": "9955717399005446088"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/security-testing.md",
+          "hash": "11841413170196914136"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/tdd-iron-laws.md",
+          "hash": "7270275829537808470"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/test-reports.md",
+          "hash": "10501661804579647412"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/testing-anti-patterns.md",
+          "hash": "7337742018895896219"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/unit-testing.md",
+          "hash": "9955850127302010675"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/project/.env.example.template",
+          "hash": "9398812641157085726"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/project/.gitignore.template",
+          "hash": "1797570887397431769"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/project/README.md.template",
+          "hash": "10798979940008924073"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/project/package.json.template",
+          "hash": "18111432488647999971"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/project/playwright.config.ts.template",
+          "hash": "14216869119755769123"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/project/tests/__fileName__.spec.ts.template",
+          "hash": "10386836273822476829"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/files/project/tsconfig.json.template",
+          "hash": "8628147388438614908"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/schema.d.ts",
+          "hash": "13122373245751712754"
+        },
+        {
+          "file": "tools/project-generator/src/e2e-test/schema.json",
+          "hash": "7332732522689678634"
+        },
+        {
+          "file": "tools/project-generator/src/index.ts",
+          "hash": "4595979742548113990"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/index.ts.template",
+          "hash": "8516815386028856332"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/apicurio-registry/helm/Chart.yaml",
+          "hash": "7549691302319850022"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/apicurio-registry/helm/templates/_helpers.tpl",
+          "hash": "11215105737085190258"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/apicurio-registry/helm/templates/deployment.yaml",
+          "hash": "1640819887502757147"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/apicurio-registry/helm/templates/service.yaml",
+          "hash": "3958344677124848302"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/apicurio-registry/helm/values.yaml",
+          "hash": "12223422231331929158"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/apollo/helm/Chart.lock",
+          "hash": "9410283942489535672"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/apollo/helm/Chart.yaml",
+          "hash": "11003695754802595241"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/apollo/helm/charts/router-2.15.0.tgz",
+          "hash": "12191792868061665040"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/apollo/helm/values.supergraph.yaml",
+          "hash": "8492306585920051"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/apollo/helm/values.yaml",
+          "hash": "3308597811935024527"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/apollo/package.json",
+          "hash": "16270208992587978544"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/apollo/rover.yaml",
+          "hash": "6372892414394859212"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/authentik/helm/Chart.lock",
+          "hash": "1612430188070642434"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/authentik/helm/Chart.yaml",
+          "hash": "3188275910271753568"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/authentik/helm/charts/authentik-2026.5.6.tgz",
+          "hash": "17578264021654302200"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/authentik/helm/templates/ingress.yaml",
+          "hash": "5760386394914361454"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/authentik/helm/templates/proxy-blueprint-configmap.yaml",
+          "hash": "4596987400800457146"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/authentik/helm/values-nondev.yaml",
+          "hash": "4014486956387164620"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/authentik/helm/values-tailscale.yaml",
+          "hash": "4343853861215878344"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/authentik/helm/values.yaml",
+          "hash": "7672228615405983580"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/cert-manager-config/helm/Chart.yaml",
+          "hash": "6184835594296386354"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/cert-manager-config/helm/templates/certificate.yaml",
+          "hash": "16281336477665738355"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/cert-manager-config/helm/templates/issuer.yaml",
+          "hash": "10763574920528022597"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/cert-manager-config/helm/values-tailscale.yaml",
+          "hash": "11790482991702298963"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/cert-manager-config/helm/values.yaml",
+          "hash": "3386268624289727660"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/cert-manager/helm/Chart.lock",
+          "hash": "15171043919972834405"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/cert-manager/helm/Chart.yaml",
+          "hash": "15215634879912064745"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/cert-manager/helm/charts/cert-manager-v1.16.2.tgz",
+          "hash": "1470924169515917355"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/cert-manager/helm/values.yaml",
+          "hash": "14982597666535207978"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/kafka/helm/Chart.yaml",
+          "hash": "13417141295001178428"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/kafka/helm/templates/_helpers.tpl",
+          "hash": "16128481579793541460"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/kafka/helm/templates/kafka-ui.yaml",
+          "hash": "7104133735596861651"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/kafka/helm/templates/service.yaml",
+          "hash": "13647556302227924671"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/kafka/helm/templates/statefulset.yaml",
+          "hash": "16751298161524708706"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/kafka/helm/values.yaml",
+          "hash": "12539670405062196163"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/meilisearch/helm/Chart.yaml",
+          "hash": "5430766361741661905"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/meilisearch/helm/templates/_helpers.tpl",
+          "hash": "13620831305554860399"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/meilisearch/helm/templates/secret.yaml",
+          "hash": "203613704899874623"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/meilisearch/helm/templates/service.yaml",
+          "hash": "2313220360382621550"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/meilisearch/helm/templates/statefulset.yaml",
+          "hash": "12966636592639519912"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/meilisearch/helm/values.yaml",
+          "hash": "7839086147039679540"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/minio/helm/Chart.yaml",
+          "hash": "9054817229442353743"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/minio/helm/templates/_helpers.tpl",
+          "hash": "13622474207238586779"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/minio/helm/templates/ingress.yaml",
+          "hash": "9905212941869811662"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/minio/helm/templates/secret.yaml",
+          "hash": "5587827684044557576"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/minio/helm/templates/service.yaml",
+          "hash": "15121485173955235391"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/minio/helm/templates/statefulset.yaml",
+          "hash": "17093122285368937837"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/minio/helm/values-tailscale.yaml",
+          "hash": "1428694353818211925"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/minio/helm/values.yaml",
+          "hash": "13672321607997923689"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/config/alloy-config.alloy",
+          "hash": "12072350060835388286"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/config/grafana/provisioning/dashboards/dashboards.yaml",
+          "hash": "12223877356121964052"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/config/grafana/provisioning/dashboards/json/.gitkeep",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/config/grafana/provisioning/datasources/datasources.yaml",
+          "hash": "12551106563356871637"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/config/loki-config.yaml",
+          "hash": "17644012643928411507"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/config/otel-collector-config.yaml",
+          "hash": "15051999747921008411"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/config/prometheus.yml",
+          "hash": "10189616437818765185"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/config/tempo.yaml",
+          "hash": "9584169493455337968"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/Chart.yaml",
+          "hash": "16988353039584732314"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/files/alloy-config.alloy",
+          "hash": "12072350060835388286"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/files/grafana-dashboard-k8s-workload-detail.json",
+          "hash": "18242742324343912401"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/files/grafana-dashboard-servers-app-overview.json",
+          "hash": "9751603949875447624"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/files/grafana-dashboard-servers-infra-overview.json",
+          "hash": "10503751446288117944"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/files/grafana-dashboard-services-overview.json",
+          "hash": "2611773508378485290"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/files/grafana-dashboards.yaml",
+          "hash": "12223877356121964052"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/files/grafana-datasources.yaml",
+          "hash": "12551106563356871637"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/files/loki-config.yaml",
+          "hash": "17644012643928411507"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/files/otel-collector-config.yaml",
+          "hash": "15051999747921008411"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/files/prometheus.yml",
+          "hash": "10189616437818765185"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/files/tempo.yaml",
+          "hash": "16195497824832065624"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/_helpers.tpl",
+          "hash": "791092565071401733"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/alloy-configmap.yaml",
+          "hash": "7457951142075283838"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/alloy-daemonset.yaml",
+          "hash": "1629646881706000941"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/grafana-configmap.yaml",
+          "hash": "17750758883944847704"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/grafana-dashboards-json-configmap.yaml",
+          "hash": "18337085474558054924"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/grafana-ingress.yaml",
+          "hash": "4271594088839780403"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/grafana-secret.yaml",
+          "hash": "6911834904832705259"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/grafana-service.yaml",
+          "hash": "9562434422205256915"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/grafana-statefulset.yaml",
+          "hash": "15839374232576617952"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/kube-state-metrics.yaml",
+          "hash": "3594110814629725349"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/loki-configmap.yaml",
+          "hash": "1493761267613297454"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/loki-service.yaml",
+          "hash": "3622223405191583301"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/loki-statefulset.yaml",
+          "hash": "2038910827876673706"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/node-exporter-daemonset.yaml",
+          "hash": "2823742284118093804"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/node-exporter-service.yaml",
+          "hash": "13812014011561619155"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/otel-collector-configmap.yaml",
+          "hash": "2034261109231355381"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/otel-collector-deployment.yaml",
+          "hash": "995088575685610156"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/otel-collector-service.yaml",
+          "hash": "12616603602901498285"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/prometheus-configmap.yaml",
+          "hash": "2708756961836325709"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/prometheus-rbac.yaml",
+          "hash": "2276665739184439562"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/prometheus-service.yaml",
+          "hash": "6016060810118182787"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/prometheus-statefulset.yaml",
+          "hash": "14256835290361853585"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/tempo-configmap.yaml",
+          "hash": "16177126187665249048"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/tempo-service.yaml",
+          "hash": "7985562791991998581"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/templates/tempo-statefulset.yaml",
+          "hash": "11380571206207502391"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/values-tailscale.yaml",
+          "hash": "6482602200169104857"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/monitoring/helm/values.yaml",
+          "hash": "2590859745033130176"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/openbao/helm/Chart.lock",
+          "hash": "18130161078115084534"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/openbao/helm/Chart.yaml",
+          "hash": "17711928122823861087"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/openbao/helm/charts/openbao-0.16.2.tgz",
+          "hash": "10589702932397053007"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/openbao/helm/files/init.sh",
+          "hash": "4591948012002607173"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/openbao/helm/files/k8s-auth-provision.sh",
+          "hash": "135533482919574269"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/openbao/helm/templates/init-job.yaml",
+          "hash": "4909466960085078820"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/openbao/helm/templates/k8s-auth-provision-job.yaml",
+          "hash": "11483485980097928769"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/openbao/helm/values-nondev.yaml",
+          "hash": "3576808496846273214"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/openbao/helm/values.yaml",
+          "hash": "12478277680428591191"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/terraform/.gitignore.template",
+          "hash": "10602517140483417028"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/terraform/main.tf",
+          "hash": "7442960618800733200"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/terraform/staging.tfvars",
+          "hash": "3124728474464049958"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/terraform/terraform.tfvars",
+          "hash": "6280563877324593428"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/terraform/uat.tfvars",
+          "hash": "16879212966689117279"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/terraform/variables.tf",
+          "hash": "17869785202606846682"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/terraform/versions.tf",
+          "hash": "15833432601247125141"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/traefik/helm/Chart.lock",
+          "hash": "15817581095120419180"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/traefik/helm/Chart.yaml",
+          "hash": "565763359106390431"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/traefik/helm/charts/traefik-33.0.0.tgz",
+          "hash": "8484256163710387339"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/traefik/helm/templates/web-8080-service.yaml",
+          "hash": "14024745138746876358"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/traefik/helm/templates/websecure-8443-service.yaml",
+          "hash": "3761706364125298788"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/traefik/helm/values.yaml",
+          "hash": "18337213965888716990"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/unleash/helm/Chart.lock",
+          "hash": "3445406596768356605"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/unleash/helm/Chart.yaml",
+          "hash": "6015520772972925262"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/unleash/helm/charts/postgresql-16.7.27.tgz",
+          "hash": "15371883640457719127"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/unleash/helm/templates/_helpers.tpl",
+          "hash": "5741972863769583418"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/unleash/helm/templates/deployment.yaml",
+          "hash": "17526577357428479022"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/unleash/helm/templates/secret.yaml",
+          "hash": "7984500871013913376"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/unleash/helm/templates/service.yaml",
+          "hash": "4040012523315091302"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/unleash/helm/values-nondev.yaml",
+          "hash": "11709656348993687478"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/files/src/services/unleash/helm/values.yaml",
+          "hash": "15863913226152958295"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/infra-services.spec.ts",
+          "hash": "11447404969004540289",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/infra-services.ts",
+          "hash": "17607059357142081517",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/schema.d.ts",
+          "hash": "6497473366249192704"
+        },
+        {
+          "file": "tools/project-generator/src/infra-services/schema.json",
+          "hash": "12788969766896278559"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/app/src/app.module.ts.template",
+          "hash": "9750975375035725354"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/app/src/main.ts.template",
+          "hash": "5908357296730109593"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/app/src/tasks.service.spec.ts.template",
+          "hash": "6390610707777283591"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/app/src/tasks.service.ts.template",
+          "hash": "13652632100304024697"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills-lock.json",
+          "hash": "13456262997975284226"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/database-optimizer/SKILL.md",
+          "hash": "13061100603147820951"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/database-optimizer/references/index-strategies.md",
+          "hash": "18351512728154766056"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/database-optimizer/references/monitoring-analysis.md",
+          "hash": "4772650792199335328"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/database-optimizer/references/mysql-tuning.md",
+          "hash": "10683444230429237720"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/database-optimizer/references/postgresql-tuning.md",
+          "hash": "15846891783825051192"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/database-optimizer/references/query-optimization.md",
+          "hash": "10377699378924456419"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/debugging-wizard/SKILL.md",
+          "hash": "3391189626856824227"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/debugging-wizard/references/common-patterns.md",
+          "hash": "17806734468269827978"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/debugging-wizard/references/debugging-tools.md",
+          "hash": "12208704756043883330"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/debugging-wizard/references/quick-fixes.md",
+          "hash": "13996423285759043279"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/debugging-wizard/references/strategies.md",
+          "hash": "16819079492237591589"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/debugging-wizard/references/systematic-debugging.md",
+          "hash": "15565114312030897794"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/SKILL.md",
+          "hash": "9802692627636734628"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/references/authentication.md",
+          "hash": "8307107303686854183"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/references/controllers-routing.md",
+          "hash": "13435188007278655941"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/references/dtos-validation.md",
+          "hash": "15057616818024536350"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/references/migration-from-express.md",
+          "hash": "16633666773873170623"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/references/services-di.md",
+          "hash": "17361138451954665515"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/references/testing-patterns.md",
+          "hash": "16601698498224477077"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/sql-pro/SKILL.md",
+          "hash": "9847445431779508609"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/sql-pro/references/database-design.md",
+          "hash": "2341344053417382428"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/sql-pro/references/dialect-differences.md",
+          "hash": "8394209454494380151"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/sql-pro/references/optimization.md",
+          "hash": "13362726194204019587"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/sql-pro/references/query-patterns.md",
+          "hash": "13554234127213412870"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/sql-pro/references/window-functions.md",
+          "hash": "14866590110825508428"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/SKILL.md",
+          "hash": "15104228521098291060"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/automation-frameworks.md",
+          "hash": "4942667397815466102"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/e2e-testing.md",
+          "hash": "6348496962202956658"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/integration-testing.md",
+          "hash": "15267627726577253860"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/performance-testing.md",
+          "hash": "10882271607681160607"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/qa-methodology.md",
+          "hash": "9955717399005446088"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/security-testing.md",
+          "hash": "11841413170196914136"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/tdd-iron-laws.md",
+          "hash": "7270275829537808470"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/test-reports.md",
+          "hash": "10501661804579647412"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/testing-anti-patterns.md",
+          "hash": "7337742018895896219"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/unit-testing.md",
+          "hash": "9955850127302010675"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/typescript-pro/SKILL.md",
+          "hash": "11309067352657992372"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/typescript-pro/references/advanced-types.md",
+          "hash": "14245642306296902597"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/typescript-pro/references/configuration.md",
+          "hash": "18019162720057105611"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/typescript-pro/references/patterns.md",
+          "hash": "3818057099763057145"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/typescript-pro/references/type-guards.md",
+          "hash": "509173545360051501"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/curated-skills/typescript-pro/references/utility-types.md",
+          "hash": "16271105296629873394"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/files/service-skill/SKILL.md.template",
+          "hash": "18141945706104306422"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/nest-cron.spec.ts",
+          "hash": "1125085525112820114",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/nest-cron.ts",
+          "hash": "5288538093529394429",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/schema.d.ts",
+          "hash": "10066201468240684863"
+        },
+        {
+          "file": "tools/project-generator/src/nest-cron/schema.json",
+          "hash": "5418723019026175145"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/app/src/app.module.ts.template",
+          "hash": "6534363259483823580"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/app/src/app.resolver.spec.ts.template",
+          "hash": "12632945799867221273"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/app/src/app.resolver.ts.template",
+          "hash": "2396456228255863768"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/app/src/app.service.ts.template",
+          "hash": "9495364696817147725"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/app/src/main.ts.template",
+          "hash": "6783086878492621953"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills-lock.json",
+          "hash": "16267295003756994837"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/debugging-wizard/SKILL.md",
+          "hash": "3391189626856824227"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/debugging-wizard/references/common-patterns.md",
+          "hash": "17806734468269827978"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/debugging-wizard/references/debugging-tools.md",
+          "hash": "12208704756043883330"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/debugging-wizard/references/quick-fixes.md",
+          "hash": "13996423285759043279"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/debugging-wizard/references/strategies.md",
+          "hash": "16819079492237591589"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/debugging-wizard/references/systematic-debugging.md",
+          "hash": "15565114312030897794"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/SKILL.md",
+          "hash": "9802692627636734628"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/references/authentication.md",
+          "hash": "8307107303686854183"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/references/controllers-routing.md",
+          "hash": "13435188007278655941"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/references/dtos-validation.md",
+          "hash": "15057616818024536350"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/references/migration-from-express.md",
+          "hash": "16633666773873170623"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/references/services-di.md",
+          "hash": "17361138451954665515"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/references/testing-patterns.md",
+          "hash": "16601698498224477077"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/SKILL.md",
+          "hash": "15104228521098291060"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/automation-frameworks.md",
+          "hash": "4942667397815466102"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/e2e-testing.md",
+          "hash": "6348496962202956658"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/integration-testing.md",
+          "hash": "15267627726577253860"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/performance-testing.md",
+          "hash": "10882271607681160607"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/qa-methodology.md",
+          "hash": "9955717399005446088"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/security-testing.md",
+          "hash": "11841413170196914136"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/tdd-iron-laws.md",
+          "hash": "7270275829537808470"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/test-reports.md",
+          "hash": "10501661804579647412"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/testing-anti-patterns.md",
+          "hash": "7337742018895896219"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/unit-testing.md",
+          "hash": "9955850127302010675"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/typescript-pro/SKILL.md",
+          "hash": "11309067352657992372"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/typescript-pro/references/advanced-types.md",
+          "hash": "14245642306296902597"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/typescript-pro/references/configuration.md",
+          "hash": "18019162720057105611"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/typescript-pro/references/patterns.md",
+          "hash": "3818057099763057145"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/typescript-pro/references/type-guards.md",
+          "hash": "509173545360051501"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/typescript-pro/references/utility-types.md",
+          "hash": "16271105296629873394"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/files/service-skill/SKILL.md.template",
+          "hash": "7629391965393029206"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/nest-graphql.spec.ts",
+          "hash": "16075636476253568057",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/nest-graphql.ts",
+          "hash": "8098615854927302638",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/schema.d.ts",
+          "hash": "17992089739781867891"
+        },
+        {
+          "file": "tools/project-generator/src/nest-graphql/schema.json",
+          "hash": "2032241758553013007"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/app/proto/__fileName__.proto.template",
+          "hash": "14264252355650199081"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/app/src/app.controller.spec.ts.template",
+          "hash": "1171065609091431486"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/app/src/app.controller.ts.template",
+          "hash": "15390440084300542444"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/app/src/app.service.ts.template",
+          "hash": "9495364696817147725"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/app/src/main.ts.template",
+          "hash": "1950289466734993764"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills-lock.json",
+          "hash": "13456262997975284226"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/database-optimizer/SKILL.md",
+          "hash": "13061100603147820951"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/database-optimizer/references/index-strategies.md",
+          "hash": "18351512728154766056"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/database-optimizer/references/monitoring-analysis.md",
+          "hash": "4772650792199335328"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/database-optimizer/references/mysql-tuning.md",
+          "hash": "10683444230429237720"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/database-optimizer/references/postgresql-tuning.md",
+          "hash": "15846891783825051192"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/database-optimizer/references/query-optimization.md",
+          "hash": "10377699378924456419"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/debugging-wizard/SKILL.md",
+          "hash": "3391189626856824227"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/debugging-wizard/references/common-patterns.md",
+          "hash": "17806734468269827978"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/debugging-wizard/references/debugging-tools.md",
+          "hash": "12208704756043883330"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/debugging-wizard/references/quick-fixes.md",
+          "hash": "13996423285759043279"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/debugging-wizard/references/strategies.md",
+          "hash": "16819079492237591589"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/debugging-wizard/references/systematic-debugging.md",
+          "hash": "15565114312030897794"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/SKILL.md",
+          "hash": "9802692627636734628"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/references/authentication.md",
+          "hash": "8307107303686854183"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/references/controllers-routing.md",
+          "hash": "13435188007278655941"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/references/dtos-validation.md",
+          "hash": "15057616818024536350"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/references/migration-from-express.md",
+          "hash": "16633666773873170623"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/references/services-di.md",
+          "hash": "17361138451954665515"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/references/testing-patterns.md",
+          "hash": "16601698498224477077"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/sql-pro/SKILL.md",
+          "hash": "9847445431779508609"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/sql-pro/references/database-design.md",
+          "hash": "2341344053417382428"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/sql-pro/references/dialect-differences.md",
+          "hash": "8394209454494380151"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/sql-pro/references/optimization.md",
+          "hash": "13362726194204019587"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/sql-pro/references/query-patterns.md",
+          "hash": "13554234127213412870"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/sql-pro/references/window-functions.md",
+          "hash": "14866590110825508428"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/SKILL.md",
+          "hash": "15104228521098291060"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/automation-frameworks.md",
+          "hash": "4942667397815466102"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/e2e-testing.md",
+          "hash": "6348496962202956658"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/integration-testing.md",
+          "hash": "15267627726577253860"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/performance-testing.md",
+          "hash": "10882271607681160607"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/qa-methodology.md",
+          "hash": "9955717399005446088"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/security-testing.md",
+          "hash": "11841413170196914136"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/tdd-iron-laws.md",
+          "hash": "7270275829537808470"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/test-reports.md",
+          "hash": "10501661804579647412"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/testing-anti-patterns.md",
+          "hash": "7337742018895896219"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/unit-testing.md",
+          "hash": "9955850127302010675"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/typescript-pro/SKILL.md",
+          "hash": "11309067352657992372"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/typescript-pro/references/advanced-types.md",
+          "hash": "14245642306296902597"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/typescript-pro/references/configuration.md",
+          "hash": "18019162720057105611"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/typescript-pro/references/patterns.md",
+          "hash": "3818057099763057145"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/typescript-pro/references/type-guards.md",
+          "hash": "509173545360051501"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/typescript-pro/references/utility-types.md",
+          "hash": "16271105296629873394"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/files/service-skill/SKILL.md.template",
+          "hash": "7662135211302453471"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/nest-grpc.spec.ts",
+          "hash": "8166702384312283925",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/nest-grpc.ts",
+          "hash": "6929160456197834464",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/schema.d.ts",
+          "hash": "4969245582023750648"
+        },
+        {
+          "file": "tools/project-generator/src/nest-grpc/schema.json",
+          "hash": "4577541894426218153"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills-lock.json",
+          "hash": "13456262997975284226"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/database-optimizer/SKILL.md",
+          "hash": "13061100603147820951"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/database-optimizer/references/index-strategies.md",
+          "hash": "18351512728154766056"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/database-optimizer/references/monitoring-analysis.md",
+          "hash": "4772650792199335328"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/database-optimizer/references/mysql-tuning.md",
+          "hash": "10683444230429237720"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/database-optimizer/references/postgresql-tuning.md",
+          "hash": "15846891783825051192"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/database-optimizer/references/query-optimization.md",
+          "hash": "10377699378924456419"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/debugging-wizard/SKILL.md",
+          "hash": "3391189626856824227"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/debugging-wizard/references/common-patterns.md",
+          "hash": "17806734468269827978"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/debugging-wizard/references/debugging-tools.md",
+          "hash": "12208704756043883330"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/debugging-wizard/references/quick-fixes.md",
+          "hash": "13996423285759043279"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/debugging-wizard/references/strategies.md",
+          "hash": "16819079492237591589"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/debugging-wizard/references/systematic-debugging.md",
+          "hash": "15565114312030897794"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/SKILL.md",
+          "hash": "9802692627636734628"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/references/authentication.md",
+          "hash": "8307107303686854183"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/references/controllers-routing.md",
+          "hash": "13435188007278655941"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/references/dtos-validation.md",
+          "hash": "15057616818024536350"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/references/migration-from-express.md",
+          "hash": "16633666773873170623"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/references/services-di.md",
+          "hash": "17361138451954665515"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/references/testing-patterns.md",
+          "hash": "16601698498224477077"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/sql-pro/SKILL.md",
+          "hash": "9847445431779508609"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/sql-pro/references/database-design.md",
+          "hash": "2341344053417382428"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/sql-pro/references/dialect-differences.md",
+          "hash": "8394209454494380151"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/sql-pro/references/optimization.md",
+          "hash": "13362726194204019587"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/sql-pro/references/query-patterns.md",
+          "hash": "13554234127213412870"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/sql-pro/references/window-functions.md",
+          "hash": "14866590110825508428"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/SKILL.md",
+          "hash": "15104228521098291060"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/automation-frameworks.md",
+          "hash": "4942667397815466102"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/e2e-testing.md",
+          "hash": "6348496962202956658"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/integration-testing.md",
+          "hash": "15267627726577253860"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/performance-testing.md",
+          "hash": "10882271607681160607"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/qa-methodology.md",
+          "hash": "9955717399005446088"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/security-testing.md",
+          "hash": "11841413170196914136"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/tdd-iron-laws.md",
+          "hash": "7270275829537808470"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/test-reports.md",
+          "hash": "10501661804579647412"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/testing-anti-patterns.md",
+          "hash": "7337742018895896219"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/unit-testing.md",
+          "hash": "9955850127302010675"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/typescript-pro/SKILL.md",
+          "hash": "11309067352657992372"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/typescript-pro/references/advanced-types.md",
+          "hash": "14245642306296902597"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/typescript-pro/references/configuration.md",
+          "hash": "18019162720057105611"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/typescript-pro/references/patterns.md",
+          "hash": "3818057099763057145"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/typescript-pro/references/type-guards.md",
+          "hash": "509173545360051501"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/curated-skills/typescript-pro/references/utility-types.md",
+          "hash": "16271105296629873394"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/files/service-skill/SKILL.md.template",
+          "hash": "9173233071057975102"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/nest-rest.spec.ts",
+          "hash": "7159952759809267045",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/nest-rest.ts",
+          "hash": "3292814123853808760",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/schema.d.ts",
+          "hash": "12242553566250589942"
+        },
+        {
+          "file": "tools/project-generator/src/nest-rest/schema.json",
+          "hash": "11434903525653690625"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/curated-skills-lock.json",
+          "hash": "15155023937650405535"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/SKILL.md",
+          "hash": "15104228521098291060"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/automation-frameworks.md",
+          "hash": "4942667397815466102"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/e2e-testing.md",
+          "hash": "6348496962202956658"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/integration-testing.md",
+          "hash": "15267627726577253860"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/performance-testing.md",
+          "hash": "10882271607681160607"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/qa-methodology.md",
+          "hash": "9955717399005446088"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/security-testing.md",
+          "hash": "11841413170196914136"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/tdd-iron-laws.md",
+          "hash": "7270275829537808470"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/test-reports.md",
+          "hash": "10501661804579647412"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/testing-anti-patterns.md",
+          "hash": "7337742018895896219"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/unit-testing.md",
+          "hash": "9955850127302010675"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/project/.env.example.template",
+          "hash": "6291607191701386790"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/project/README.md.template",
+          "hash": "6293290363638528660"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/project/src/api-client.ts.template",
+          "hash": "11039106005286183673"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/project/src/config.ts.template",
+          "hash": "3078453062573173904"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/project/tests/__fileName__.spec.ts.template",
+          "hash": "1222844832523608673"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/project/tests/setup.ts.template",
+          "hash": "3204367460385585960"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/project/tsconfig.json.template",
+          "hash": "17401700316080527015"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/files/project/vitest.config.ts.template",
+          "hash": "5600415253367672071"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/schema.d.ts",
+          "hash": "9126095869152601830"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/schema.json",
+          "hash": "5646413031027758857"
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/server-integration-test.spec.ts",
+          "hash": "17030673653560886550",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/server-integration-test/server-integration-test.ts",
+          "hash": "6439721929048765869",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/shared.ts",
+          "hash": "4946149748565788280",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills-lock.json",
+          "hash": "3135136015547659808"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/playwright-expert/SKILL.md",
+          "hash": "3427557920349159998"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/playwright-expert/references/api-mocking.md",
+          "hash": "13372385036242524799"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/playwright-expert/references/configuration.md",
+          "hash": "12172563702483846394"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/playwright-expert/references/debugging-flaky.md",
+          "hash": "7496389197644947031"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/playwright-expert/references/page-object-model.md",
+          "hash": "14953680218131593278"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/playwright-expert/references/selectors-locators.md",
+          "hash": "3260404563839266146"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/SKILL.md",
+          "hash": "15104228521098291060"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/automation-frameworks.md",
+          "hash": "4942667397815466102"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/e2e-testing.md",
+          "hash": "6348496962202956658"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/integration-testing.md",
+          "hash": "15267627726577253860"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/performance-testing.md",
+          "hash": "10882271607681160607"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/qa-methodology.md",
+          "hash": "9955717399005446088"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/security-testing.md",
+          "hash": "11841413170196914136"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/tdd-iron-laws.md",
+          "hash": "7270275829537808470"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/test-reports.md",
+          "hash": "10501661804579647412"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/testing-anti-patterns.md",
+          "hash": "7337742018895896219"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/unit-testing.md",
+          "hash": "9955850127302010675"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/project/.env.example.template",
+          "hash": "14389141513468051609"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/project/.gitignore.template",
+          "hash": "1797570887397431769"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/project/README.md.template",
+          "hash": "17946680459587159955"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/project/package.json.template",
+          "hash": "14923878273073350062"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/project/playwright.config.ts.template",
+          "hash": "14153642590682664533"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/project/tests/__fileName__.spec.ts.template",
+          "hash": "10130389519730961449"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/files/project/tsconfig.json.template",
+          "hash": "8628147388438614908"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/schema.d.ts",
+          "hash": "17581823276198284377"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/schema.json",
+          "hash": "6972598281827240717"
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/web-integration-test.spec.ts",
+          "hash": "16400158565687670640",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/src/web-integration-test/web-integration-test.ts",
+          "hash": "14302088552906356763",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/project-generator/tsconfig.json",
+          "hash": "12437555863323107724"
+        },
+        {
+          "file": "tools/project-generator/tsconfig.lib.json",
+          "hash": "5139078406077422911"
+        },
+        {
+          "file": "tools/project-generator/tsconfig.spec.json",
+          "hash": "4789186368946461833"
+        },
+        {
+          "file": "tools/project-generator/vitest.config.mts",
+          "hash": "12429965727760642156",
+          "deps": [
+            "npm:@nx/vite@23.1.2",
+            "npm:vitest@4.1.11"
+          ]
+        }
+      ],
       "skill-generator": [
         {
           "file": "tools/skill-generator/README.md",
@@ -1659,1231 +3392,6 @@
         {
           "file": "tools/skill-generator/vitest.config.mts",
           "hash": "16789623829070355400",
-          "deps": [
-            "npm:@nx/vite@23.1.2",
-            "npm:vitest@4.1.11"
-          ]
-        }
-      ],
-      "project-generator": [
-        {
-          "file": "tools/project-generator/README.md",
-          "hash": "1222115609754453745"
-        },
-        {
-          "file": "tools/project-generator/generators.json",
-          "hash": "16941130348674769389"
-        },
-        {
-          "file": "tools/project-generator/package.json",
-          "hash": "11749838300996742119",
-          "deps": [
-            "npm:@nx/devkit@23.1.2",
-            "npm:tslib@2.8.1"
-          ]
-        },
-        {
-          "file": "tools/project-generator/project.json",
-          "hash": "8407367192637010703"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/e2e-test.spec.ts",
-          "hash": "13971696247916296046",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/e2e-test.ts",
-          "hash": "2913426020929511017",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills-lock.json",
-          "hash": "3135136015547659808"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/playwright-expert/SKILL.md",
-          "hash": "3427557920349159998"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/playwright-expert/references/api-mocking.md",
-          "hash": "13372385036242524799"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/playwright-expert/references/configuration.md",
-          "hash": "12172563702483846394"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/playwright-expert/references/debugging-flaky.md",
-          "hash": "7496389197644947031"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/playwright-expert/references/page-object-model.md",
-          "hash": "14953680218131593278"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/playwright-expert/references/selectors-locators.md",
-          "hash": "3260404563839266146"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/SKILL.md",
-          "hash": "15104228521098291060"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/automation-frameworks.md",
-          "hash": "4942667397815466102"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/e2e-testing.md",
-          "hash": "6348496962202956658"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/integration-testing.md",
-          "hash": "15267627726577253860"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/performance-testing.md",
-          "hash": "10882271607681160607"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/qa-methodology.md",
-          "hash": "9955717399005446088"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/security-testing.md",
-          "hash": "11841413170196914136"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/tdd-iron-laws.md",
-          "hash": "7270275829537808470"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/test-reports.md",
-          "hash": "10501661804579647412"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/testing-anti-patterns.md",
-          "hash": "7337742018895896219"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/curated-skills/test-master/references/unit-testing.md",
-          "hash": "9955850127302010675"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/project/.env.example.template",
-          "hash": "9398812641157085726"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/project/.gitignore.template",
-          "hash": "1797570887397431769"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/project/README.md.template",
-          "hash": "10798979940008924073"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/project/package.json.template",
-          "hash": "18111432488647999971"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/project/playwright.config.ts.template",
-          "hash": "14216869119755769123"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/project/tests/__fileName__.spec.ts.template",
-          "hash": "10386836273822476829"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/files/project/tsconfig.json.template",
-          "hash": "8628147388438614908"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/schema.d.ts",
-          "hash": "13122373245751712754"
-        },
-        {
-          "file": "tools/project-generator/src/e2e-test/schema.json",
-          "hash": "7332732522689678634"
-        },
-        {
-          "file": "tools/project-generator/src/index.ts",
-          "hash": "4595979742548113990"
-        },
-        {
-          "file": "tools/project-generator/src/infra-services/files/src/index.ts.template",
-          "hash": "8516815386028856332"
-        },
-        {
-          "file": "tools/project-generator/src/infra-services/infra-services.spec.ts",
-          "hash": "8187688860728028563",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/infra-services/infra-services.ts",
-          "hash": "17607059357142081517",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/infra-services/schema.d.ts",
-          "hash": "6497473366249192704"
-        },
-        {
-          "file": "tools/project-generator/src/infra-services/schema.json",
-          "hash": "12788969766896278559"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/app/src/app.module.ts.template",
-          "hash": "9750975375035725354"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/app/src/main.ts.template",
-          "hash": "5908357296730109593"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/app/src/tasks.service.spec.ts.template",
-          "hash": "6390610707777283591"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/app/src/tasks.service.ts.template",
-          "hash": "13652632100304024697"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills-lock.json",
-          "hash": "13456262997975284226"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/database-optimizer/SKILL.md",
-          "hash": "13061100603147820951"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/database-optimizer/references/index-strategies.md",
-          "hash": "18351512728154766056"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/database-optimizer/references/monitoring-analysis.md",
-          "hash": "4772650792199335328"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/database-optimizer/references/mysql-tuning.md",
-          "hash": "10683444230429237720"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/database-optimizer/references/postgresql-tuning.md",
-          "hash": "15846891783825051192"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/database-optimizer/references/query-optimization.md",
-          "hash": "10377699378924456419"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/debugging-wizard/SKILL.md",
-          "hash": "3391189626856824227"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/debugging-wizard/references/common-patterns.md",
-          "hash": "17806734468269827978"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/debugging-wizard/references/debugging-tools.md",
-          "hash": "12208704756043883330"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/debugging-wizard/references/quick-fixes.md",
-          "hash": "13996423285759043279"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/debugging-wizard/references/strategies.md",
-          "hash": "16819079492237591589"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/debugging-wizard/references/systematic-debugging.md",
-          "hash": "15565114312030897794"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/SKILL.md",
-          "hash": "9802692627636734628"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/references/authentication.md",
-          "hash": "8307107303686854183"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/references/controllers-routing.md",
-          "hash": "13435188007278655941"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/references/dtos-validation.md",
-          "hash": "15057616818024536350"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/references/migration-from-express.md",
-          "hash": "16633666773873170623"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/references/services-di.md",
-          "hash": "17361138451954665515"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/nestjs-expert/references/testing-patterns.md",
-          "hash": "16601698498224477077"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/sql-pro/SKILL.md",
-          "hash": "9847445431779508609"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/sql-pro/references/database-design.md",
-          "hash": "2341344053417382428"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/sql-pro/references/dialect-differences.md",
-          "hash": "8394209454494380151"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/sql-pro/references/optimization.md",
-          "hash": "13362726194204019587"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/sql-pro/references/query-patterns.md",
-          "hash": "13554234127213412870"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/sql-pro/references/window-functions.md",
-          "hash": "14866590110825508428"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/SKILL.md",
-          "hash": "15104228521098291060"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/automation-frameworks.md",
-          "hash": "4942667397815466102"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/e2e-testing.md",
-          "hash": "6348496962202956658"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/integration-testing.md",
-          "hash": "15267627726577253860"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/performance-testing.md",
-          "hash": "10882271607681160607"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/qa-methodology.md",
-          "hash": "9955717399005446088"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/security-testing.md",
-          "hash": "11841413170196914136"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/tdd-iron-laws.md",
-          "hash": "7270275829537808470"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/test-reports.md",
-          "hash": "10501661804579647412"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/testing-anti-patterns.md",
-          "hash": "7337742018895896219"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/test-master/references/unit-testing.md",
-          "hash": "9955850127302010675"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/typescript-pro/SKILL.md",
-          "hash": "11309067352657992372"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/typescript-pro/references/advanced-types.md",
-          "hash": "14245642306296902597"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/typescript-pro/references/configuration.md",
-          "hash": "18019162720057105611"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/typescript-pro/references/patterns.md",
-          "hash": "3818057099763057145"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/typescript-pro/references/type-guards.md",
-          "hash": "509173545360051501"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/curated-skills/typescript-pro/references/utility-types.md",
-          "hash": "16271105296629873394"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/files/service-skill/SKILL.md.template",
-          "hash": "18141945706104306422"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/nest-cron.spec.ts",
-          "hash": "1125085525112820114",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/nest-cron.ts",
-          "hash": "5288538093529394429",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/schema.d.ts",
-          "hash": "10066201468240684863"
-        },
-        {
-          "file": "tools/project-generator/src/nest-cron/schema.json",
-          "hash": "5418723019026175145"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/app/src/app.module.ts.template",
-          "hash": "6534363259483823580"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/app/src/app.resolver.spec.ts.template",
-          "hash": "12632945799867221273"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/app/src/app.resolver.ts.template",
-          "hash": "2396456228255863768"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/app/src/app.service.ts.template",
-          "hash": "9495364696817147725"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/app/src/main.ts.template",
-          "hash": "6783086878492621953"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills-lock.json",
-          "hash": "16267295003756994837"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/debugging-wizard/SKILL.md",
-          "hash": "3391189626856824227"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/debugging-wizard/references/common-patterns.md",
-          "hash": "17806734468269827978"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/debugging-wizard/references/debugging-tools.md",
-          "hash": "12208704756043883330"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/debugging-wizard/references/quick-fixes.md",
-          "hash": "13996423285759043279"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/debugging-wizard/references/strategies.md",
-          "hash": "16819079492237591589"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/debugging-wizard/references/systematic-debugging.md",
-          "hash": "15565114312030897794"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/SKILL.md",
-          "hash": "9802692627636734628"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/references/authentication.md",
-          "hash": "8307107303686854183"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/references/controllers-routing.md",
-          "hash": "13435188007278655941"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/references/dtos-validation.md",
-          "hash": "15057616818024536350"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/references/migration-from-express.md",
-          "hash": "16633666773873170623"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/references/services-di.md",
-          "hash": "17361138451954665515"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/nestjs-expert/references/testing-patterns.md",
-          "hash": "16601698498224477077"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/SKILL.md",
-          "hash": "15104228521098291060"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/automation-frameworks.md",
-          "hash": "4942667397815466102"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/e2e-testing.md",
-          "hash": "6348496962202956658"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/integration-testing.md",
-          "hash": "15267627726577253860"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/performance-testing.md",
-          "hash": "10882271607681160607"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/qa-methodology.md",
-          "hash": "9955717399005446088"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/security-testing.md",
-          "hash": "11841413170196914136"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/tdd-iron-laws.md",
-          "hash": "7270275829537808470"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/test-reports.md",
-          "hash": "10501661804579647412"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/testing-anti-patterns.md",
-          "hash": "7337742018895896219"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/test-master/references/unit-testing.md",
-          "hash": "9955850127302010675"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/typescript-pro/SKILL.md",
-          "hash": "11309067352657992372"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/typescript-pro/references/advanced-types.md",
-          "hash": "14245642306296902597"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/typescript-pro/references/configuration.md",
-          "hash": "18019162720057105611"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/typescript-pro/references/patterns.md",
-          "hash": "3818057099763057145"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/typescript-pro/references/type-guards.md",
-          "hash": "509173545360051501"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/curated-skills/typescript-pro/references/utility-types.md",
-          "hash": "16271105296629873394"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/files/service-skill/SKILL.md.template",
-          "hash": "7629391965393029206"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/nest-graphql.spec.ts",
-          "hash": "16075636476253568057",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/nest-graphql.ts",
-          "hash": "8098615854927302638",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/schema.d.ts",
-          "hash": "17992089739781867891"
-        },
-        {
-          "file": "tools/project-generator/src/nest-graphql/schema.json",
-          "hash": "2032241758553013007"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/app/proto/__fileName__.proto.template",
-          "hash": "14264252355650199081"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/app/src/app.controller.spec.ts.template",
-          "hash": "1171065609091431486"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/app/src/app.controller.ts.template",
-          "hash": "15390440084300542444"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/app/src/app.service.ts.template",
-          "hash": "9495364696817147725"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/app/src/main.ts.template",
-          "hash": "1950289466734993764"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills-lock.json",
-          "hash": "13456262997975284226"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/database-optimizer/SKILL.md",
-          "hash": "13061100603147820951"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/database-optimizer/references/index-strategies.md",
-          "hash": "18351512728154766056"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/database-optimizer/references/monitoring-analysis.md",
-          "hash": "4772650792199335328"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/database-optimizer/references/mysql-tuning.md",
-          "hash": "10683444230429237720"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/database-optimizer/references/postgresql-tuning.md",
-          "hash": "15846891783825051192"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/database-optimizer/references/query-optimization.md",
-          "hash": "10377699378924456419"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/debugging-wizard/SKILL.md",
-          "hash": "3391189626856824227"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/debugging-wizard/references/common-patterns.md",
-          "hash": "17806734468269827978"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/debugging-wizard/references/debugging-tools.md",
-          "hash": "12208704756043883330"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/debugging-wizard/references/quick-fixes.md",
-          "hash": "13996423285759043279"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/debugging-wizard/references/strategies.md",
-          "hash": "16819079492237591589"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/debugging-wizard/references/systematic-debugging.md",
-          "hash": "15565114312030897794"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/SKILL.md",
-          "hash": "9802692627636734628"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/references/authentication.md",
-          "hash": "8307107303686854183"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/references/controllers-routing.md",
-          "hash": "13435188007278655941"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/references/dtos-validation.md",
-          "hash": "15057616818024536350"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/references/migration-from-express.md",
-          "hash": "16633666773873170623"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/references/services-di.md",
-          "hash": "17361138451954665515"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/nestjs-expert/references/testing-patterns.md",
-          "hash": "16601698498224477077"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/sql-pro/SKILL.md",
-          "hash": "9847445431779508609"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/sql-pro/references/database-design.md",
-          "hash": "2341344053417382428"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/sql-pro/references/dialect-differences.md",
-          "hash": "8394209454494380151"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/sql-pro/references/optimization.md",
-          "hash": "13362726194204019587"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/sql-pro/references/query-patterns.md",
-          "hash": "13554234127213412870"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/sql-pro/references/window-functions.md",
-          "hash": "14866590110825508428"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/SKILL.md",
-          "hash": "15104228521098291060"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/automation-frameworks.md",
-          "hash": "4942667397815466102"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/e2e-testing.md",
-          "hash": "6348496962202956658"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/integration-testing.md",
-          "hash": "15267627726577253860"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/performance-testing.md",
-          "hash": "10882271607681160607"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/qa-methodology.md",
-          "hash": "9955717399005446088"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/security-testing.md",
-          "hash": "11841413170196914136"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/tdd-iron-laws.md",
-          "hash": "7270275829537808470"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/test-reports.md",
-          "hash": "10501661804579647412"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/testing-anti-patterns.md",
-          "hash": "7337742018895896219"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/test-master/references/unit-testing.md",
-          "hash": "9955850127302010675"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/typescript-pro/SKILL.md",
-          "hash": "11309067352657992372"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/typescript-pro/references/advanced-types.md",
-          "hash": "14245642306296902597"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/typescript-pro/references/configuration.md",
-          "hash": "18019162720057105611"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/typescript-pro/references/patterns.md",
-          "hash": "3818057099763057145"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/typescript-pro/references/type-guards.md",
-          "hash": "509173545360051501"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/curated-skills/typescript-pro/references/utility-types.md",
-          "hash": "16271105296629873394"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/files/service-skill/SKILL.md.template",
-          "hash": "7662135211302453471"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/nest-grpc.spec.ts",
-          "hash": "8166702384312283925",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/nest-grpc.ts",
-          "hash": "6929160456197834464",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/schema.d.ts",
-          "hash": "4969245582023750648"
-        },
-        {
-          "file": "tools/project-generator/src/nest-grpc/schema.json",
-          "hash": "4577541894426218153"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills-lock.json",
-          "hash": "13456262997975284226"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/database-optimizer/SKILL.md",
-          "hash": "13061100603147820951"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/database-optimizer/references/index-strategies.md",
-          "hash": "18351512728154766056"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/database-optimizer/references/monitoring-analysis.md",
-          "hash": "4772650792199335328"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/database-optimizer/references/mysql-tuning.md",
-          "hash": "10683444230429237720"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/database-optimizer/references/postgresql-tuning.md",
-          "hash": "15846891783825051192"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/database-optimizer/references/query-optimization.md",
-          "hash": "10377699378924456419"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/debugging-wizard/SKILL.md",
-          "hash": "3391189626856824227"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/debugging-wizard/references/common-patterns.md",
-          "hash": "17806734468269827978"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/debugging-wizard/references/debugging-tools.md",
-          "hash": "12208704756043883330"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/debugging-wizard/references/quick-fixes.md",
-          "hash": "13996423285759043279"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/debugging-wizard/references/strategies.md",
-          "hash": "16819079492237591589"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/debugging-wizard/references/systematic-debugging.md",
-          "hash": "15565114312030897794"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/SKILL.md",
-          "hash": "9802692627636734628"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/references/authentication.md",
-          "hash": "8307107303686854183"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/references/controllers-routing.md",
-          "hash": "13435188007278655941"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/references/dtos-validation.md",
-          "hash": "15057616818024536350"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/references/migration-from-express.md",
-          "hash": "16633666773873170623"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/references/services-di.md",
-          "hash": "17361138451954665515"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/nestjs-expert/references/testing-patterns.md",
-          "hash": "16601698498224477077"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/sql-pro/SKILL.md",
-          "hash": "9847445431779508609"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/sql-pro/references/database-design.md",
-          "hash": "2341344053417382428"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/sql-pro/references/dialect-differences.md",
-          "hash": "8394209454494380151"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/sql-pro/references/optimization.md",
-          "hash": "13362726194204019587"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/sql-pro/references/query-patterns.md",
-          "hash": "13554234127213412870"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/sql-pro/references/window-functions.md",
-          "hash": "14866590110825508428"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/SKILL.md",
-          "hash": "15104228521098291060"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/automation-frameworks.md",
-          "hash": "4942667397815466102"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/e2e-testing.md",
-          "hash": "6348496962202956658"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/integration-testing.md",
-          "hash": "15267627726577253860"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/performance-testing.md",
-          "hash": "10882271607681160607"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/qa-methodology.md",
-          "hash": "9955717399005446088"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/security-testing.md",
-          "hash": "11841413170196914136"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/tdd-iron-laws.md",
-          "hash": "7270275829537808470"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/test-reports.md",
-          "hash": "10501661804579647412"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/testing-anti-patterns.md",
-          "hash": "7337742018895896219"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/test-master/references/unit-testing.md",
-          "hash": "9955850127302010675"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/typescript-pro/SKILL.md",
-          "hash": "11309067352657992372"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/typescript-pro/references/advanced-types.md",
-          "hash": "14245642306296902597"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/typescript-pro/references/configuration.md",
-          "hash": "18019162720057105611"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/typescript-pro/references/patterns.md",
-          "hash": "3818057099763057145"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/typescript-pro/references/type-guards.md",
-          "hash": "509173545360051501"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/curated-skills/typescript-pro/references/utility-types.md",
-          "hash": "16271105296629873394"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/files/service-skill/SKILL.md.template",
-          "hash": "9173233071057975102"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/nest-rest.spec.ts",
-          "hash": "7159952759809267045",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/nest-rest.ts",
-          "hash": "3292814123853808760",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/schema.d.ts",
-          "hash": "12242553566250589942"
-        },
-        {
-          "file": "tools/project-generator/src/nest-rest/schema.json",
-          "hash": "11434903525653690625"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/curated-skills-lock.json",
-          "hash": "15155023937650405535"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/SKILL.md",
-          "hash": "15104228521098291060"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/automation-frameworks.md",
-          "hash": "4942667397815466102"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/e2e-testing.md",
-          "hash": "6348496962202956658"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/integration-testing.md",
-          "hash": "15267627726577253860"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/performance-testing.md",
-          "hash": "10882271607681160607"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/qa-methodology.md",
-          "hash": "9955717399005446088"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/security-testing.md",
-          "hash": "11841413170196914136"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/tdd-iron-laws.md",
-          "hash": "7270275829537808470"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/test-reports.md",
-          "hash": "10501661804579647412"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/testing-anti-patterns.md",
-          "hash": "7337742018895896219"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/curated-skills/test-master/references/unit-testing.md",
-          "hash": "9955850127302010675"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/project/.env.example.template",
-          "hash": "6291607191701386790"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/project/README.md.template",
-          "hash": "6293290363638528660"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/project/src/api-client.ts.template",
-          "hash": "11039106005286183673"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/project/src/config.ts.template",
-          "hash": "3078453062573173904"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/project/tests/__fileName__.spec.ts.template",
-          "hash": "1222844832523608673"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/project/tests/setup.ts.template",
-          "hash": "3204367460385585960"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/project/tsconfig.json.template",
-          "hash": "17401700316080527015"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/files/project/vitest.config.ts.template",
-          "hash": "5600415253367672071"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/schema.d.ts",
-          "hash": "9126095869152601830"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/schema.json",
-          "hash": "5646413031027758857"
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/server-integration-test.spec.ts",
-          "hash": "17030673653560886550",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/server-integration-test/server-integration-test.ts",
-          "hash": "6439721929048765869",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/shared.ts",
-          "hash": "4946149748565788280",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills-lock.json",
-          "hash": "3135136015547659808"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/playwright-expert/SKILL.md",
-          "hash": "3427557920349159998"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/playwright-expert/references/api-mocking.md",
-          "hash": "13372385036242524799"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/playwright-expert/references/configuration.md",
-          "hash": "12172563702483846394"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/playwright-expert/references/debugging-flaky.md",
-          "hash": "7496389197644947031"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/playwright-expert/references/page-object-model.md",
-          "hash": "14953680218131593278"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/playwright-expert/references/selectors-locators.md",
-          "hash": "3260404563839266146"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/SKILL.md",
-          "hash": "15104228521098291060"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/automation-frameworks.md",
-          "hash": "4942667397815466102"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/e2e-testing.md",
-          "hash": "6348496962202956658"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/integration-testing.md",
-          "hash": "15267627726577253860"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/performance-testing.md",
-          "hash": "10882271607681160607"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/qa-methodology.md",
-          "hash": "9955717399005446088"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/security-testing.md",
-          "hash": "11841413170196914136"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/tdd-iron-laws.md",
-          "hash": "7270275829537808470"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/test-reports.md",
-          "hash": "10501661804579647412"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/testing-anti-patterns.md",
-          "hash": "7337742018895896219"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/curated-skills/test-master/references/unit-testing.md",
-          "hash": "9955850127302010675"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/project/.env.example.template",
-          "hash": "14389141513468051609"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/project/.gitignore.template",
-          "hash": "1797570887397431769"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/project/README.md.template",
-          "hash": "17946680459587159955"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/project/package.json.template",
-          "hash": "14923878273073350062"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/project/playwright.config.ts.template",
-          "hash": "14153642590682664533"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/project/tests/__fileName__.spec.ts.template",
-          "hash": "10130389519730961449"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/files/project/tsconfig.json.template",
-          "hash": "8628147388438614908"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/schema.d.ts",
-          "hash": "17581823276198284377"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/schema.json",
-          "hash": "6972598281827240717"
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/web-integration-test.spec.ts",
-          "hash": "16400158565687670640",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/src/web-integration-test/web-integration-test.ts",
-          "hash": "14302088552906356763",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/project-generator/tsconfig.json",
-          "hash": "12437555863323107724"
-        },
-        {
-          "file": "tools/project-generator/tsconfig.lib.json",
-          "hash": "5139078406077422911"
-        },
-        {
-          "file": "tools/project-generator/tsconfig.spec.json",
-          "hash": "4789186368946461833"
-        },
-        {
-          "file": "tools/project-generator/vitest.config.mts",
-          "hash": "12429965727760642156",
           "deps": [
             "npm:@nx/vite@23.1.2",
             "npm:vitest@4.1.11"
