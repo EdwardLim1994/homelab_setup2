@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { DevopsEngineerGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function devopsEngineerGenerator(
 	options: DevopsEngineerGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "devops-engineer", options);
-	await formatFiles(tree);
 }
 
 export default devopsEngineerGenerator;

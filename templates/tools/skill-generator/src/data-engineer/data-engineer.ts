@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { DataEngineerGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function dataEngineerGenerator(
 	options: DataEngineerGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "data-engineer", options);
-	await formatFiles(tree);
 }
 
 export default dataEngineerGenerator;

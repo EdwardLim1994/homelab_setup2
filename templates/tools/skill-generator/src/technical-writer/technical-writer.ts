@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { TechnicalWriterGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function technicalWriterGenerator(
 	options: TechnicalWriterGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "technical-writer", options);
-	await formatFiles(tree);
 }
 
 export default technicalWriterGenerator;

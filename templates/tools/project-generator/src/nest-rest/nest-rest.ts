@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { formatFiles, generateFiles, type Tree } from "@nx/devkit";
+import { generateFiles, type Tree } from "@nx/devkit";
 import {
 	addCuratedSkills,
 	registerNestApp,
@@ -30,7 +30,6 @@ export async function nestRestGenerator(
 	}
 
 	registerNestApp(tree, n.fileName, projectRoot);
-	await formatFiles(tree);
 }
 
 export default nestRestGenerator;

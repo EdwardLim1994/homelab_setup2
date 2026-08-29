@@ -6186,15 +6186,6 @@
         "hash": "sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g=="
       }
     },
-    "npm:prettier@3.6.2": {
-      "type": "npm",
-      "name": "npm:prettier@3.6.2",
-      "data": {
-        "version": "3.6.2",
-        "packageName": "prettier",
-        "hash": "sha512-I7AIg5boAr5R0FFtJ6rCfD+LFsWHp81dolrFD8S79U9tb8Az2nGrJncnMSnys+bpQJfRUzqs9hnA81OAA3hCuQ=="
-      }
-    },
     "npm:pretty-format@30.5.0": {
       "type": "npm",
       "name": "npm:pretty-format@30.5.0",
@@ -13933,15 +13924,6 @@
         "version": "1.2.1",
         "packageName": "prelude-ls",
         "hash": "sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g=="
-      }
-    },
-    "npm:prettier": {
-      "type": "npm",
-      "name": "npm:prettier",
-      "data": {
-        "version": "3.6.2",
-        "packageName": "prettier",
-        "hash": "sha512-I7AIg5boAr5R0FFtJ6rCfD+LFsWHp81dolrFD8S79U9tb8Az2nGrJncnMSnys+bpQJfRUzqs9hnA81OAA3hCuQ=="
       }
     },
     "npm:pretty-format": {
@@ -24289,5 +24271,5 @@
   },
   "version": "6.0",
   "errors": [],
-  "computedAt": 1787998388290
+  "computedAt": 1787998745749
 }

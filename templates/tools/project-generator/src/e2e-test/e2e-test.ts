@@ -1,7 +1,6 @@
 import * as path from "node:path";
 import {
 	addProjectConfiguration,
-	formatFiles,
 	generateFiles,
 	names,
 	type Tree,
@@ -42,8 +41,6 @@ export async function e2eTestGenerator(
 			},
 		},
 	});
-
-	await formatFiles(tree);
 }
 
 export default e2eTestGenerator;

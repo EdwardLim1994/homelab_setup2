@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { BackendDeveloperGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function backendDeveloperGenerator(
 	options: BackendDeveloperGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "backend-developer", options);
-	await formatFiles(tree);
 }
 
 export default backendDeveloperGenerator;

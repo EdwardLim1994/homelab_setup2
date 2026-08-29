@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { SecurityEngineerGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function securityEngineerGenerator(
 	options: SecurityEngineerGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "security-engineer", options);
-	await formatFiles(tree);
 }
 
 export default securityEngineerGenerator;

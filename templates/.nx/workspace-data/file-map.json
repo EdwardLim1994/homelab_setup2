@@ -11,140 +11,6 @@
   },
   "nxJsonPlugins": [],
   "fileMap": {
-    "nonProjectFiles": [
-      {
-        "file": ".opencode/skills/nx-import/references/JEST.md",
-        "hash": "17388362190464741914"
-      },
-      {
-        "file": ".opencode/skills/monitor-ci/scripts/ci-poll-decide.mjs",
-        "hash": "17947661465624026971"
-      },
-      {
-        "file": ".opencode/skills/nx-run-tasks/SKILL.md",
-        "hash": "6310165843200780094"
-      },
-      {
-        "file": ".opencode/commands/monitor-ci.md",
-        "hash": "325933896700411024"
-      },
-      {
-        "file": ".opencode/skills/nx-import/references/NEXT.md",
-        "hash": "10590097548337933652"
-      },
-      {
-        "file": ".opencode/skills/nx-plugins/SKILL.md",
-        "hash": "17761452540263218782"
-      },
-      {
-        "file": "CLAUDE.md",
-        "hash": "3693179293707062853"
-      },
-      {
-        "file": ".gitignore",
-        "hash": "4459766590097515105"
-      },
-      {
-        "file": "biome.json",
-        "hash": "16419074164176413013"
-      },
-      {
-        "file": ".opencode/skills/nx-workspace/references/AFFECTED.md",
-        "hash": "5689225252238354455"
-      },
-      {
-        "file": ".opencode/skills/monitor-ci/references/fix-flows.md",
-        "hash": "10043923144049437139"
-      },
-      {
-        "file": ".prettierrc",
-        "hash": "16267754514737964994"
-      },
-      {
-        "file": "nx.json",
-        "hash": "16104567096559654939"
-      },
-      {
-        "file": ".opencode/agents/ci-monitor-subagent.md",
-        "hash": "15590325861656077491"
-      },
-      {
-        "file": ".opencode/skills/nx-generate/SKILL.md",
-        "hash": "3358630942574540984"
-      },
-      {
-        "file": "opencode.json",
-        "hash": "8191607578836129025"
-      },
-      {
-        "file": ".codegraph/.gitignore",
-        "hash": "3697384128401905561"
-      },
-      {
-        "file": ".opencode/skills/nx-import/references/GRADLE.md",
-        "hash": "3571850575232446918"
-      },
-      {
-        "file": ".opencode/skills/nx-import/references/VITE.md",
-        "hash": "18159188461087437582"
-      },
-      {
-        "file": "bun.lock",
-        "hash": "4374388759396078780"
-      },
-      {
-        "file": "package.json",
-        "hash": "7974399988688664532"
-      },
-      {
-        "file": ".opencode/skills/nx-import/references/ESLINT.md",
-        "hash": "13530282936503679323"
-      },
-      {
-        "file": "tsconfig.base.json",
-        "hash": "14236486107999583000"
-      },
-      {
-        "file": ".claude/settings.json",
-        "hash": "790924927305982316"
-      },
-      {
-        "file": ".opencode/skills/monitor-ci/SKILL.md",
-        "hash": "3864522841306718739"
-      },
-      {
-        "file": "vitest.config.ts",
-        "hash": "8162562971994051878"
-      },
-      {
-        "file": ".prettierignore",
-        "hash": "14688272390704683536"
-      },
-      {
-        "file": ".opencode/skills/monitor-ci/scripts/ci-state-update.mjs",
-        "hash": "10337086218990061662"
-      },
-      {
-        "file": "AGENTS.md",
-        "hash": "3693179293707062853"
-      },
-      {
-        "file": ".opencode/skills/nx-import/references/TURBOREPO.md",
-        "hash": "16683618674426785182"
-      },
-      {
-        "file": ".opencode/skills/nx-workspace/SKILL.md",
-        "hash": "12877893594506374684"
-      },
-      {
-        "file": ".opencode/skills/link-workspace-packages/SKILL.md",
-        "hash": "15436383388001770446"
-      },
-      {
-        "file": ".opencode/skills/nx-import/SKILL.md",
-        "hash": "5320545115991037698"
-      }
-    ],
     "projectFileMap": {
       "project-generator": [
         {
@@ -176,7 +42,7 @@
         },
         {
           "file": "tools/project-generator/src/e2e-test/e2e-test.ts",
-          "hash": "2913426020929511017",
+          "hash": "14890514016417041158",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -807,14 +673,14 @@
         },
         {
           "file": "tools/project-generator/src/infra-services/infra-services.spec.ts",
-          "hash": "11447404969004540289",
+          "hash": "2158818594518528324",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
         },
         {
           "file": "tools/project-generator/src/infra-services/infra-services.ts",
-          "hash": "17607059357142081517",
+          "hash": "4748943412579828446",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -1028,7 +894,7 @@
         },
         {
           "file": "tools/project-generator/src/nest-cron/nest-cron.ts",
-          "hash": "5288538093529394429",
+          "hash": "217102538279126655",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -1198,7 +1064,7 @@
         },
         {
           "file": "tools/project-generator/src/nest-graphql/nest-graphql.ts",
-          "hash": "8098615854927302638",
+          "hash": "7994577225579247150",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -1416,7 +1282,7 @@
         },
         {
           "file": "tools/project-generator/src/nest-grpc/nest-grpc.ts",
-          "hash": "6929160456197834464",
+          "hash": "2639292870118331388",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -1614,7 +1480,7 @@
         },
         {
           "file": "tools/project-generator/src/nest-rest/nest-rest.ts",
-          "hash": "3292814123853808760",
+          "hash": "9461303638169269819",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -1724,7 +1590,7 @@
         },
         {
           "file": "tools/project-generator/src/server-integration-test/server-integration-test.ts",
-          "hash": "6439721929048765869",
+          "hash": "11294419408337327850",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -1853,7 +1719,7 @@
         },
         {
           "file": "tools/project-generator/src/web-integration-test/web-integration-test.ts",
-          "hash": "14302088552906356763",
+          "hash": "11792852877180536124",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -1913,7 +1779,7 @@
         },
         {
           "file": "tools/skill-generator/src/backend-developer/backend-developer.ts",
-          "hash": "12761573503962627234",
+          "hash": "9622276198360015195",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -1939,7 +1805,7 @@
         },
         {
           "file": "tools/skill-generator/src/data-engineer/data-engineer.ts",
-          "hash": "5573258403671202095",
+          "hash": "7691659606237370047",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -2069,7 +1935,7 @@
         },
         {
           "file": "tools/skill-generator/src/devops-engineer/devops-engineer.ts",
-          "hash": "3590709236320322217",
+          "hash": "13074950761891942373",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -2255,7 +2121,7 @@
         },
         {
           "file": "tools/skill-generator/src/frontend-developer/frontend-developer.ts",
-          "hash": "2367038271299029105",
+          "hash": "10943904090659024218",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -2285,7 +2151,7 @@
         },
         {
           "file": "tools/skill-generator/src/product-owner/product-owner.ts",
-          "hash": "15845154444663255161",
+          "hash": "12819566996036806838",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -2311,7 +2177,7 @@
         },
         {
           "file": "tools/skill-generator/src/project-manager/project-manager.ts",
-          "hash": "5968142835610411135",
+          "hash": "3407168399503622972",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -2489,7 +2355,7 @@
         },
         {
           "file": "tools/skill-generator/src/qa-engineer/qa-engineer.ts",
-          "hash": "5881072316152487512",
+          "hash": "7396082781066851820",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -2595,7 +2461,7 @@
         },
         {
           "file": "tools/skill-generator/src/react-developer/react-developer.ts",
-          "hash": "3449461189731362394",
+          "hash": "6643945744995445398",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -2693,7 +2559,7 @@
         },
         {
           "file": "tools/skill-generator/src/react-native-developer/react-native-developer.ts",
-          "hash": "15343859444279278849",
+          "hash": "16009116930198775853",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -2719,7 +2585,7 @@
         },
         {
           "file": "tools/skill-generator/src/release-manager/release-manager.ts",
-          "hash": "17072115118545098122",
+          "hash": "5252269196278007521",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -2829,7 +2695,7 @@
         },
         {
           "file": "tools/skill-generator/src/security-engineer/security-engineer.ts",
-          "hash": "3080316682671650019",
+          "hash": "14249159474799301445",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -2966,7 +2832,7 @@
         },
         {
           "file": "tools/skill-generator/src/solution-architect/solution-architect.ts",
-          "hash": "5304178841185662033",
+          "hash": "9177334127245060273",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -3212,7 +3078,7 @@
         },
         {
           "file": "tools/skill-generator/src/tech-lead/tech-lead.ts",
-          "hash": "13561554499017223643",
+          "hash": "12261300135106912875",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -3294,7 +3160,7 @@
         },
         {
           "file": "tools/skill-generator/src/technical-writer/technical-writer.ts",
-          "hash": "13644059774946312527",
+          "hash": "2137607142115608579",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -3372,7 +3238,7 @@
         },
         {
           "file": "tools/skill-generator/src/uiux-designer/uiux-designer.ts",
-          "hash": "14126272663479490294",
+          "hash": "11204991894140383950",
           "deps": [
             "npm:@nx/devkit@23.1.2"
           ]
@@ -3398,7 +3264,133 @@
           ]
         }
       ]
-    }
+    },
+    "nonProjectFiles": [
+      {
+        "file": ".claude/settings.json",
+        "hash": "790924927305982316"
+      },
+      {
+        "file": ".codegraph/.gitignore",
+        "hash": "3697384128401905561"
+      },
+      {
+        "file": ".gitignore",
+        "hash": "4459766590097515105"
+      },
+      {
+        "file": ".opencode/agents/ci-monitor-subagent.md",
+        "hash": "15590325861656077491"
+      },
+      {
+        "file": ".opencode/commands/monitor-ci.md",
+        "hash": "325933896700411024"
+      },
+      {
+        "file": ".opencode/skills/link-workspace-packages/SKILL.md",
+        "hash": "15436383388001770446"
+      },
+      {
+        "file": ".opencode/skills/monitor-ci/SKILL.md",
+        "hash": "3864522841306718739"
+      },
+      {
+        "file": ".opencode/skills/monitor-ci/references/fix-flows.md",
+        "hash": "10043923144049437139"
+      },
+      {
+        "file": ".opencode/skills/monitor-ci/scripts/ci-poll-decide.mjs",
+        "hash": "17947661465624026971"
+      },
+      {
+        "file": ".opencode/skills/monitor-ci/scripts/ci-state-update.mjs",
+        "hash": "10337086218990061662"
+      },
+      {
+        "file": ".opencode/skills/nx-generate/SKILL.md",
+        "hash": "3358630942574540984"
+      },
+      {
+        "file": ".opencode/skills/nx-import/SKILL.md",
+        "hash": "5320545115991037698"
+      },
+      {
+        "file": ".opencode/skills/nx-import/references/ESLINT.md",
+        "hash": "13530282936503679323"
+      },
+      {
+        "file": ".opencode/skills/nx-import/references/GRADLE.md",
+        "hash": "3571850575232446918"
+      },
+      {
+        "file": ".opencode/skills/nx-import/references/JEST.md",
+        "hash": "17388362190464741914"
+      },
+      {
+        "file": ".opencode/skills/nx-import/references/NEXT.md",
+        "hash": "10590097548337933652"
+      },
+      {
+        "file": ".opencode/skills/nx-import/references/TURBOREPO.md",
+        "hash": "16683618674426785182"
+      },
+      {
+        "file": ".opencode/skills/nx-import/references/VITE.md",
+        "hash": "18159188461087437582"
+      },
+      {
+        "file": ".opencode/skills/nx-plugins/SKILL.md",
+        "hash": "17761452540263218782"
+      },
+      {
+        "file": ".opencode/skills/nx-run-tasks/SKILL.md",
+        "hash": "6310165843200780094"
+      },
+      {
+        "file": ".opencode/skills/nx-workspace/SKILL.md",
+        "hash": "12877893594506374684"
+      },
+      {
+        "file": ".opencode/skills/nx-workspace/references/AFFECTED.md",
+        "hash": "5689225252238354455"
+      },
+      {
+        "file": "AGENTS.md",
+        "hash": "3693179293707062853"
+      },
+      {
+        "file": "CLAUDE.md",
+        "hash": "3693179293707062853"
+      },
+      {
+        "file": "biome.json",
+        "hash": "16888231848711609699"
+      },
+      {
+        "file": "bun.lock",
+        "hash": "3650318399652019152"
+      },
+      {
+        "file": "nx.json",
+        "hash": "10970900797318200221"
+      },
+      {
+        "file": "opencode.json",
+        "hash": "12033820997244110336"
+      },
+      {
+        "file": "package.json",
+        "hash": "2403117064311496631"
+      },
+      {
+        "file": "tsconfig.base.json",
+        "hash": "12744370754161004440"
+      },
+      {
+        "file": "vitest.config.ts",
+        "hash": "8162562971994051878"
+      }
+    ]
   },
-  "externalNodesHash": "17085371915786386921"
+  "externalNodesHash": "5885606725387395167"
 }

@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { formatFiles, generateFiles, type Tree, updateJson } from "@nx/devkit";
+import { generateFiles, type Tree, updateJson } from "@nx/devkit";
 import {
 	addCuratedSkills,
 	registerNestApp,
@@ -63,7 +63,6 @@ export async function nestGraphqlGenerator(
 	}
 
 	registerNestApp(tree, n.fileName, projectRoot);
-	await formatFiles(tree);
 }
 
 export default nestGraphqlGenerator;

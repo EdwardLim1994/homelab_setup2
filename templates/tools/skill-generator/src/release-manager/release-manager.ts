@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { ReleaseManagerGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function releaseManagerGenerator(
 	options: ReleaseManagerGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "release-manager", options);
-	await formatFiles(tree);
 }
 
 export default releaseManagerGenerator;

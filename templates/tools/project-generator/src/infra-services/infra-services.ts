@@ -1,10 +1,5 @@
-import {
-	addProjectConfiguration,
-	formatFiles,
-	generateFiles,
-	type Tree,
-} from "@nx/devkit";
-import * as path from "path";
+import * as path from "node:path";
+import { addProjectConfiguration, generateFiles, type Tree } from "@nx/devkit";
 import type { InfraServicesGeneratorSchema } from "./schema";
 
 export async function infraServicesGenerator(
@@ -19,7 +14,6 @@ export async function infraServicesGenerator(
 		targets: {},
 	});
 	generateFiles(tree, path.join(__dirname, "files"), projectRoot, options);
-	await formatFiles(tree);
 }
 
 export default infraServicesGenerator;

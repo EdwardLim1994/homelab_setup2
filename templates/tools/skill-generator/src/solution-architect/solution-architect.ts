@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { SolutionArchitectGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function solutionArchitectGenerator(
 	options: SolutionArchitectGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "solution-architect", options);
-	await formatFiles(tree);
 }
 
 export default solutionArchitectGenerator;

@@ -22,9 +22,13 @@ describe("infra-services generator", () => {
 		await infraServicesGenerator(tree, options);
 		// generateFiles ran over every bundled file without an EJS parse error
 		expect(tree.exists("libs/test/src/services/terraform/main.tf")).toBe(true);
-		expect(tree.exists("libs/test/src/services/authentik/helm/Chart.yaml")).toBe(true);
+		expect(
+			tree.exists("libs/test/src/services/authentik/helm/Chart.yaml"),
+		).toBe(true);
 		// runtime artifacts must never ship in the scaffold
-		expect(tree.exists("libs/test/src/services/terraform/.terraform")).toBe(false);
+		expect(tree.exists("libs/test/src/services/terraform/.terraform")).toBe(
+			false,
+		);
 		expect(
 			tree.exists("libs/test/src/services/terraform/terraform.tfstate.d"),
 		).toBe(false);

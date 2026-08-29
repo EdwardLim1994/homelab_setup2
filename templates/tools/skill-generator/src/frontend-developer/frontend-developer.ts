@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { FrontendDeveloperGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function frontendDeveloperGenerator(
 	options: FrontendDeveloperGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "frontend-developer", options);
-	await formatFiles(tree);
 }
 
 export default frontendDeveloperGenerator;

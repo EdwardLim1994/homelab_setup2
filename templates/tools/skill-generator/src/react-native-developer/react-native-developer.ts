@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { ReactNativeDeveloperGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function reactNativeDeveloperGenerator(
 	options: ReactNativeDeveloperGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "react-native-developer", options);
-	await formatFiles(tree);
 }
 
 export default reactNativeDeveloperGenerator;

@@ -1,7 +1,6 @@
 import * as path from "node:path";
 import {
 	addProjectConfiguration,
-	formatFiles,
 	generateFiles,
 	names,
 	type Tree,
@@ -43,8 +42,6 @@ export async function serverIntegrationTestGenerator(
 			},
 		},
 	});
-
-	await formatFiles(tree);
 }
 
 export default serverIntegrationTestGenerator;

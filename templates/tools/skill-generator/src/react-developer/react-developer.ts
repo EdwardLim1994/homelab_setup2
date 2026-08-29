@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { ReactDeveloperGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function reactDeveloperGenerator(
 	options: ReactDeveloperGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "react-developer", options);
-	await formatFiles(tree);
 }
 
 export default reactDeveloperGenerator;

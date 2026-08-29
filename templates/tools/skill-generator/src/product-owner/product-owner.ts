@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { ProductOwnerGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function productOwnerGenerator(
 	options: ProductOwnerGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "product-owner", options);
-	await formatFiles(tree);
 }
 
 export default productOwnerGenerator;

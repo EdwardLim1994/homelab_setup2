@@ -1,23 +1,15 @@
 {
-  "$schema": "./node_modules/nx/schemas/nx-schema.json",
-  "analytics": false,
-  "targetDefaults": {
-    "@nx/js:tsc": {
-      "cache": true,
-      "dependsOn": [
-        "^build"
-      ],
-      "inputs": [
-        "default",
-        "^default"
-      ]
-    },
-    "@nx/vitest:test": {
-      "cache": true,
-      "inputs": [
-        "default",
-        "^default"
-      ]
-    }
-  }
+	"$schema": "./node_modules/nx/schemas/nx-schema.json",
+	"analytics": false,
+	"targetDefaults": {
+		"@nx/js:tsc": {
+			"cache": true,
+			"dependsOn": ["^build"],
+			"inputs": ["default", "^default"]
+		},
+		"@nx/vitest:test": {
+			"cache": true,
+			"inputs": ["default", "^default"]
+		}
+	}
 }

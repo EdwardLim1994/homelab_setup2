@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { ProjectManagerGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function projectManagerGenerator(
 	options: ProjectManagerGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "project-manager", options);
-	await formatFiles(tree);
 }
 
 export default projectManagerGenerator;

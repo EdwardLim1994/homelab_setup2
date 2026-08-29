@@ -12,7 +12,8 @@
 			"!dist",
 			"!coverage",
 			"!**/files/curated-skills",
-			"!**/files/**/*.template"
+			"!**/files/**/*.template",
+			"!**/infra-services/files"
 		]
 	},
 	"formatter": {

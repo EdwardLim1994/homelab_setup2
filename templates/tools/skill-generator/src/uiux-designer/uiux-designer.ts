@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { UiuxDesignerGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function uiuxDesignerGenerator(
 	options: UiuxDesignerGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "uiux-designer", options);
-	await formatFiles(tree);
 }
 
 export default uiuxDesignerGenerator;

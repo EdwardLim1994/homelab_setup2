@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { TechLeadGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function techLeadGenerator(
 	options: TechLeadGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "tech-lead", options);
-	await formatFiles(tree);
 }
 
 export default techLeadGenerator;

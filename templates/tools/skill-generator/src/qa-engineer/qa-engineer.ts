@@ -1,4 +1,4 @@
-import { formatFiles, type Tree } from "@nx/devkit";
+import type { Tree } from "@nx/devkit";
 import { installSkills } from "../shared";
 import type { QaEngineerGeneratorSchema } from "./schema";
 
@@ -8,7 +8,6 @@ export async function qaEngineerGenerator(
 	options: QaEngineerGeneratorSchema,
 ) {
 	installSkills(tree, __dirname, "qa-engineer", options);
-	await formatFiles(tree);
 }
 
 export default qaEngineerGenerator;
