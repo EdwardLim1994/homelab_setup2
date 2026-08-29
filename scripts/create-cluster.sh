@@ -21,7 +21,13 @@ mkdir -p "$K3D_STORAGE_PATH"
 storage_path_abs="$(cd "$K3D_STORAGE_PATH" && pwd)"
 
 MSYS_NO_PATHCONV=1 k3d cluster create "$K3D_CLUSTER_NAME" \
-  --volume "${storage_path_abs}://var/lib/rancher/k3s/storage@server:0"
+  --volume "${storage_path_abs}://var/lib/rancher/k3s/storage@server:0" \
+  --volume "/var/run/docker.sock:/var/run/docker.sock@server:0" \
+  --registry-create k3d-registry:0.0.0.0:5111
+
+# ponytail: k3d's managed registry ships with no restart policy, so a Docker
+# restart leaves it exited and every image push times out until you notice.
+docker update --restart unless-stopped k3d-registry >/dev/null
 
 echo
 echo "Cluster '$K3D_CLUSTER_NAME' created. PVC data persists at: $storage_path_abs"

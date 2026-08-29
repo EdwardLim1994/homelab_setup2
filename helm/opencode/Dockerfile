@@ -60,30 +60,47 @@ RUN codegraph install || true
 # ponytail: opencode resolves these from npm on first launch, so the pod's
 # first wake needs egress to the npm registry. Bake a `opencode run` warm-up
 # step here if the pod must run fully offline.
-RUN mkdir -p /root/.config/opencode /root/.config/opencode/skill /opt/src \
+RUN mkdir -p /root/.config/opencode /root/.config/opencode/skills /opt/src \
     && printf '%s\n' \
       '{' \
       '  "$schema": "https://opencode.ai/config.json",' \
       '  "plugin": [' \
       '    "@dietrichgebert/ponytail",' \
       '    "openslimedit@latest"' \
-      '  ]' \
+      '  ],' \
+      '  "model": "ollama/qwen3:1.7b",' \
+      '  "small_model": "ollama/qwen3:1.7b",' \
+      '  "permission": { "*": "allow" },' \
+      '  "provider": {' \
+      '    "ollama": {' \
+      '      "npm": "@ai-sdk/openai-compatible",' \
+      '      "name": "Ollama (host)",' \
+      '      "options": { "baseURL": "http://host.k3d.internal:11434/v1" },' \
+      '      "models": {' \
+      '        "qwen3:1.7b": { "name": "qwen3:1.7b" },' \
+      '        "qwen3-coder-next": { "name": "qwen3-coder-next" }' \
+      '      }' \
+      '    }' \
+      '  }' \
       '}' > /root/.config/opencode/opencode.json
 
 # --- caveman + ponytail rulesets: always-on via global AGENTS.md ---
 # ponytail: clone + copy rather than the vendors' per-agent installers, which
 # assume an interactive Claude Code / Cursor setup. Skill dirs (any SKILL.md)
-# get linked into opencode's skill dir; the AGENTS.md rulesets are concatenated
-# so both are injected every turn.
+# get linked into opencode's skill dir. For the always-on rulesets: ponytail
+# ships a real AGENTS.md, but caveman's AGENTS.md is that repo's own dev file
+# (internal routing notes) — its actual ruleset is skills/caveman/SKILL.md, so
+# strip that file's YAML frontmatter and append the body instead.
+# ponytail: unquoted find in a for-loop word-splits on whitespace, fine here
+# because every skill dir name is one token; switch to -exec if that changes.
 RUN git clone --depth 1 https://github.com/juliusbrussee/caveman /opt/src/caveman \
     && git clone --depth 1 https://github.com/dietrichgebert/ponytail /opt/src/ponytail \
-    && find /opt/src -maxdepth 4 -name SKILL.md -print0 \
-       | while IFS= read -r -d '' f; do \
-           d=$(dirname "$f"); ln -sfn "$d" "/root/.config/opencode/skill/$(basename "$d")"; \
-         done \
-    && for f in /opt/src/ponytail/AGENTS.md /opt/src/caveman/AGENTS.md; do \
-         [ -f "$f" ] && { cat "$f"; echo; } >> /root/.config/opencode/AGENTS.md; \
-       done; true
+    && for f in $(find /opt/src -maxdepth 4 -name SKILL.md); do \
+         d=$(dirname "$f"); ln -sfn "$d" "/root/.config/opencode/skills/$(basename "$d")"; \
+       done \
+    && { cat /opt/src/ponytail/AGENTS.md; echo; \
+         awk 'p;/^---$/{c++;if(c==2)p=1}' /opt/src/caveman/skills/caveman/SKILL.md; echo; \
+       } >> /root/.config/opencode/AGENTS.md; true
 
 WORKDIR /workspace
 EXPOSE 4096
