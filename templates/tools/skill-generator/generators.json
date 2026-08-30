@@ -74,6 +74,11 @@
 			"factory": "./src/react-native-developer/react-native-developer",
 			"schema": "./src/react-native-developer/schema.json",
 			"description": "Install the react-native-developer agent skills"
+		},
+		"angular-developer": {
+			"factory": "./src/angular-developer/angular-developer",
+			"schema": "./src/angular-developer/schema.json",
+			"description": "Install the angular-developer agent skills"
 		}
 	}
 }

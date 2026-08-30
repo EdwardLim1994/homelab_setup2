@@ -12,6 +12,1623 @@
   "nxJsonPlugins": [],
   "fileMap": {
     "projectFileMap": {
+      "skill-generator": [
+        {
+          "file": "tools/skill-generator/README.md",
+          "hash": "2982004043574973248"
+        },
+        {
+          "file": "tools/skill-generator/generators.json",
+          "hash": "11636111540513538828"
+        },
+        {
+          "file": "tools/skill-generator/package.json",
+          "hash": "11722149954901559660",
+          "deps": [
+            "npm:@nx/devkit@23.1.2",
+            "npm:tslib@2.8.1"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/project.json",
+          "hash": "15917537418244088118"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/angular-developer.spec.ts",
+          "hash": "1126084970476247841",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/angular-developer.ts",
+          "hash": "8603503155311847369",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills-lock.json",
+          "hash": "15066521949807141557"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/angular-architect/SKILL.md",
+          "hash": "13314195127462601131"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/angular-architect/references/components.md",
+          "hash": "10692395448089567125"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/angular-architect/references/ngrx.md",
+          "hash": "4853809613936421050"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/angular-architect/references/routing.md",
+          "hash": "17618363650634345413"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/angular-architect/references/rxjs.md",
+          "hash": "13760610062110115065"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/angular-architect/references/testing.md",
+          "hash": "1140821421190923972"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/javascript-pro/SKILL.md",
+          "hash": "556697296054016527"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/javascript-pro/references/async-patterns.md",
+          "hash": "17853996347615177819"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/javascript-pro/references/browser-apis.md",
+          "hash": "14540706275080855459"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/javascript-pro/references/modern-syntax.md",
+          "hash": "7699788797861437552"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/javascript-pro/references/modules.md",
+          "hash": "7968653067116828098"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/javascript-pro/references/node-essentials.md",
+          "hash": "7255738080428727711"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/typescript-pro/SKILL.md",
+          "hash": "11309067352657992372"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/typescript-pro/references/advanced-types.md",
+          "hash": "14245642306296902597"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/typescript-pro/references/configuration.md",
+          "hash": "18019162720057105611"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/typescript-pro/references/patterns.md",
+          "hash": "3818057099763057145"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/typescript-pro/references/type-guards.md",
+          "hash": "509173545360051501"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/files/curated-skills/typescript-pro/references/utility-types.md",
+          "hash": "16271105296629873394"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/schema.d.ts",
+          "hash": "9258921603742251088"
+        },
+        {
+          "file": "tools/skill-generator/src/angular-developer/schema.json",
+          "hash": "14385820707794146508"
+        },
+        {
+          "file": "tools/skill-generator/src/backend-developer/SKILL.md",
+          "hash": "12524761001438765686"
+        },
+        {
+          "file": "tools/skill-generator/src/backend-developer/backend-developer.spec.ts",
+          "hash": "14589494287468993105",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/backend-developer/backend-developer.ts",
+          "hash": "9622276198360015195",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/backend-developer/schema.d.ts",
+          "hash": "3117600486105975241"
+        },
+        {
+          "file": "tools/skill-generator/src/backend-developer/schema.json",
+          "hash": "6607973178943285707"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/SKILL.md",
+          "hash": "11508828110203329301"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/data-engineer.spec.ts",
+          "hash": "11769168842796741106",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/data-engineer.ts",
+          "hash": "7691659606237370047",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills-lock.json",
+          "hash": "1719028762379713370"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/api-designer/SKILL.md",
+          "hash": "8795850436500232732"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/api-designer/references/error-handling.md",
+          "hash": "13214617259811756725"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/api-designer/references/openapi.md",
+          "hash": "8450573243400644376"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/api-designer/references/pagination.md",
+          "hash": "9573561850401182013"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/api-designer/references/rest-patterns.md",
+          "hash": "10766697164759976187"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/api-designer/references/versioning.md",
+          "hash": "2101270594102435988"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/database-optimizer/SKILL.md",
+          "hash": "13061100603147820951"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/database-optimizer/references/index-strategies.md",
+          "hash": "18351512728154766056"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/database-optimizer/references/monitoring-analysis.md",
+          "hash": "4772650792199335328"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/database-optimizer/references/mysql-tuning.md",
+          "hash": "10683444230429237720"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/database-optimizer/references/postgresql-tuning.md",
+          "hash": "15846891783825051192"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/database-optimizer/references/query-optimization.md",
+          "hash": "10377699378924456419"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/SKILL.md",
+          "hash": "2247695544614025345"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/references/federation.md",
+          "hash": "4809396020854995227"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/references/migration-from-rest.md",
+          "hash": "5370656173419240178"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/references/resolvers.md",
+          "hash": "1629482935993041677"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/references/schema-design.md",
+          "hash": "7264831826116012830"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/references/security.md",
+          "hash": "16891800078391141118"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/references/subscriptions.md",
+          "hash": "11146288383547919185"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/microservices-architect/SKILL.md",
+          "hash": "8783188896186984880"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/microservices-architect/references/communication.md",
+          "hash": "6870060096964412120"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/microservices-architect/references/data.md",
+          "hash": "10550586823980903987"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/microservices-architect/references/decomposition.md",
+          "hash": "18405757813633196590"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/microservices-architect/references/observability.md",
+          "hash": "16772282360372666290"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/microservices-architect/references/patterns.md",
+          "hash": "7771665441412649002"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/schema.d.ts",
+          "hash": "3145655909347189547"
+        },
+        {
+          "file": "tools/skill-generator/src/data-engineer/schema.json",
+          "hash": "3512539747603161509"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/SKILL.md",
+          "hash": "8172500996215369797"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/devops-engineer.spec.ts",
+          "hash": "1220630560408583709",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/devops-engineer.ts",
+          "hash": "13074950761891942373",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills-lock.json",
+          "hash": "6774753505104371887"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/cloud-architect/SKILL.md",
+          "hash": "12686487347677895660"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/cloud-architect/references/aws.md",
+          "hash": "5151647108004381365"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/cloud-architect/references/azure.md",
+          "hash": "7135893524529919882"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/cloud-architect/references/cost.md",
+          "hash": "17222459281864893460"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/cloud-architect/references/gcp.md",
+          "hash": "5997817787381786069"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/cloud-architect/references/multi-cloud.md",
+          "hash": "4033225128749084291"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/SKILL.md",
+          "hash": "10026384676663507193"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/deployment-strategies.md",
+          "hash": "12841457714966320280"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/docker-patterns.md",
+          "hash": "5730788782756275732"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/github-actions.md",
+          "hash": "2248204283499149190"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/gitlab-ci.md",
+          "hash": "2496086441126716021"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/incident-response.md",
+          "hash": "16327451984499766651"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/kubernetes.md",
+          "hash": "13327660571694414664"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/platform-engineering.md",
+          "hash": "5736519358996484489"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/release-automation.md",
+          "hash": "3791074036317914096"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/terraform-iac.md",
+          "hash": "10971500540039429597"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/SKILL.md",
+          "hash": "16381722552753153984"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/configuration.md",
+          "hash": "12422410724367748290"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/cost-optimization.md",
+          "hash": "4334621432688230207"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/custom-operators.md",
+          "hash": "10971743425808936923"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/gitops.md",
+          "hash": "2929602601558806315"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/helm-charts.md",
+          "hash": "13246812413948623051"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/multi-cluster.md",
+          "hash": "12602255257922098934"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/networking.md",
+          "hash": "17960335155805156502"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/service-mesh.md",
+          "hash": "8962552718439573000"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/storage.md",
+          "hash": "307844479012333275"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/troubleshooting.md",
+          "hash": "2667921983341286250"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/workloads.md",
+          "hash": "13413402663792203822"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/spec-miner/SKILL.md",
+          "hash": "2293926328348493037"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/spec-miner/references/analysis-checklist.md",
+          "hash": "12748533795820651743"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/spec-miner/references/analysis-process.md",
+          "hash": "236678554499585638"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/spec-miner/references/ears-format.md",
+          "hash": "18124734829071682214"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/spec-miner/references/specification-template.md",
+          "hash": "14481193311792710307"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/terraform-engineer/SKILL.md",
+          "hash": "2591152721487726648"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/terraform-engineer/references/best-practices.md",
+          "hash": "8644762142306083670"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/terraform-engineer/references/module-patterns.md",
+          "hash": "14280408779305383014"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/terraform-engineer/references/providers.md",
+          "hash": "15776039014757530816"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/terraform-engineer/references/state-management.md",
+          "hash": "6960623868051803151"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/terraform-engineer/references/testing.md",
+          "hash": "15079495536698489566"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/schema.d.ts",
+          "hash": "4990319372994422180"
+        },
+        {
+          "file": "tools/skill-generator/src/devops-engineer/schema.json",
+          "hash": "7399050587467005832"
+        },
+        {
+          "file": "tools/skill-generator/src/frontend-developer/SKILL.md",
+          "hash": "4244315996748597686"
+        },
+        {
+          "file": "tools/skill-generator/src/frontend-developer/frontend-developer.spec.ts",
+          "hash": "17586823442982849174",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/frontend-developer/frontend-developer.ts",
+          "hash": "10943904090659024218",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/frontend-developer/schema.d.ts",
+          "hash": "3455675842222780784"
+        },
+        {
+          "file": "tools/skill-generator/src/frontend-developer/schema.json",
+          "hash": "801479815128721238"
+        },
+        {
+          "file": "tools/skill-generator/src/index.ts",
+          "hash": "4595979742548113990"
+        },
+        {
+          "file": "tools/skill-generator/src/product-owner/SKILL.md",
+          "hash": "121449790435583579"
+        },
+        {
+          "file": "tools/skill-generator/src/product-owner/product-owner.spec.ts",
+          "hash": "3419311866985816483",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/product-owner/product-owner.ts",
+          "hash": "12819566996036806838",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/product-owner/schema.d.ts",
+          "hash": "9455235330833156526"
+        },
+        {
+          "file": "tools/skill-generator/src/product-owner/schema.json",
+          "hash": "10798755662700620846"
+        },
+        {
+          "file": "tools/skill-generator/src/project-manager/SKILL.md",
+          "hash": "5228501191756231378"
+        },
+        {
+          "file": "tools/skill-generator/src/project-manager/project-manager.spec.ts",
+          "hash": "16296592289733132523",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/project-manager/project-manager.ts",
+          "hash": "3407168399503622972",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/project-manager/schema.d.ts",
+          "hash": "14573622417375105594"
+        },
+        {
+          "file": "tools/skill-generator/src/project-manager/schema.json",
+          "hash": "16424952227438526987"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/SKILL.md",
+          "hash": "4990338212519321062"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills-lock.json",
+          "hash": "5712603054954293277"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/debugging-wizard/SKILL.md",
+          "hash": "3391189626856824227"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/debugging-wizard/references/common-patterns.md",
+          "hash": "17806734468269827978"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/debugging-wizard/references/debugging-tools.md",
+          "hash": "12208704756043883330"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/debugging-wizard/references/quick-fixes.md",
+          "hash": "13996423285759043279"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/debugging-wizard/references/strategies.md",
+          "hash": "16819079492237591589"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/debugging-wizard/references/systematic-debugging.md",
+          "hash": "15565114312030897794"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/SKILL.md",
+          "hash": "4650289241505649654"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/alerting-rules.md",
+          "hash": "2277288106451142758"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/application-profiling.md",
+          "hash": "9518580894627191229"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/capacity-planning.md",
+          "hash": "16504976364601544124"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/dashboards.md",
+          "hash": "17024741253764075805"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/opentelemetry.md",
+          "hash": "1827714157329781510"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/performance-testing.md",
+          "hash": "9019511108386510550"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/prometheus-metrics.md",
+          "hash": "7034896489741398098"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/structured-logging.md",
+          "hash": "6072759382421935256"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/playwright-expert/SKILL.md",
+          "hash": "3427557920349159998"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/playwright-expert/references/api-mocking.md",
+          "hash": "13372385036242524799"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/playwright-expert/references/configuration.md",
+          "hash": "12172563702483846394"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/playwright-expert/references/debugging-flaky.md",
+          "hash": "7496389197644947031"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/playwright-expert/references/page-object-model.md",
+          "hash": "14953680218131593278"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/playwright-expert/references/selectors-locators.md",
+          "hash": "3260404563839266146"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/spec-miner/SKILL.md",
+          "hash": "2293926328348493037"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/spec-miner/references/analysis-checklist.md",
+          "hash": "12748533795820651743"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/spec-miner/references/analysis-process.md",
+          "hash": "236678554499585638"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/spec-miner/references/ears-format.md",
+          "hash": "18124734829071682214"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/spec-miner/references/specification-template.md",
+          "hash": "14481193311792710307"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/SKILL.md",
+          "hash": "15104228521098291060"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/automation-frameworks.md",
+          "hash": "4942667397815466102"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/e2e-testing.md",
+          "hash": "6348496962202956658"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/integration-testing.md",
+          "hash": "15267627726577253860"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/performance-testing.md",
+          "hash": "10882271607681160607"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/qa-methodology.md",
+          "hash": "9955717399005446088"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/security-testing.md",
+          "hash": "11841413170196914136"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/tdd-iron-laws.md",
+          "hash": "7270275829537808470"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/test-reports.md",
+          "hash": "10501661804579647412"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/testing-anti-patterns.md",
+          "hash": "7337742018895896219"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/unit-testing.md",
+          "hash": "9955850127302010675"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/qa-engineer.spec.ts",
+          "hash": "7275995419528365352",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/qa-engineer.ts",
+          "hash": "7396082781066851820",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/schema.d.ts",
+          "hash": "16502466900125278185"
+        },
+        {
+          "file": "tools/skill-generator/src/qa-engineer/schema.json",
+          "hash": "11406428046191474838"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills-lock.json",
+          "hash": "9925987633943752009"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/javascript-pro/SKILL.md",
+          "hash": "556697296054016527"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/javascript-pro/references/async-patterns.md",
+          "hash": "17853996347615177819"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/javascript-pro/references/browser-apis.md",
+          "hash": "14540706275080855459"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/javascript-pro/references/modern-syntax.md",
+          "hash": "7699788797861437552"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/javascript-pro/references/modules.md",
+          "hash": "7968653067116828098"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/javascript-pro/references/node-essentials.md",
+          "hash": "7255738080428727711"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/SKILL.md",
+          "hash": "12593266239667615166"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/hooks-patterns.md",
+          "hash": "3718105868029147303"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/migration-class-to-modern.md",
+          "hash": "4535149765169870575"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/performance.md",
+          "hash": "4254783150059743997"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/react-19-features.md",
+          "hash": "889494387372294371"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/server-components.md",
+          "hash": "3306510465832874644"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/state-management.md",
+          "hash": "14967768564754431229"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/testing-react.md",
+          "hash": "265366698415323568"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/typescript-pro/SKILL.md",
+          "hash": "11309067352657992372"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/typescript-pro/references/advanced-types.md",
+          "hash": "14245642306296902597"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/typescript-pro/references/configuration.md",
+          "hash": "18019162720057105611"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/typescript-pro/references/patterns.md",
+          "hash": "3818057099763057145"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/typescript-pro/references/type-guards.md",
+          "hash": "509173545360051501"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/files/curated-skills/typescript-pro/references/utility-types.md",
+          "hash": "16271105296629873394"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/react-developer.spec.ts",
+          "hash": "5523101089356891151",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/react-developer.ts",
+          "hash": "6643945744995445398",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/schema.d.ts",
+          "hash": "13548005205259594412"
+        },
+        {
+          "file": "tools/skill-generator/src/react-developer/schema.json",
+          "hash": "1618981198947482089"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills-lock.json",
+          "hash": "2732535758322947942"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/javascript-pro/SKILL.md",
+          "hash": "556697296054016527"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/javascript-pro/references/async-patterns.md",
+          "hash": "17853996347615177819"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/javascript-pro/references/browser-apis.md",
+          "hash": "14540706275080855459"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/javascript-pro/references/modern-syntax.md",
+          "hash": "7699788797861437552"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/javascript-pro/references/modules.md",
+          "hash": "7968653067116828098"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/javascript-pro/references/node-essentials.md",
+          "hash": "7255738080428727711"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/react-native-expert/SKILL.md",
+          "hash": "11403216945150477529"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/react-native-expert/references/expo-router.md",
+          "hash": "11775212123062059858"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/react-native-expert/references/list-optimization.md",
+          "hash": "15559818943470567301"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/react-native-expert/references/platform-handling.md",
+          "hash": "12091026897512225345"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/react-native-expert/references/project-structure.md",
+          "hash": "2504832449556951065"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/react-native-expert/references/storage-hooks.md",
+          "hash": "18142935239554925159"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/typescript-pro/SKILL.md",
+          "hash": "11309067352657992372"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/typescript-pro/references/advanced-types.md",
+          "hash": "14245642306296902597"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/typescript-pro/references/configuration.md",
+          "hash": "18019162720057105611"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/typescript-pro/references/patterns.md",
+          "hash": "3818057099763057145"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/typescript-pro/references/type-guards.md",
+          "hash": "509173545360051501"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/typescript-pro/references/utility-types.md",
+          "hash": "16271105296629873394"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/react-native-developer.spec.ts",
+          "hash": "10966207084233578495",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/react-native-developer.ts",
+          "hash": "16009116930198775853",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/schema.d.ts",
+          "hash": "15352316135390309860"
+        },
+        {
+          "file": "tools/skill-generator/src/react-native-developer/schema.json",
+          "hash": "1211392335477743679"
+        },
+        {
+          "file": "tools/skill-generator/src/release-manager/SKILL.md",
+          "hash": "9420436098345010979"
+        },
+        {
+          "file": "tools/skill-generator/src/release-manager/release-manager.spec.ts",
+          "hash": "7918193592884029405",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/release-manager/release-manager.ts",
+          "hash": "5252269196278007521",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/release-manager/schema.d.ts",
+          "hash": "10234225625440781211"
+        },
+        {
+          "file": "tools/skill-generator/src/release-manager/schema.json",
+          "hash": "17855465830954368827"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/SKILL.md",
+          "hash": "14263840188628423240"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills-lock.json",
+          "hash": "7353481167692317776"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/secure-code-guardian/SKILL.md",
+          "hash": "17441741034448901496"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/secure-code-guardian/references/authentication.md",
+          "hash": "16240627905204564553"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/secure-code-guardian/references/input-validation.md",
+          "hash": "14054689248108225884"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/secure-code-guardian/references/owasp-prevention.md",
+          "hash": "2670392914982459335"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/secure-code-guardian/references/security-headers.md",
+          "hash": "274506632162177385"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/secure-code-guardian/references/xss-csrf.md",
+          "hash": "764701544104808274"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/SKILL.md",
+          "hash": "3012466607457906635"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/references/infrastructure-security.md",
+          "hash": "16483679541102082528"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/references/penetration-testing.md",
+          "hash": "13860980440837979658"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/references/report-template.md",
+          "hash": "7181258506975652796"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/references/sast-tools.md",
+          "hash": "11975837326399607932"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/references/secret-scanning.md",
+          "hash": "4261185579173170454"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/references/vulnerability-patterns.md",
+          "hash": "6648832746048765050"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/spec-miner/SKILL.md",
+          "hash": "2293926328348493037"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/spec-miner/references/analysis-checklist.md",
+          "hash": "12748533795820651743"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/spec-miner/references/analysis-process.md",
+          "hash": "236678554499585638"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/spec-miner/references/ears-format.md",
+          "hash": "18124734829071682214"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/spec-miner/references/specification-template.md",
+          "hash": "14481193311792710307"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/schema.d.ts",
+          "hash": "14258595837383046332"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/schema.json",
+          "hash": "15316036128718074474"
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/security-engineer.spec.ts",
+          "hash": "9610327422552596210",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/security-engineer/security-engineer.ts",
+          "hash": "14249159474799301445",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/shared.ts",
+          "hash": "16915054993307347291",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/SKILL.md",
+          "hash": "1348933685122142995"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills-lock.json",
+          "hash": "8660801302727299571"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/api-designer/SKILL.md",
+          "hash": "8795850436500232732"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/api-designer/references/error-handling.md",
+          "hash": "13214617259811756725"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/api-designer/references/openapi.md",
+          "hash": "8450573243400644376"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/api-designer/references/pagination.md",
+          "hash": "9573561850401182013"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/api-designer/references/rest-patterns.md",
+          "hash": "10766697164759976187"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/api-designer/references/versioning.md",
+          "hash": "2101270594102435988"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/architecture-designer/SKILL.md",
+          "hash": "1671562713732248411"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/architecture-designer/references/adr-template.md",
+          "hash": "10329232676532413789"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/architecture-designer/references/architecture-patterns.md",
+          "hash": "2973852704561783046"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/architecture-designer/references/database-selection.md",
+          "hash": "16015948452372656105"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/architecture-designer/references/nfr-checklist.md",
+          "hash": "15008119662511924194"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/architecture-designer/references/system-design.md",
+          "hash": "16394738410190861097"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/SKILL.md",
+          "hash": "2247695544614025345"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/references/federation.md",
+          "hash": "4809396020854995227"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/references/migration-from-rest.md",
+          "hash": "5370656173419240178"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/references/resolvers.md",
+          "hash": "1629482935993041677"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/references/schema-design.md",
+          "hash": "7264831826116012830"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/references/security.md",
+          "hash": "16891800078391141118"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/references/subscriptions.md",
+          "hash": "11146288383547919185"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/microservices-architect/SKILL.md",
+          "hash": "8783188896186984880"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/microservices-architect/references/communication.md",
+          "hash": "6870060096964412120"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/microservices-architect/references/data.md",
+          "hash": "10550586823980903987"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/microservices-architect/references/decomposition.md",
+          "hash": "18405757813633196590"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/microservices-architect/references/observability.md",
+          "hash": "16772282360372666290"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/microservices-architect/references/patterns.md",
+          "hash": "7771665441412649002"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/schema.d.ts",
+          "hash": "2954539737627302897"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/schema.json",
+          "hash": "34598195188765935"
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/solution-architect.spec.ts",
+          "hash": "9881654775866584948",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/solution-architect/solution-architect.ts",
+          "hash": "9177334127245060273",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/SKILL.md",
+          "hash": "4869588818223869391"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills-lock.json",
+          "hash": "17992532948313354358"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/SKILL.md",
+          "hash": "14804869267423568210"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/references/common-issues.md",
+          "hash": "13358268947951574943"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/references/feedback-examples.md",
+          "hash": "2142333020376273953"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/references/receiving-feedback.md",
+          "hash": "11522138868329582853"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/references/report-template.md",
+          "hash": "15119634389476028942"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/references/review-checklist.md",
+          "hash": "5273400368391622947"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/references/spec-compliance-review.md",
+          "hash": "2124851420029750252"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/database-optimizer/SKILL.md",
+          "hash": "13061100603147820951"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/database-optimizer/references/index-strategies.md",
+          "hash": "18351512728154766056"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/database-optimizer/references/monitoring-analysis.md",
+          "hash": "4772650792199335328"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/database-optimizer/references/mysql-tuning.md",
+          "hash": "10683444230429237720"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/database-optimizer/references/postgresql-tuning.md",
+          "hash": "15846891783825051192"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/database-optimizer/references/query-optimization.md",
+          "hash": "10377699378924456419"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/debugging-wizard/SKILL.md",
+          "hash": "3391189626856824227"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/debugging-wizard/references/common-patterns.md",
+          "hash": "17806734468269827978"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/debugging-wizard/references/debugging-tools.md",
+          "hash": "12208704756043883330"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/debugging-wizard/references/quick-fixes.md",
+          "hash": "13996423285759043279"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/debugging-wizard/references/strategies.md",
+          "hash": "16819079492237591589"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/debugging-wizard/references/systematic-debugging.md",
+          "hash": "15565114312030897794"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fine-tuning-expert/SKILL.md",
+          "hash": "6066275291466625782"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fine-tuning-expert/references/dataset-preparation.md",
+          "hash": "9767327828864391934"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fine-tuning-expert/references/deployment-optimization.md",
+          "hash": "6168986181200329262"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fine-tuning-expert/references/evaluation-metrics.md",
+          "hash": "13347139927454507106"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fine-tuning-expert/references/hyperparameter-tuning.md",
+          "hash": "10003615319776704538"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fine-tuning-expert/references/lora-peft.md",
+          "hash": "8552630448092730949"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/SKILL.md",
+          "hash": "17159837537028404917"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/api-design-standards.md",
+          "hash": "11896141259178414167"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/architecture-decisions.md",
+          "hash": "10952143073094155112"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/backend-patterns.md",
+          "hash": "13300378018626551836"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/common-patterns.md",
+          "hash": "2230264779746357560"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/deliverables-checklist.md",
+          "hash": "5689858170516224559"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/design-template.md",
+          "hash": "9533055704422556701"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/error-handling.md",
+          "hash": "4816250690430758263"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/frontend-patterns.md",
+          "hash": "4125208632886343503"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/integration-patterns.md",
+          "hash": "9935357464536746687"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/security-checklist.md",
+          "hash": "3642083441397444253"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/secure-code-guardian/SKILL.md",
+          "hash": "17441741034448901496"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/secure-code-guardian/references/authentication.md",
+          "hash": "16240627905204564553"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/secure-code-guardian/references/input-validation.md",
+          "hash": "14054689248108225884"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/secure-code-guardian/references/owasp-prevention.md",
+          "hash": "2670392914982459335"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/secure-code-guardian/references/security-headers.md",
+          "hash": "274506632162177385"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/secure-code-guardian/references/xss-csrf.md",
+          "hash": "764701544104808274"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/spec-miner/SKILL.md",
+          "hash": "2293926328348493037"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/spec-miner/references/analysis-checklist.md",
+          "hash": "12748533795820651743"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/spec-miner/references/analysis-process.md",
+          "hash": "236678554499585638"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/spec-miner/references/ears-format.md",
+          "hash": "18124734829071682214"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/spec-miner/references/specification-template.md",
+          "hash": "14481193311792710307"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/SKILL.md",
+          "hash": "1634294066100722457"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/references/dialectic-synthesis.md",
+          "hash": "2974039976589871896"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/references/evidence-audit.md",
+          "hash": "1673504337951486403"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/references/mode-selection-guide.md",
+          "hash": "3619270751092071113"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/references/pre-mortem-analysis.md",
+          "hash": "8050330357372917585"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/references/red-team-adversarial.md",
+          "hash": "17053569544755999822"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/references/socratic-questioning.md",
+          "hash": "4083543264451114691"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/schema.d.ts",
+          "hash": "6631793209345418749"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/schema.json",
+          "hash": "4131553011919767194"
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/tech-lead.spec.ts",
+          "hash": "3696728286819155762",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/tech-lead/tech-lead.ts",
+          "hash": "12261300135106912875",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills-lock.json",
+          "hash": "15732547167490013307"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/SKILL.md",
+          "hash": "15740116397626676612"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/api-docs-fastapi-django.md",
+          "hash": "13030269421835958179"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/api-docs-nestjs-express.md",
+          "hash": "12303188398266761315"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/coverage-reports.md",
+          "hash": "16858618213785974902"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/documentation-systems.md",
+          "hash": "7649150877433492885"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/interactive-api-docs.md",
+          "hash": "9078132493689149098"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/python-docstrings.md",
+          "hash": "16730828392454924324"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/typescript-jsdoc.md",
+          "hash": "16194184089930266566"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/user-guides-tutorials.md",
+          "hash": "4483392461647575054"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/spec-miner/SKILL.md",
+          "hash": "2293926328348493037"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/spec-miner/references/analysis-checklist.md",
+          "hash": "12748533795820651743"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/spec-miner/references/analysis-process.md",
+          "hash": "236678554499585638"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/spec-miner/references/ears-format.md",
+          "hash": "18124734829071682214"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/spec-miner/references/specification-template.md",
+          "hash": "14481193311792710307"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/schema.d.ts",
+          "hash": "17463634300267147111"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/schema.json",
+          "hash": "13101405742384599131"
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/technical-writer.spec.ts",
+          "hash": "9095447817928435213",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/technical-writer/technical-writer.ts",
+          "hash": "2137607142115608579",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/SKILL.md",
+          "hash": "1078137443381436782"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills-lock.json",
+          "hash": "2462210903270867470"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/brandkit/SKILL.md",
+          "hash": "18326316153130529219"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/design-taste-frontend/SKILL.md",
+          "hash": "6938268831954091376"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/full-output-enforcement/SKILL.md",
+          "hash": "12919584091062659188"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/high-end-visual-design/SKILL.md",
+          "hash": "2372932230453598106"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/image-to-code/SKILL.md",
+          "hash": "17688485764207062861"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/imagegen-frontend-mobile/SKILL.md",
+          "hash": "3445457392554397778"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/imagegen-frontend-web/SKILL.md",
+          "hash": "7970058379203856697"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/industrial-brutalist-ui/SKILL.md",
+          "hash": "9613204444369087495"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/minimalist-ui/SKILL.md",
+          "hash": "13571219843115160423"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/redesign-existing-projects/SKILL.md",
+          "hash": "5181903132514529991"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/stitch-design-taste/DESIGN.md",
+          "hash": "9785912761999329548"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/stitch-design-taste/SKILL.md",
+          "hash": "8648593063822846391"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/schema.d.ts",
+          "hash": "10770151052249324467"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/schema.json",
+          "hash": "10619129840411054488"
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/uiux-designer.spec.ts",
+          "hash": "17346616962605179651",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/src/uiux-designer/uiux-designer.ts",
+          "hash": "11204991894140383950",
+          "deps": [
+            "npm:@nx/devkit@23.1.2"
+          ]
+        },
+        {
+          "file": "tools/skill-generator/tsconfig.json",
+          "hash": "12437555863323107724"
+        },
+        {
+          "file": "tools/skill-generator/tsconfig.lib.json",
+          "hash": "5139078406077422911"
+        },
+        {
+          "file": "tools/skill-generator/tsconfig.spec.json",
+          "hash": "4789186368946461833"
+        },
+        {
+          "file": "tools/skill-generator/vitest.config.mts",
+          "hash": "16789623829070355400",
+          "deps": [
+            "npm:@nx/vite@23.1.2",
+            "npm:vitest@4.1.11"
+          ]
+        }
+      ],
       "project-generator": [
         {
           "file": "tools/project-generator/README.md",
@@ -1744,1525 +3361,6 @@
             "npm:vitest@4.1.11"
           ]
         }
-      ],
-      "skill-generator": [
-        {
-          "file": "tools/skill-generator/README.md",
-          "hash": "2982004043574973248"
-        },
-        {
-          "file": "tools/skill-generator/generators.json",
-          "hash": "3322418729778187507"
-        },
-        {
-          "file": "tools/skill-generator/package.json",
-          "hash": "11722149954901559660",
-          "deps": [
-            "npm:@nx/devkit@23.1.2",
-            "npm:tslib@2.8.1"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/project.json",
-          "hash": "15917537418244088118"
-        },
-        {
-          "file": "tools/skill-generator/src/backend-developer/SKILL.md",
-          "hash": "12524761001438765686"
-        },
-        {
-          "file": "tools/skill-generator/src/backend-developer/backend-developer.spec.ts",
-          "hash": "14589494287468993105",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/backend-developer/backend-developer.ts",
-          "hash": "9622276198360015195",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/backend-developer/schema.d.ts",
-          "hash": "3117600486105975241"
-        },
-        {
-          "file": "tools/skill-generator/src/backend-developer/schema.json",
-          "hash": "6607973178943285707"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/SKILL.md",
-          "hash": "11508828110203329301"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/data-engineer.spec.ts",
-          "hash": "11769168842796741106",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/data-engineer.ts",
-          "hash": "7691659606237370047",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills-lock.json",
-          "hash": "1719028762379713370"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/api-designer/SKILL.md",
-          "hash": "8795850436500232732"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/api-designer/references/error-handling.md",
-          "hash": "13214617259811756725"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/api-designer/references/openapi.md",
-          "hash": "8450573243400644376"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/api-designer/references/pagination.md",
-          "hash": "9573561850401182013"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/api-designer/references/rest-patterns.md",
-          "hash": "10766697164759976187"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/api-designer/references/versioning.md",
-          "hash": "2101270594102435988"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/database-optimizer/SKILL.md",
-          "hash": "13061100603147820951"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/database-optimizer/references/index-strategies.md",
-          "hash": "18351512728154766056"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/database-optimizer/references/monitoring-analysis.md",
-          "hash": "4772650792199335328"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/database-optimizer/references/mysql-tuning.md",
-          "hash": "10683444230429237720"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/database-optimizer/references/postgresql-tuning.md",
-          "hash": "15846891783825051192"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/database-optimizer/references/query-optimization.md",
-          "hash": "10377699378924456419"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/SKILL.md",
-          "hash": "2247695544614025345"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/references/federation.md",
-          "hash": "4809396020854995227"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/references/migration-from-rest.md",
-          "hash": "5370656173419240178"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/references/resolvers.md",
-          "hash": "1629482935993041677"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/references/schema-design.md",
-          "hash": "7264831826116012830"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/references/security.md",
-          "hash": "16891800078391141118"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/graphql-architect/references/subscriptions.md",
-          "hash": "11146288383547919185"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/microservices-architect/SKILL.md",
-          "hash": "8783188896186984880"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/microservices-architect/references/communication.md",
-          "hash": "6870060096964412120"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/microservices-architect/references/data.md",
-          "hash": "10550586823980903987"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/microservices-architect/references/decomposition.md",
-          "hash": "18405757813633196590"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/microservices-architect/references/observability.md",
-          "hash": "16772282360372666290"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/files/curated-skills/microservices-architect/references/patterns.md",
-          "hash": "7771665441412649002"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/schema.d.ts",
-          "hash": "3145655909347189547"
-        },
-        {
-          "file": "tools/skill-generator/src/data-engineer/schema.json",
-          "hash": "3512539747603161509"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/SKILL.md",
-          "hash": "8172500996215369797"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/devops-engineer.spec.ts",
-          "hash": "1220630560408583709",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/devops-engineer.ts",
-          "hash": "13074950761891942373",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills-lock.json",
-          "hash": "6774753505104371887"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/cloud-architect/SKILL.md",
-          "hash": "12686487347677895660"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/cloud-architect/references/aws.md",
-          "hash": "5151647108004381365"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/cloud-architect/references/azure.md",
-          "hash": "7135893524529919882"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/cloud-architect/references/cost.md",
-          "hash": "17222459281864893460"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/cloud-architect/references/gcp.md",
-          "hash": "5997817787381786069"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/cloud-architect/references/multi-cloud.md",
-          "hash": "4033225128749084291"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/SKILL.md",
-          "hash": "10026384676663507193"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/deployment-strategies.md",
-          "hash": "12841457714966320280"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/docker-patterns.md",
-          "hash": "5730788782756275732"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/github-actions.md",
-          "hash": "2248204283499149190"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/gitlab-ci.md",
-          "hash": "2496086441126716021"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/incident-response.md",
-          "hash": "16327451984499766651"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/kubernetes.md",
-          "hash": "13327660571694414664"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/platform-engineering.md",
-          "hash": "5736519358996484489"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/release-automation.md",
-          "hash": "3791074036317914096"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/devops-engineer/references/terraform-iac.md",
-          "hash": "10971500540039429597"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/SKILL.md",
-          "hash": "16381722552753153984"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/configuration.md",
-          "hash": "12422410724367748290"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/cost-optimization.md",
-          "hash": "4334621432688230207"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/custom-operators.md",
-          "hash": "10971743425808936923"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/gitops.md",
-          "hash": "2929602601558806315"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/helm-charts.md",
-          "hash": "13246812413948623051"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/multi-cluster.md",
-          "hash": "12602255257922098934"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/networking.md",
-          "hash": "17960335155805156502"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/service-mesh.md",
-          "hash": "8962552718439573000"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/storage.md",
-          "hash": "307844479012333275"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/troubleshooting.md",
-          "hash": "2667921983341286250"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/kubernetes-specialist/references/workloads.md",
-          "hash": "13413402663792203822"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/spec-miner/SKILL.md",
-          "hash": "2293926328348493037"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/spec-miner/references/analysis-checklist.md",
-          "hash": "12748533795820651743"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/spec-miner/references/analysis-process.md",
-          "hash": "236678554499585638"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/spec-miner/references/ears-format.md",
-          "hash": "18124734829071682214"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/spec-miner/references/specification-template.md",
-          "hash": "14481193311792710307"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/terraform-engineer/SKILL.md",
-          "hash": "2591152721487726648"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/terraform-engineer/references/best-practices.md",
-          "hash": "8644762142306083670"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/terraform-engineer/references/module-patterns.md",
-          "hash": "14280408779305383014"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/terraform-engineer/references/providers.md",
-          "hash": "15776039014757530816"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/terraform-engineer/references/state-management.md",
-          "hash": "6960623868051803151"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/files/curated-skills/terraform-engineer/references/testing.md",
-          "hash": "15079495536698489566"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/schema.d.ts",
-          "hash": "4990319372994422180"
-        },
-        {
-          "file": "tools/skill-generator/src/devops-engineer/schema.json",
-          "hash": "7399050587467005832"
-        },
-        {
-          "file": "tools/skill-generator/src/frontend-developer/SKILL.md",
-          "hash": "4244315996748597686"
-        },
-        {
-          "file": "tools/skill-generator/src/frontend-developer/frontend-developer.spec.ts",
-          "hash": "17586823442982849174",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/frontend-developer/frontend-developer.ts",
-          "hash": "10943904090659024218",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/frontend-developer/schema.d.ts",
-          "hash": "3455675842222780784"
-        },
-        {
-          "file": "tools/skill-generator/src/frontend-developer/schema.json",
-          "hash": "801479815128721238"
-        },
-        {
-          "file": "tools/skill-generator/src/index.ts",
-          "hash": "4595979742548113990"
-        },
-        {
-          "file": "tools/skill-generator/src/product-owner/SKILL.md",
-          "hash": "121449790435583579"
-        },
-        {
-          "file": "tools/skill-generator/src/product-owner/product-owner.spec.ts",
-          "hash": "3419311866985816483",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/product-owner/product-owner.ts",
-          "hash": "12819566996036806838",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/product-owner/schema.d.ts",
-          "hash": "9455235330833156526"
-        },
-        {
-          "file": "tools/skill-generator/src/product-owner/schema.json",
-          "hash": "10798755662700620846"
-        },
-        {
-          "file": "tools/skill-generator/src/project-manager/SKILL.md",
-          "hash": "3472587270389074463"
-        },
-        {
-          "file": "tools/skill-generator/src/project-manager/project-manager.spec.ts",
-          "hash": "16296592289733132523",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/project-manager/project-manager.ts",
-          "hash": "3407168399503622972",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/project-manager/schema.d.ts",
-          "hash": "14573622417375105594"
-        },
-        {
-          "file": "tools/skill-generator/src/project-manager/schema.json",
-          "hash": "16424952227438526987"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/SKILL.md",
-          "hash": "4990338212519321062"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills-lock.json",
-          "hash": "5712603054954293277"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/debugging-wizard/SKILL.md",
-          "hash": "3391189626856824227"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/debugging-wizard/references/common-patterns.md",
-          "hash": "17806734468269827978"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/debugging-wizard/references/debugging-tools.md",
-          "hash": "12208704756043883330"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/debugging-wizard/references/quick-fixes.md",
-          "hash": "13996423285759043279"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/debugging-wizard/references/strategies.md",
-          "hash": "16819079492237591589"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/debugging-wizard/references/systematic-debugging.md",
-          "hash": "15565114312030897794"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/SKILL.md",
-          "hash": "4650289241505649654"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/alerting-rules.md",
-          "hash": "2277288106451142758"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/application-profiling.md",
-          "hash": "9518580894627191229"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/capacity-planning.md",
-          "hash": "16504976364601544124"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/dashboards.md",
-          "hash": "17024741253764075805"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/opentelemetry.md",
-          "hash": "1827714157329781510"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/performance-testing.md",
-          "hash": "9019511108386510550"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/prometheus-metrics.md",
-          "hash": "7034896489741398098"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/monitoring-expert/references/structured-logging.md",
-          "hash": "6072759382421935256"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/playwright-expert/SKILL.md",
-          "hash": "3427557920349159998"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/playwright-expert/references/api-mocking.md",
-          "hash": "13372385036242524799"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/playwright-expert/references/configuration.md",
-          "hash": "12172563702483846394"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/playwright-expert/references/debugging-flaky.md",
-          "hash": "7496389197644947031"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/playwright-expert/references/page-object-model.md",
-          "hash": "14953680218131593278"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/playwright-expert/references/selectors-locators.md",
-          "hash": "3260404563839266146"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/spec-miner/SKILL.md",
-          "hash": "2293926328348493037"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/spec-miner/references/analysis-checklist.md",
-          "hash": "12748533795820651743"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/spec-miner/references/analysis-process.md",
-          "hash": "236678554499585638"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/spec-miner/references/ears-format.md",
-          "hash": "18124734829071682214"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/spec-miner/references/specification-template.md",
-          "hash": "14481193311792710307"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/SKILL.md",
-          "hash": "15104228521098291060"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/automation-frameworks.md",
-          "hash": "4942667397815466102"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/e2e-testing.md",
-          "hash": "6348496962202956658"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/integration-testing.md",
-          "hash": "15267627726577253860"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/performance-testing.md",
-          "hash": "10882271607681160607"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/qa-methodology.md",
-          "hash": "9955717399005446088"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/security-testing.md",
-          "hash": "11841413170196914136"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/tdd-iron-laws.md",
-          "hash": "7270275829537808470"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/test-reports.md",
-          "hash": "10501661804579647412"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/testing-anti-patterns.md",
-          "hash": "7337742018895896219"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/files/curated-skills/test-master/references/unit-testing.md",
-          "hash": "9955850127302010675"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/qa-engineer.spec.ts",
-          "hash": "7275995419528365352",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/qa-engineer.ts",
-          "hash": "7396082781066851820",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/schema.d.ts",
-          "hash": "16502466900125278185"
-        },
-        {
-          "file": "tools/skill-generator/src/qa-engineer/schema.json",
-          "hash": "11406428046191474838"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills-lock.json",
-          "hash": "9925987633943752009"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/javascript-pro/SKILL.md",
-          "hash": "556697296054016527"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/javascript-pro/references/async-patterns.md",
-          "hash": "17853996347615177819"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/javascript-pro/references/browser-apis.md",
-          "hash": "14540706275080855459"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/javascript-pro/references/modern-syntax.md",
-          "hash": "7699788797861437552"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/javascript-pro/references/modules.md",
-          "hash": "7968653067116828098"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/javascript-pro/references/node-essentials.md",
-          "hash": "7255738080428727711"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/SKILL.md",
-          "hash": "12593266239667615166"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/hooks-patterns.md",
-          "hash": "3718105868029147303"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/migration-class-to-modern.md",
-          "hash": "4535149765169870575"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/performance.md",
-          "hash": "4254783150059743997"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/react-19-features.md",
-          "hash": "889494387372294371"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/server-components.md",
-          "hash": "3306510465832874644"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/state-management.md",
-          "hash": "14967768564754431229"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/react-expert/references/testing-react.md",
-          "hash": "265366698415323568"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/typescript-pro/SKILL.md",
-          "hash": "11309067352657992372"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/typescript-pro/references/advanced-types.md",
-          "hash": "14245642306296902597"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/typescript-pro/references/configuration.md",
-          "hash": "18019162720057105611"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/typescript-pro/references/patterns.md",
-          "hash": "3818057099763057145"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/typescript-pro/references/type-guards.md",
-          "hash": "509173545360051501"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/files/curated-skills/typescript-pro/references/utility-types.md",
-          "hash": "16271105296629873394"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/react-developer.spec.ts",
-          "hash": "5523101089356891151",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/react-developer.ts",
-          "hash": "6643945744995445398",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/schema.d.ts",
-          "hash": "13548005205259594412"
-        },
-        {
-          "file": "tools/skill-generator/src/react-developer/schema.json",
-          "hash": "1618981198947482089"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills-lock.json",
-          "hash": "2732535758322947942"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/javascript-pro/SKILL.md",
-          "hash": "556697296054016527"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/javascript-pro/references/async-patterns.md",
-          "hash": "17853996347615177819"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/javascript-pro/references/browser-apis.md",
-          "hash": "14540706275080855459"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/javascript-pro/references/modern-syntax.md",
-          "hash": "7699788797861437552"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/javascript-pro/references/modules.md",
-          "hash": "7968653067116828098"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/javascript-pro/references/node-essentials.md",
-          "hash": "7255738080428727711"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/react-native-expert/SKILL.md",
-          "hash": "11403216945150477529"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/react-native-expert/references/expo-router.md",
-          "hash": "11775212123062059858"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/react-native-expert/references/list-optimization.md",
-          "hash": "15559818943470567301"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/react-native-expert/references/platform-handling.md",
-          "hash": "12091026897512225345"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/react-native-expert/references/project-structure.md",
-          "hash": "2504832449556951065"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/react-native-expert/references/storage-hooks.md",
-          "hash": "18142935239554925159"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/typescript-pro/SKILL.md",
-          "hash": "11309067352657992372"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/typescript-pro/references/advanced-types.md",
-          "hash": "14245642306296902597"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/typescript-pro/references/configuration.md",
-          "hash": "18019162720057105611"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/typescript-pro/references/patterns.md",
-          "hash": "3818057099763057145"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/typescript-pro/references/type-guards.md",
-          "hash": "509173545360051501"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/files/curated-skills/typescript-pro/references/utility-types.md",
-          "hash": "16271105296629873394"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/react-native-developer.spec.ts",
-          "hash": "10966207084233578495",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/react-native-developer.ts",
-          "hash": "16009116930198775853",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/schema.d.ts",
-          "hash": "15352316135390309860"
-        },
-        {
-          "file": "tools/skill-generator/src/react-native-developer/schema.json",
-          "hash": "1211392335477743679"
-        },
-        {
-          "file": "tools/skill-generator/src/release-manager/SKILL.md",
-          "hash": "9420436098345010979"
-        },
-        {
-          "file": "tools/skill-generator/src/release-manager/release-manager.spec.ts",
-          "hash": "7918193592884029405",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/release-manager/release-manager.ts",
-          "hash": "5252269196278007521",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/release-manager/schema.d.ts",
-          "hash": "10234225625440781211"
-        },
-        {
-          "file": "tools/skill-generator/src/release-manager/schema.json",
-          "hash": "17855465830954368827"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/SKILL.md",
-          "hash": "14263840188628423240"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills-lock.json",
-          "hash": "7353481167692317776"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/secure-code-guardian/SKILL.md",
-          "hash": "17441741034448901496"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/secure-code-guardian/references/authentication.md",
-          "hash": "16240627905204564553"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/secure-code-guardian/references/input-validation.md",
-          "hash": "14054689248108225884"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/secure-code-guardian/references/owasp-prevention.md",
-          "hash": "2670392914982459335"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/secure-code-guardian/references/security-headers.md",
-          "hash": "274506632162177385"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/secure-code-guardian/references/xss-csrf.md",
-          "hash": "764701544104808274"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/SKILL.md",
-          "hash": "3012466607457906635"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/references/infrastructure-security.md",
-          "hash": "16483679541102082528"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/references/penetration-testing.md",
-          "hash": "13860980440837979658"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/references/report-template.md",
-          "hash": "7181258506975652796"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/references/sast-tools.md",
-          "hash": "11975837326399607932"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/references/secret-scanning.md",
-          "hash": "4261185579173170454"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/security-reviewer/references/vulnerability-patterns.md",
-          "hash": "6648832746048765050"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/spec-miner/SKILL.md",
-          "hash": "2293926328348493037"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/spec-miner/references/analysis-checklist.md",
-          "hash": "12748533795820651743"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/spec-miner/references/analysis-process.md",
-          "hash": "236678554499585638"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/spec-miner/references/ears-format.md",
-          "hash": "18124734829071682214"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/files/curated-skills/spec-miner/references/specification-template.md",
-          "hash": "14481193311792710307"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/schema.d.ts",
-          "hash": "14258595837383046332"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/schema.json",
-          "hash": "15316036128718074474"
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/security-engineer.spec.ts",
-          "hash": "9610327422552596210",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/security-engineer/security-engineer.ts",
-          "hash": "14249159474799301445",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/shared.ts",
-          "hash": "16915054993307347291",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/SKILL.md",
-          "hash": "3668797148716619898"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills-lock.json",
-          "hash": "8660801302727299571"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/api-designer/SKILL.md",
-          "hash": "8795850436500232732"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/api-designer/references/error-handling.md",
-          "hash": "13214617259811756725"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/api-designer/references/openapi.md",
-          "hash": "8450573243400644376"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/api-designer/references/pagination.md",
-          "hash": "9573561850401182013"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/api-designer/references/rest-patterns.md",
-          "hash": "10766697164759976187"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/api-designer/references/versioning.md",
-          "hash": "2101270594102435988"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/architecture-designer/SKILL.md",
-          "hash": "1671562713732248411"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/architecture-designer/references/adr-template.md",
-          "hash": "10329232676532413789"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/architecture-designer/references/architecture-patterns.md",
-          "hash": "2973852704561783046"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/architecture-designer/references/database-selection.md",
-          "hash": "16015948452372656105"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/architecture-designer/references/nfr-checklist.md",
-          "hash": "15008119662511924194"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/architecture-designer/references/system-design.md",
-          "hash": "16394738410190861097"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/SKILL.md",
-          "hash": "2247695544614025345"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/references/federation.md",
-          "hash": "4809396020854995227"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/references/migration-from-rest.md",
-          "hash": "5370656173419240178"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/references/resolvers.md",
-          "hash": "1629482935993041677"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/references/schema-design.md",
-          "hash": "7264831826116012830"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/references/security.md",
-          "hash": "16891800078391141118"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/graphql-architect/references/subscriptions.md",
-          "hash": "11146288383547919185"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/microservices-architect/SKILL.md",
-          "hash": "8783188896186984880"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/microservices-architect/references/communication.md",
-          "hash": "6870060096964412120"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/microservices-architect/references/data.md",
-          "hash": "10550586823980903987"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/microservices-architect/references/decomposition.md",
-          "hash": "18405757813633196590"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/microservices-architect/references/observability.md",
-          "hash": "16772282360372666290"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/files/curated-skills/microservices-architect/references/patterns.md",
-          "hash": "7771665441412649002"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/schema.d.ts",
-          "hash": "2954539737627302897"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/schema.json",
-          "hash": "34598195188765935"
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/solution-architect.spec.ts",
-          "hash": "9881654775866584948",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/solution-architect/solution-architect.ts",
-          "hash": "9177334127245060273",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/SKILL.md",
-          "hash": "4869588818223869391"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills-lock.json",
-          "hash": "17992532948313354358"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/SKILL.md",
-          "hash": "14804869267423568210"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/references/common-issues.md",
-          "hash": "13358268947951574943"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/references/feedback-examples.md",
-          "hash": "2142333020376273953"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/references/receiving-feedback.md",
-          "hash": "11522138868329582853"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/references/report-template.md",
-          "hash": "15119634389476028942"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/references/review-checklist.md",
-          "hash": "5273400368391622947"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/code-reviewer/references/spec-compliance-review.md",
-          "hash": "2124851420029750252"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/database-optimizer/SKILL.md",
-          "hash": "13061100603147820951"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/database-optimizer/references/index-strategies.md",
-          "hash": "18351512728154766056"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/database-optimizer/references/monitoring-analysis.md",
-          "hash": "4772650792199335328"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/database-optimizer/references/mysql-tuning.md",
-          "hash": "10683444230429237720"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/database-optimizer/references/postgresql-tuning.md",
-          "hash": "15846891783825051192"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/database-optimizer/references/query-optimization.md",
-          "hash": "10377699378924456419"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/debugging-wizard/SKILL.md",
-          "hash": "3391189626856824227"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/debugging-wizard/references/common-patterns.md",
-          "hash": "17806734468269827978"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/debugging-wizard/references/debugging-tools.md",
-          "hash": "12208704756043883330"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/debugging-wizard/references/quick-fixes.md",
-          "hash": "13996423285759043279"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/debugging-wizard/references/strategies.md",
-          "hash": "16819079492237591589"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/debugging-wizard/references/systematic-debugging.md",
-          "hash": "15565114312030897794"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fine-tuning-expert/SKILL.md",
-          "hash": "6066275291466625782"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fine-tuning-expert/references/dataset-preparation.md",
-          "hash": "9767327828864391934"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fine-tuning-expert/references/deployment-optimization.md",
-          "hash": "6168986181200329262"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fine-tuning-expert/references/evaluation-metrics.md",
-          "hash": "13347139927454507106"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fine-tuning-expert/references/hyperparameter-tuning.md",
-          "hash": "10003615319776704538"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fine-tuning-expert/references/lora-peft.md",
-          "hash": "8552630448092730949"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/SKILL.md",
-          "hash": "17159837537028404917"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/api-design-standards.md",
-          "hash": "11896141259178414167"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/architecture-decisions.md",
-          "hash": "10952143073094155112"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/backend-patterns.md",
-          "hash": "13300378018626551836"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/common-patterns.md",
-          "hash": "2230264779746357560"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/deliverables-checklist.md",
-          "hash": "5689858170516224559"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/design-template.md",
-          "hash": "9533055704422556701"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/error-handling.md",
-          "hash": "4816250690430758263"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/frontend-patterns.md",
-          "hash": "4125208632886343503"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/integration-patterns.md",
-          "hash": "9935357464536746687"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/fullstack-guardian/references/security-checklist.md",
-          "hash": "3642083441397444253"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/secure-code-guardian/SKILL.md",
-          "hash": "17441741034448901496"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/secure-code-guardian/references/authentication.md",
-          "hash": "16240627905204564553"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/secure-code-guardian/references/input-validation.md",
-          "hash": "14054689248108225884"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/secure-code-guardian/references/owasp-prevention.md",
-          "hash": "2670392914982459335"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/secure-code-guardian/references/security-headers.md",
-          "hash": "274506632162177385"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/secure-code-guardian/references/xss-csrf.md",
-          "hash": "764701544104808274"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/spec-miner/SKILL.md",
-          "hash": "2293926328348493037"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/spec-miner/references/analysis-checklist.md",
-          "hash": "12748533795820651743"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/spec-miner/references/analysis-process.md",
-          "hash": "236678554499585638"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/spec-miner/references/ears-format.md",
-          "hash": "18124734829071682214"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/spec-miner/references/specification-template.md",
-          "hash": "14481193311792710307"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/SKILL.md",
-          "hash": "1634294066100722457"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/references/dialectic-synthesis.md",
-          "hash": "2974039976589871896"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/references/evidence-audit.md",
-          "hash": "1673504337951486403"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/references/mode-selection-guide.md",
-          "hash": "3619270751092071113"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/references/pre-mortem-analysis.md",
-          "hash": "8050330357372917585"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/references/red-team-adversarial.md",
-          "hash": "17053569544755999822"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/files/curated-skills/the-fool/references/socratic-questioning.md",
-          "hash": "4083543264451114691"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/schema.d.ts",
-          "hash": "6631793209345418749"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/schema.json",
-          "hash": "4131553011919767194"
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/tech-lead.spec.ts",
-          "hash": "3696728286819155762",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/tech-lead/tech-lead.ts",
-          "hash": "12261300135106912875",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills-lock.json",
-          "hash": "15732547167490013307"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/SKILL.md",
-          "hash": "15740116397626676612"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/api-docs-fastapi-django.md",
-          "hash": "13030269421835958179"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/api-docs-nestjs-express.md",
-          "hash": "12303188398266761315"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/coverage-reports.md",
-          "hash": "16858618213785974902"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/documentation-systems.md",
-          "hash": "7649150877433492885"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/interactive-api-docs.md",
-          "hash": "9078132493689149098"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/python-docstrings.md",
-          "hash": "16730828392454924324"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/typescript-jsdoc.md",
-          "hash": "16194184089930266566"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/code-documenter/references/user-guides-tutorials.md",
-          "hash": "4483392461647575054"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/spec-miner/SKILL.md",
-          "hash": "2293926328348493037"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/spec-miner/references/analysis-checklist.md",
-          "hash": "12748533795820651743"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/spec-miner/references/analysis-process.md",
-          "hash": "236678554499585638"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/spec-miner/references/ears-format.md",
-          "hash": "18124734829071682214"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/files/curated-skills/spec-miner/references/specification-template.md",
-          "hash": "14481193311792710307"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/schema.d.ts",
-          "hash": "17463634300267147111"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/schema.json",
-          "hash": "13101405742384599131"
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/technical-writer.spec.ts",
-          "hash": "9095447817928435213",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/technical-writer/technical-writer.ts",
-          "hash": "2137607142115608579",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/SKILL.md",
-          "hash": "1534606013657914879"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills-lock.json",
-          "hash": "2462210903270867470"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/brandkit/SKILL.md",
-          "hash": "18326316153130529219"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/design-taste-frontend/SKILL.md",
-          "hash": "6938268831954091376"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/full-output-enforcement/SKILL.md",
-          "hash": "12919584091062659188"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/high-end-visual-design/SKILL.md",
-          "hash": "2372932230453598106"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/image-to-code/SKILL.md",
-          "hash": "17688485764207062861"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/imagegen-frontend-mobile/SKILL.md",
-          "hash": "3445457392554397778"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/imagegen-frontend-web/SKILL.md",
-          "hash": "7970058379203856697"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/industrial-brutalist-ui/SKILL.md",
-          "hash": "9613204444369087495"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/minimalist-ui/SKILL.md",
-          "hash": "13571219843115160423"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/redesign-existing-projects/SKILL.md",
-          "hash": "5181903132514529991"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/stitch-design-taste/DESIGN.md",
-          "hash": "9785912761999329548"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/files/curated-skills/stitch-design-taste/SKILL.md",
-          "hash": "8648593063822846391"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/schema.d.ts",
-          "hash": "10770151052249324467"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/schema.json",
-          "hash": "10619129840411054488"
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/uiux-designer.spec.ts",
-          "hash": "17346616962605179651",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/src/uiux-designer/uiux-designer.ts",
-          "hash": "11204991894140383950",
-          "deps": [
-            "npm:@nx/devkit@23.1.2"
-          ]
-        },
-        {
-          "file": "tools/skill-generator/tsconfig.json",
-          "hash": "12437555863323107724"
-        },
-        {
-          "file": "tools/skill-generator/tsconfig.lib.json",
-          "hash": "5139078406077422911"
-        },
-        {
-          "file": "tools/skill-generator/tsconfig.spec.json",
-          "hash": "4789186368946461833"
-        },
-        {
-          "file": "tools/skill-generator/vitest.config.mts",
-          "hash": "16789623829070355400",
-          "deps": [
-            "npm:@nx/vite@23.1.2",
-            "npm:vitest@4.1.11"
-          ]
-        }
       ]
     },
     "nonProjectFiles": [
@@ -3368,7 +3466,7 @@
       },
       {
         "file": "bun.lock",
-        "hash": "3650318399652019152"
+        "hash": "11587305032697312391"
       },
       {
         "file": "nx.json",
@@ -3392,5 +3490,5 @@
       }
     ]
   },
-  "externalNodesHash": "5885606725387395167"
+  "externalNodesHash": "113333706187907320"
 }

@@ -1,5 +1,5 @@
 ---
-name: pm
+name: project-manager
 description: Product Manager agent for planning, sprint artifacts, release comms, and retrospective synthesis. Use when creating PRDs, breaking epics into user stories and tasks, setting up GitLab milestones and issue boards, writing wiki pages, posting release communications, or synthesising the 11-section sprint retrospective report.
 compatibility: opencode, omp
 license: MIT

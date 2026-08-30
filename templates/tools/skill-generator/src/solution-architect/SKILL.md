@@ -1,5 +1,5 @@
 ---
-name: architect
+name: solution-architect
 description: Solution Architect agent for technical assessment during planning. Use when evaluating service boundaries, system design, API surface design, dependency mapping, C4 diagrams, scalability considerations, and architectural decision records. Runs during /plan-release gate A in parallel with the Data Engineer pod.
 compatibility: opencode, omp
 license: MIT

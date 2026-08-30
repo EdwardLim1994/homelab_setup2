@@ -3966,7 +3966,7 @@
 	},
 	{
 		"source": "npm:@xhmikosr/downloader@16.3.1",
-		"target": "npm:filenamify@7.0.2",
+		"target": "npm:filenamify@7.0.3",
 		"type": "static"
 	},
 	{
@@ -4941,7 +4941,7 @@
 	},
 	{
 		"source": "npm:execa@9.6.1",
-		"target": "npm:pretty-ms@9.3.0",
+		"target": "npm:pretty-ms@9.3.1",
 		"type": "static"
 	},
 	{
@@ -5045,8 +5045,8 @@
 		"type": "static"
 	},
 	{
-		"source": "npm:filenamify@7.0.2",
-		"target": "npm:filename-reserved-regex@4.0.0",
+		"source": "npm:filenamify@7.0.3",
+		"target": "npm:filename-reserved-regex@4.0.1",
 		"type": "static"
 	},
 	{
@@ -7580,7 +7580,7 @@
 		"type": "static"
 	},
 	{
-		"source": "npm:pretty-ms@9.3.0",
+		"source": "npm:pretty-ms@9.3.1",
 		"target": "npm:parse-ms@4.0.0",
 		"type": "static"
 	},
