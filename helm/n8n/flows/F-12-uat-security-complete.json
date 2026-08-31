@@ -1,0 +1,184 @@
+{
+  "name": "F-12-uat-security-complete",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "security-scan-start",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-F-12-uat-security-complete",
+      "name": "Webhook: F-12-uat-security-complete trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'security-engineer', task: 'uat-stage-2', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-F-12-uat-security-complete",
+      "name": "Spawn security-engineer: uat-stage-2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exitCode }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "check-F-12-uat-security-complete",
+      "name": "Passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "glab issue update {{ $json.body.release_ticket_id }} --label-add 'security:cleared' && glab issue comment {{ $json.body.release_ticket_id }} --message 'security:cleared applied'"
+      },
+      "id": "label-F-12-uat-security-complete",
+      "name": "Apply security:cleared on release ticket",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        960,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/po-validation-start",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            },
+            {
+              "name": "project",
+              "value": "={{ $json.body.project }}"
+            },
+            {
+              "name": "release_ticket_id",
+              "value": "={{ $json.body.release_ticket_id }}"
+            }
+          ]
+        }
+      },
+      "id": "next-F-12-uat-security-complete",
+      "name": "Trigger next stage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "command": "glab issue create --title '[bugfix] security-engineer finding during uat-stage-2' --label 'type:bugfix,role:security-engineer' --milestone '{{ $json.body.version }}' --description 'Found during UAT uat-stage-2. Environment: UAT cluster.'"
+      },
+      "id": "bug-F-12-uat-security-complete",
+      "name": "Create bug ticket (type:bug-uat)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        960,
+        440
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: F-12-uat-security-complete trigger": {
+      "main": [
+        [
+          {
+            "node": "Spawn security-engineer: uat-stage-2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn security-engineer: uat-stage-2": {
+      "main": [
+        [
+          {
+            "node": "Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Passed?": {
+      "main": [
+        [
+          {
+            "node": "Apply security:cleared on release ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create bug ticket (type:bug-uat)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply security:cleared on release ticket": {
+      "main": [
+        [
+          {
+            "node": "Trigger next stage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "uat"
+    },
+    {
+      "name": "phase-3"
+    }
+  ]
+}

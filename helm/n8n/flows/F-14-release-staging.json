@@ -1,0 +1,259 @@
+{
+  "name": "F-14 /release-staging",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "release-staging",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-14",
+      "name": "Webhook: /release-staging",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project_id }}/issues/{{ $json.body.release_ticket_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "id": "check-signoffs-14",
+      "name": "Safeguard: check all 3 UAT sign-offs on release ticket",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const labels = $json.labels || [];\nconst required = ['qa:uat-approved','security:cleared','po:uat-approved'];\nconst missing = required.filter(l => !labels.includes(l));\nreturn [{ json: { safe: missing.length === 0, missing, labels } }];"
+      },
+      "id": "validate-signoffs-14",
+      "name": "All UAT sign-offs present?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.safe }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "gate-14",
+      "name": "Safeguard gate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f14-feedback",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "Staging blocked: missing UAT sign-offs"
+            },
+            {
+              "name": "missing",
+              "value": "={{ JSON.stringify($json.missing) }}"
+            }
+          ]
+        }
+      },
+      "id": "feedback-14",
+      "name": "Feedback to Edward: missing sign-offs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "command": "opencode run --print 'Create release-plan ticket as child of release ticket {{ $json.body.release_ticket_id }} for version {{ $json.body.version }}'"
+      },
+      "id": "rm-release-plan-14",
+      "name": "RM creates release plan ticket (opencode+glab)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "command": "glab api projects/{{ $json.body.project_id }}/repository/branches --method POST -f branch='promote/{{ $json.body.version }}' -f ref='release/{{ $json.body.version }}'"
+      },
+      "id": "create-promote-14",
+      "name": "Create promote/v branch from release/v",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project_id }}/pipelines",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "ref",
+              "value": "={{ 'promote/' + $json.body.version }}"
+            },
+            {
+              "name": "variables[STAGE]",
+              "value": "promote-build-deploy"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "id": "trigger-promote-ci-14",
+      "name": "Trigger promotion CI pipeline (4 stages)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1440,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: /release-staging": {
+      "main": [
+        [
+          {
+            "node": "Safeguard: check all 3 UAT sign-offs on release ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Safeguard: check all 3 UAT sign-offs on release ticket": {
+      "main": [
+        [
+          {
+            "node": "All UAT sign-offs present?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All UAT sign-offs present?": {
+      "main": [
+        [
+          {
+            "node": "Safeguard gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Safeguard gate": {
+      "main": [
+        [
+          {
+            "node": "RM creates release plan ticket (opencode+glab)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create promote/v branch from release/v",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Feedback to Edward: missing sign-offs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RM creates release plan ticket (opencode+glab)": {
+      "main": [
+        [
+          {
+            "node": "Trigger promotion CI pipeline (4 stages)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create promote/v branch from release/v": {
+      "main": [
+        [
+          {
+            "node": "Trigger promotion CI pipeline (4 stages)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "staging"
+    },
+    {
+      "name": "phase-4"
+    }
+  ]
+}

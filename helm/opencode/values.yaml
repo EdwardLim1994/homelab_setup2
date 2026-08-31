@@ -16,6 +16,62 @@ args: ["serve", "--hostname", "0.0.0.0", "--port", "4096"]
 
 env: {}
 
+# ponytail: Secret (key CLAUDE_CODE_OAUTH_TOKEN) mounted as envFrom into every
+# opencode pod — used when a pod runs the `claude` CLI instead of opencode.
+# The Tiltfile creates it from TF_VAR_claude_code_token in .env. Set
+# secretName: "" to drop the mount entirely.
+claudeAuth:
+  secretName: opencode-claude-auth
+
+# ponytail: git URL of a skills repo (layout: skills/<name>/SKILL.md, same as
+# caveman/ponytail). When set, an initContainer clones it and the main
+# container copies skills/* into opencode's skill dir on start — on top of
+# the caveman/ponytail skills already baked into the image. Empty = image
+# skills only. This is the per-agent knob a spawned pod overrides.
+skillsRepo: ""
+
+# ponytail: pre-created scale-to-zero pods the spawn-agent flow claims. Each
+# renders with the fetch-skills initContainer already wired (cloning
+# defaultSkillsRepo); the flow PATCHes replicas=1 + that initContainer's
+# args to the repo it actually wants. Point defaultSkillsRepo at the
+# homelab skills repo once it exists.
+slots:
+  count: 3
+  # ponytail: in-cluster clone URL — pods reach GitLab by Service DNS, not the
+  # tailnet name (no SSH exposed, and the tailnet round-trips out and back).
+  # Private repo: prefix creds, e.g.
+  #   http://oauth2:<project-access-token>@gitlab-webservice-default.gitlab.svc:8181/<group>/<repo>.git
+  defaultSkillsRepo: "http://gitlab-webservice-default.gitlab.svc:8181/EdwardLim1994/internal-agent-skills.git"
+
+# ponytail: one Deployment+Service+ConfigMap per role. Base = the same
+# opencode image; the role's roles/<name>/SKILL.md (in this chart) is mounted
+# into the skill dir via ConfigMap — no git clone. All at replicas 0; wake one:
+#   kubectl -n opencode scale deploy/opencode-<role> --replicas=1
+# Drop a name from this list to stop shipping that role's pod.
+roles:
+  - backend-developer
+  - data-engineer
+  - devops-engineer
+  - frontend-developer
+  - product-owner
+  - project-manager
+  - qa-engineer
+  - release-manager
+  - security-engineer
+  - solution-architect
+  - tech-lead
+  - uiux-designer
+
+# ponytail: OpenAI-compatible shim (helm/opencode/adapter/server.py) so LiteLLM
+# can list the opencode pods as models. Translates /v1/chat/completions to
+# opencode's POST /session + /session/:id/message. Scales a role pod to 1 on
+# first request. Register in LiteLLM: model opencode[-<role>], api_base
+# http://opencode-adapter.opencode.svc:8000/v1.
+adapter:
+  enabled: true
+  image: python:3.12-slim
+  port: 8000
+
 persistence:
   enabled: true
   size: 20Gi
@@ -26,6 +82,16 @@ persistence:
 dockerSocket:
   enabled: true
   hostPath: /var/run/docker.sock
+
+# ponytail: RBAC so an external service (n8n) can spawn/kill extra opencode
+# Deployments in this namespace via the k8s API. Bound to n8n's SA. Ships
+# once with the base `opencode` release; per-agent spawns are plain
+# Deployments the flow POSTs, not new Helm releases.
+spawner:
+  enabled: true
+  subjectServiceAccount:
+    name: n8n
+    namespace: n8n
 
 resources:
   requests:

@@ -46,6 +46,15 @@ n8n:
     # server-side discovery fetch and the browser redirect agree on the
     # same authority — same reasoning as minio/gitlab's OIDC wiring.
     extraEnvVars:
+      # ponytail: n8n 2.0 disables executeCommand + localFileTrigger by default
+      # (NODES_EXCLUDE defaults to that pair). The SDLC flows are built on
+      # executeCommand — without this, seeded flows fail to activate and a
+      # manual run 502s. "[]" re-enables all. Revisit if these flows ever stop
+      # shelling out (GitLab REST node instead of glab, k8s API instead of kubectl).
+      NODES_EXCLUDE: "[]"
+      # ponytail: flows call sibling flows by webhook (…/spawn-role, …/dod-check).
+      # In-cluster self-call over localhost — no proxy round-trip, no tailnet.
+      N8N_WEBHOOK_BASE: "http://localhost:5678/webhook"
       EXTERNAL_HOOK_FILES: "/hooks/hooks.js"
       N8N_ADDITIONAL_NON_UI_ROUTES: "auth"
       EXTERNAL_FRONTEND_HOOKS_URLS: "/assets/oidc-frontend-hook.js"
@@ -53,3 +62,12 @@ n8n:
       OIDC_ISSUER_URL: "https://__TS_HOST__:8443/application/o/n8n/"
       # OIDC_CLIENT_ID / OIDC_CLIENT_SECRET set via Tiltfile/terraform (.env)
       OIDC_REDIRECT_URI: "https://__TS_HOST__:8447/auth/oidc/callback"
+
+# ponytail: post-install/post-upgrade Job that seeds helm/n8n/flows/F-*.json
+# via the n8n REST API. apiKey is one-time manual setup (n8n Settings -> API
+# Keys), injected from .env as TF_VAR_n8n_api_key / TS via Tiltfile. Empty
+# key => the Job logs and exits 0.
+flowSeed:
+  enabled: true
+  apiKey: ""
+  image: "alpine:3"

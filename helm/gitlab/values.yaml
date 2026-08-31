@@ -101,8 +101,12 @@ gitlab:
         requests:
           cpu: 100m
           memory: 1Gi
+        # ponytail: 2Gi leaves no headroom for a second Rails boot, so
+        # `rails runner` (gitlab-promote-admin) gets OOMKilled (exit 137) and
+        # the Web IDE OAuth redirect_uri realign silently never runs. 3Gi fits
+        # puma + one runner. Node has room; bump back down if it doesn't.
         limits:
-          memory: 2Gi
+          memory: 3Gi
     sidekiq:
       minReplicas: 1
       maxReplicas: 1

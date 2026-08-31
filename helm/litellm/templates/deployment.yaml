@@ -23,6 +23,7 @@ spec:
       containers:
         - name: litellm
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          args: ["--config", "/etc/litellm/config.yaml"]
           ports:
             - containerPort: 4000
           env:
@@ -30,5 +31,13 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/litellm
+              readOnly: true
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-config

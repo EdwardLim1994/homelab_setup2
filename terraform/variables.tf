@@ -101,6 +101,12 @@ variable "n8n_oidc_client_secret" {
   default   = "dev-n8n-oidc-client-secret-not-for-prod-use"
 }
 
+variable "n8n_api_key" {
+  type      = string
+  sensitive = true
+  default   = "" # create in n8n Settings -> API Keys; enables flow seeding
+}
+
 variable "sonarqube_db_password" {
   type      = string
   sensitive = true
@@ -290,6 +296,14 @@ variable "gitlab_mcp_auth_token" {
 }
 
 variable "nx_cloud_mcp_token" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+# Long-lived Claude Code OAuth token (`claude setup-token`) for the `claude` CLI
+# inside opencode pods. Blank = pods still start, `claude` just has no auth.
+variable "claude_code_token" {
   type      = string
   sensitive = true
   default   = ""

@@ -26,6 +26,14 @@ resource "kubernetes_secret" "openwebui_homelab_ca" {
   depends_on = [kubernetes_namespace.openwebui, data.kubernetes_secret.homelab_ca]
 }
 
+# ponytail: the n8n-trigger Pipe function (helm/openwebui/functions/n8n_pipe.py)
+# is NOT deployed here. OpenWebUI stores functions in its own DB, writable only
+# through the UI/API, and the admin API key needed to POST one is itself created
+# in the UI — no clean IaC path. It's a one-time paste (Workspace -> Functions ->
+# + -> paste -> enable -> set n8n_url valve) and persists on the PVC across
+# restarts. See helm/openwebui/functions/README.md. Optional: only needed to
+# trigger n8n flows from chat; direct LiteLLM chat works without it.
+
 resource "helm_release" "openwebui" {
   name              = "openwebui"
   chart             = "${path.module}/../helm/openwebui"

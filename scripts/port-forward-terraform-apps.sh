@@ -18,7 +18,7 @@ fi
 # name:namespace:service:svc-port:local-port:ts-port
 apps=(
   "authentik:authentik:authentik-server:80:9000:8443"
-  "gitlab:gitlab:gitlab-webservice-default:8181:8181:8444"
+  "gitlab:gitlab:gitlab-webservice-default:8181:8181:443"
   "minio (API):minio:minio:9000:9002:8446"
   "minio (browser):minio:minio-console:9001:9003:8445"
   "n8n:n8n:n8n:5678:5678:8447"

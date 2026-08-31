@@ -1,0 +1,193 @@
+{
+  "name": "F-06 DoD Check",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dod-check",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-dod",
+      "name": "Webhook: DoD check trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'tech-lead', task: 'dod-check', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-tl-dod",
+      "name": "Spawn TL Pod: DoD check (smart model)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exitCode }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "dod-pass",
+      "name": "DoD satisfied?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/story-mr-open",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "story_id",
+              "value": "={{ $json.body.story_id }}"
+            },
+            {
+              "name": "flow",
+              "value": "F-06-trigger-F-07"
+            }
+          ]
+        }
+      },
+      "id": "trigger-f07",
+      "name": "Trigger F-07: open story MR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        960,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const dag = $workflow.staticData.dagState || {};\nconst retries = dag.dodRetries || {};\nconst storyId = $json.body.story_id;\nretries[storyId] = (retries[storyId] || 0) + 1;\ndag.dodRetries = retries;\n$workflow.staticData.dagState = dag;\nreturn [{ json: { escalate: retries[storyId] >= 3, retryCount: retries[storyId], storyId } }];"
+      },
+      "id": "dod-fail-counter",
+      "name": "DoD fail: feedback developer + re-trigger F-04",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/gitlab-mr-opened",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "story_id",
+              "value": "={{ $json.storyId }}"
+            },
+            {
+              "name": "reason",
+              "value": "DoD failed — re-triggers F-04 review cycle"
+            }
+          ]
+        }
+      },
+      "id": "retrigger-f04",
+      "name": "Re-trigger F-04: CI + TL review cycle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: DoD check trigger": {
+      "main": [
+        [
+          {
+            "node": "Spawn TL Pod: DoD check (smart model)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn TL Pod: DoD check (smart model)": {
+      "main": [
+        [
+          {
+            "node": "DoD satisfied?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DoD satisfied?": {
+      "main": [
+        [
+          {
+            "node": "Trigger F-07: open story MR",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "DoD fail: feedback developer + re-trigger F-04",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DoD fail: feedback developer + re-trigger F-04": {
+      "main": [
+        [
+          {
+            "node": "Re-trigger F-04: CI + TL review cycle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "development"
+    },
+    {
+      "name": "phase-2"
+    }
+  ]
+}

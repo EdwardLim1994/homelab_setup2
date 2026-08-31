@@ -13,44 +13,8 @@ spec:
       labels:
         app: {{ .Release.Name }}
     spec:
-      containers:
-        - name: opencode
-          image: {{ .Values.image }}
-          {{- with .Values.command }}
-          command: {{ toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.args }}
-          args: {{ toYaml . | nindent 12 }}
-          {{- end }}
-          ports:
-            - containerPort: {{ .Values.port }}
-          {{- with .Values.env }}
-          env:
-            {{- range $key, $value := . }}
-            - name: {{ $key }}
-              value: {{ $value | quote }}
-            {{- end }}
-          {{- end }}
-          volumeMounts:
-            {{- if .Values.persistence.enabled }}
-            - name: workspace
-              mountPath: /workspace
-            {{- end }}
-            {{- if .Values.dockerSocket.enabled }}
-            - name: docker-sock
-              mountPath: /var/run/docker.sock
-            {{- end }}
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-      volumes:
-        {{- if .Values.persistence.enabled }}
-        - name: workspace
-          persistentVolumeClaim:
-            claimName: {{ .Release.Name }}
-        {{- end }}
-        {{- if .Values.dockerSocket.enabled }}
-        - name: docker-sock
-          hostPath:
-            path: {{ .Values.dockerSocket.hostPath }}
-            type: Socket
-        {{- end }}
+      {{- include "opencode.podSpec" (dict
+            "root" .
+            "skillsRepo" .Values.skillsRepo
+            "workspaceClaim" (ternary .Release.Name "" .Values.persistence.enabled)
+          ) | nindent 6 }}

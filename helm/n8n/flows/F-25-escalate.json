@@ -1,0 +1,109 @@
+{
+  "name": "F-25 /escalate (Cross-cutting)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "escalate",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-25",
+      "name": "Webhook: /escalate trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const dag = $workflow.staticData.dagState || {};\ndag.pausedTasks = dag.pausedTasks || [];\ndag.pausedTasks.push($json.body.context);\n$workflow.staticData.dagState = dag;\nreturn [{ json: { paused: true, context: $json.body.context, reason: $json.body.reason, attempts: $json.body.attempts } }];"
+      },
+      "id": "pause-dag-25",
+      "name": "Pause dependent DAG tasks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f25-notify-edward",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "ESCALATION: {{ $json.body.reason }}"
+            },
+            {
+              "name": "flow",
+              "value": "={{ $json.body.flow }}"
+            },
+            {
+              "name": "attempts",
+              "value": "={{ $json.body.attempts }}"
+            },
+            {
+              "name": "failures",
+              "value": "={{ $json.body.failures }}"
+            },
+            {
+              "name": "recommended_action",
+              "value": "={{ $json.body.recommended_action }}"
+            },
+            {
+              "name": "context",
+              "value": "={{ JSON.stringify($json.body.context) }}"
+            }
+          ]
+        }
+      },
+      "id": "notify-edward-25",
+      "name": "Notify Edward immediately with full context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        720,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: /escalate trigger": {
+      "main": [
+        [
+          {
+            "node": "Pause dependent DAG tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pause dependent DAG tasks": {
+      "main": [
+        [
+          {
+            "node": "Notify Edward immediately with full context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "cross-cutting"
+    }
+  ]
+}

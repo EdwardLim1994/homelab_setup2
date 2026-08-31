@@ -1,0 +1,284 @@
+{
+  "name": "F-22 /rollback-story",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rollback-story",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-22",
+      "name": "Webhook: /rollback-story command",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project_id }}/issues/{{ $json.body.story_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "id": "verify-merged-22",
+      "name": "Verify story is merged to release branch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const labels = $json.labels || [];\nconst isMerged = labels.includes('merged-to-release');\nconst hasDependents = false; // TODO: check dependency graph in DAG state\nreturn [{ json: { isMerged, hasDependents, storyId: $json.iid } }];"
+      },
+      "id": "check-deps-22",
+      "name": "Check dependency graph for cascade",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.hasDependents }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "dep-check-22",
+      "name": "Dependent stories?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f22-cascade-warn",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "Cascade warning: other stories depend on GL-{{ $json.body.story_id }}. Confirm scope."
+            },
+            {
+              "name": "story_id",
+              "value": "={{ $json.body.story_id }}"
+            }
+          ]
+        }
+      },
+      "id": "cascade-warn-22",
+      "name": "Notify Edward: cascade warning, await confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project_id }}/merge_requests",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "source_branch",
+              "value": "={{ 'revert-GL-' + $json.body.story_id + '/' + $json.body.version }}"
+            },
+            {
+              "name": "target_branch",
+              "value": "={{ 'release/' + $json.body.version }}"
+            },
+            {
+              "name": "title",
+              "value": "={{ '[revert] GL-' + $json.body.story_id + ' from ' + $json.body.version }}"
+            },
+            {
+              "name": "description",
+              "value": "Reverts story GL-{{ $json.body.story_id }} from release {{ $json.body.version }}."
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "id": "create-revert-mr-22",
+      "name": "Create revert MR on release branch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'tech-lead', task: 'review-revert-mr', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "tl-review-revert-22",
+      "name": "TL Pod: review revert MR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1440,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f22-notify-revert-ready",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "Revert MR ready for your review and merge"
+            },
+            {
+              "name": "story_id",
+              "value": "={{ $json.body.story_id }}"
+            },
+            {
+              "name": "mr_url",
+              "value": "={{ $json.web_url }}"
+            }
+          ]
+        }
+      },
+      "id": "notify-revert-22",
+      "name": "Notify Edward: revert MR ready → F-23",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1680,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: /rollback-story command": {
+      "main": [
+        [
+          {
+            "node": "Verify story is merged to release branch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify story is merged to release branch": {
+      "main": [
+        [
+          {
+            "node": "Check dependency graph for cascade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check dependency graph for cascade": {
+      "main": [
+        [
+          {
+            "node": "Dependent stories?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dependent stories?": {
+      "main": [
+        [
+          {
+            "node": "Notify Edward: cascade warning, await confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create revert MR on release branch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create revert MR on release branch": {
+      "main": [
+        [
+          {
+            "node": "TL Pod: review revert MR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TL Pod: review revert MR": {
+      "main": [
+        [
+          {
+            "node": "Notify Edward: revert MR ready → F-23",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "production"
+    },
+    {
+      "name": "phase-5"
+    }
+  ]
+}

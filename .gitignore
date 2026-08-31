@@ -4,5 +4,6 @@ k3d-storage/
 terraform/local.auto.tfvars
 terraform/.authentik-app-providers.sh
 terraform/.seafile-promote-admin.sh
+terraform/.gitlab-promote-admin.sh
 
 /**/*/node_modules/

@@ -43,12 +43,16 @@ RUN ARCH=$(dpkg --print-architecture) \
     && tar -C /usr/local -xzf /tmp/glab.tgz bin/glab \
     && rm /tmp/glab.tgz
 
-# --- npm-global CLIs: nx, openspec, opencode, codegraph ---
+# --- npm-global CLIs: nx, openspec, opencode, codegraph, claude code ---
+# ponytail: claude-code ships here too so a pod can run `claude` when opencode
+# is disabled (scripts/opencode-shell.sh). Auth is the CLAUDE_CODE_OAUTH_TOKEN
+# env the chart injects — no `claude login` in the pod.
 RUN npm install -g \
       nx \
       @fission-ai/openspec \
       opencode-ai \
       @colbymchenry/codegraph \
+      @anthropic-ai/claude-code \
     && npm cache clean --force
 
 # codegraph wires itself into the agent configs. Best-effort at build; if it
@@ -75,7 +79,7 @@ RUN mkdir -p /root/.config/opencode /root/.config/opencode/skills /opt/src \
       '    "ollama": {' \
       '      "npm": "@ai-sdk/openai-compatible",' \
       '      "name": "Ollama (host)",' \
-      '      "options": { "baseURL": "http://host.k3d.internal:11434/v1" },' \
+      '      "options": { "baseURL": "http://host.docker.internal:11434/v1" },' \
       '      "models": {' \
       '        "qwen3:1.7b": { "name": "qwen3:1.7b" },' \
       '        "qwen3-coder-next": { "name": "qwen3-coder-next" }' \
@@ -101,6 +105,17 @@ RUN git clone --depth 1 https://github.com/juliusbrussee/caveman /opt/src/cavema
     && { cat /opt/src/ponytail/AGENTS.md; echo; \
          awk 'p;/^---$/{c++;if(c==2)p=1}' /opt/src/caveman/skills/caveman/SKILL.md; echo; \
        } >> /root/.config/opencode/AGENTS.md; true
+
+# --- claude code: skip first-run onboarding in a headless pod ---
+# ponytail: without this, `claude` blocks the TUI on the theme picker /
+# "trust this folder" dialog on first launch. Auth still comes from the
+# CLAUDE_CODE_OAUTH_TOKEN env the chart injects.
+RUN printf '%s\n' \
+      '{' \
+      '  "hasCompletedOnboarding": true,' \
+      '  "theme": "dark",' \
+      '  "autoUpdaterStatus": "disabled"' \
+      '}' > /root/.claude.json
 
 WORKDIR /workspace
 EXPOSE 4096

@@ -29,6 +29,9 @@ n8n_encryption_key = os.getenv('TF_VAR_n8n_encryption_key', 'dev-n8n-encryption-
 # other apps').
 n8n_oidc_client_id = os.getenv('TF_VAR_n8n_oidc_client_id', 'dev-n8n-oidc-client-id')
 n8n_oidc_client_secret = os.getenv('TF_VAR_n8n_oidc_client_secret', 'dev-n8n-oidc-client-secret-not-for-prod-use')
+# ponytail: one-time manual API key (n8n Settings -> API Keys). Empty => the
+# flow-seed Job no-ops, so `tilt up` still works with zero setup.
+n8n_api_key = os.getenv('TF_VAR_n8n_api_key', '')
 ts_host = os.getenv('TS_HOST', '')
 
 rendered = str(helm(
@@ -39,6 +42,7 @@ rendered = str(helm(
     'n8n.encryptionKey=' + n8n_encryption_key,
     'n8n.main.extraEnvVars.OIDC_CLIENT_ID=' + n8n_oidc_client_id,
     'n8n.main.extraEnvVars.OIDC_CLIENT_SECRET=' + n8n_oidc_client_secret,
+    'flowSeed.apiKey=' + n8n_api_key,
   ],
 ))
 rendered = rendered.replace('__TS_HOST__', ts_host)

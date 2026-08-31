@@ -1,0 +1,188 @@
+{
+  "name": "F-02 /kickoff",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "kickoff",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-kickoff",
+      "name": "Webhook: /kickoff",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'tech-lead', task: 'kickoff-branches', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-tl-kickoff",
+      "name": "Spawn TL Pod: branches + openspec + pseudocode",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=echo '{\"role\":\"pm\",\"task\":\"kickoff-gitlab-artifacts\",\"version\":\"{{ $json.body.version }}\",\"project\":\"{{ $json.body.project }}\"}' > /tmp/task-pm-kick.json && opencode run --print \"$(cat /tmp/task-pm-kick.json)\""
+      },
+      "id": "spawn-pm-kickoff",
+      "name": "Spawn PM Pod (opencode): GitLab artifacts",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'devops-engineer', task: 'kickoff-infra', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-devops-kickoff",
+      "name": "Spawn DevOps Pod: provision infra (new projects)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const tl = $node['Spawn TL Pod: branches + openspec + pseudocode'].json.exitCode;\nconst pm = $node['Spawn PM Pod (opencode): GitLab artifacts'].json.exitCode;\nconst devops = $node['Spawn DevOps Pod: provision infra (new projects)'].json.exitCode;\nif (tl === 0 && pm === 0 && devops === 0) {\n  return [{ json: { status: 'ready', allComplete: true } }];\n}\nreturn [{ json: { status: 'partial-failure', tl, pm, devops } }];"
+      },
+      "id": "check-kickoff-complete",
+      "name": "All 3 tracks complete?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f02-notify",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "Kickoff complete. Review branches and openspec, then run /develop."
+            },
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            }
+          ]
+        }
+      },
+      "id": "notify-edward-kickoff",
+      "name": "Notify Edward: ready for /develop",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        960,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: /kickoff": {
+      "main": [
+        [
+          {
+            "node": "Spawn TL Pod: branches + openspec + pseudocode",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn PM Pod (opencode): GitLab artifacts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn DevOps Pod: provision infra (new projects)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn TL Pod: branches + openspec + pseudocode": {
+      "main": [
+        [
+          {
+            "node": "All 3 tracks complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn PM Pod (opencode): GitLab artifacts": {
+      "main": [
+        [
+          {
+            "node": "All 3 tracks complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn DevOps Pod: provision infra (new projects)": {
+      "main": [
+        [
+          {
+            "node": "All 3 tracks complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All 3 tracks complete?": {
+      "main": [
+        [
+          {
+            "node": "Notify Edward: ready for /develop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "planning"
+    },
+    {
+      "name": "phase-0"
+    }
+  ]
+}

@@ -6,7 +6,10 @@ set -euo pipefail
 # https-port:local-port
 apps=(
   "8443:9000"  # authentik
-  "8444:8181"  # gitlab
+  "443:8181"   # gitlab — must be the tailnet's standard 443: the GitLab
+               # Helm chart has no non-standard-port support in its generated
+               # external URL, so the Web IDE OAuth callback breaks on any
+               # other port.
   "8446:9002"  # minio S3 API
   "8445:9003"  # minio browser UI/WebUI (separate port on this build)
   "8447:5678"  # n8n

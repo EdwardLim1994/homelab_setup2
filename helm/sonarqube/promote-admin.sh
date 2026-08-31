@@ -6,14 +6,26 @@
 set -e
 
 # ponytail: runs on the Tilt host against the port-forward (localhost:9010),
-# not inside the pod — the official sonarqube image has curl but no
-# python3/jq to parse JSON with, the host running Tilt has both.
-login=$(curl -sk -u admin:admin "http://localhost:9010/api/users/search?q=${ADMIN_EMAIL}" \
-  | python3 -c "import json,sys; d=json.load(sys.stdin); u=[x for x in d['users'] if x.get('email')=='${ADMIN_EMAIL}']; print(u[0]['login'] if u else '')")
+# not inside the pod (sonarqube image has curl, no jq/python). Parse with sed
+# instead of depending on a host python3 — on Windows/Git-Bash that resolves
+# to the Store shim, which exits 1 non-interactively and killed this script.
+resp=$(curl -sk -u admin:admin "http://localhost:9010/api/users/search?q=${ADMIN_EMAIL}")
+
+case "$resp" in
+  *'"total":0'*)
+    echo "sonarqube admin skipped: no user yet for ${ADMIN_EMAIL} (log in via SSO first)"
+    exit 0
+    ;;
+esac
+
+# ponytail: relies on "login" being the first key of the first user object
+# (SonarQube's field order). Fine for a dev cluster; switch to jq-in-pod if
+# that order ever changes.
+login=$(printf '%s' "$resp" | sed -n 's/.*"users":\[[[:space:]]*{[[:space:]]*"login":"\([^"]*\)".*/\1/p')
 
 if [ -z "$login" ]; then
-  echo "sonarqube admin skipped: no user yet for ${ADMIN_EMAIL} (log in via SSO first)"
-  exit 0
+  echo "sonarqube admin: user search matched but could not parse a login from: $resp" >&2
+  exit 1
 fi
 
 curl -sk -u admin:admin -X POST \

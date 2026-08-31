@@ -35,7 +35,7 @@ resource "kubernetes_secret" "gitlab_omniauth_authentik" {
         client_options:
           identifier: "${var.gitlab_oidc_client_id}"
           secret: "${var.gitlab_oidc_client_secret}"
-          redirect_uri: "https://${var.ts_host}:8444/users/auth/openid_connect/callback"
+          redirect_uri: "https://${var.ts_host}/users/auth/openid_connect/callback"
           authorization_endpoint: "https://${var.ts_host}:8443/application/o/authorize/"
           token_endpoint: "http://authentik-server.authentik.svc.cluster.local/application/o/token/"
           userinfo_endpoint: "http://authentik-server.authentik.svc.cluster.local/application/o/userinfo/"
@@ -58,6 +58,24 @@ resource "helm_release" "gitlab" {
   set {
     name  = "gitlab.global.initialRootPassword.secret"
     value = kubernetes_secret.gitlab_root_password.metadata[0].name
+  }
+
+  # GitLab bakes its external URL into generated links, including the
+  # internally-managed "GitLab Web IDE" OAuth app callback
+  # (https://<host>/-/ide/oauth_redirect). The chart has no non-standard-port
+  # support here, so GitLab is served on the tailnet's 443
+  # (scripts/tailscale-serve.sh) and only the host is set.
+  set {
+    name  = "gitlab.global.hosts.https"
+    value = "true"
+  }
+  set {
+    name  = "gitlab.global.hosts.gitlab.name"
+    value = var.ts_host
+  }
+  set {
+    name  = "gitlab.global.hosts.gitlab.https"
+    value = "true"
   }
 
   set_sensitive {
@@ -101,4 +119,32 @@ resource "helm_release" "gitlab" {
   }
 
   depends_on = [kubernetes_namespace.gitlab, kubernetes_secret.gitlab_omniauth_authentik, kubectl_manifest.homelab_ca_issuer]
+}
+
+# ponytail: mirrors Tiltfile's gitlab-promote-admin — promotes ADMIN_EMAIL to
+# admin (no-op until they've logged in via SSO once) and realigns the
+# internally-managed "GitLab Web IDE" OAuth app redirect_uri with the current
+# host (stale after a device/host change -> 'callback URL do not match').
+# Safe to re-run any time.
+resource "null_resource" "gitlab_promote_admin" {
+  triggers = {
+    admin_email = var.admin_email
+    ts_host     = var.ts_host
+    script_hash = filesha1("${path.module}/../helm/gitlab/promote-admin.sh")
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = "bash '${local_file.gitlab_promote_admin_script.filename}'"
+  }
+
+  depends_on = [helm_release.gitlab, local_file.gitlab_promote_admin_script]
+}
+
+resource "local_file" "gitlab_promote_admin_script" {
+  filename = "${path.module}/.gitlab-promote-admin.sh"
+  content = join("\n", [
+    "kubectl exec -i -n gitlab deploy/gitlab-webservice-default -c webservice -- env ADMIN_EMAIL='${var.admin_email}' sh < '${abspath(path.module)}/../helm/gitlab/promote-admin.sh'",
+    "",
+  ])
 }

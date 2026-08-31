@@ -39,5 +39,10 @@ resource "helm_release" "n8n" {
     value = var.n8n_oidc_client_secret
   }
 
+  set_sensitive {
+    name  = "flowSeed.apiKey"
+    value = var.n8n_api_key
+  }
+
   depends_on = [kubernetes_namespace.n8n, kubernetes_config_map.n8n_oidc_hooks]
 }

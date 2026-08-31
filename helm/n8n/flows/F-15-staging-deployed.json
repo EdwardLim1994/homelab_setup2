@@ -1,0 +1,151 @@
+{
+  "name": "F-15 Staging Deployed (CI Webhook)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ci-staging-deployed",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-15",
+      "name": "Webhook: CI staging deployed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "glab issue comment {{ $json.body.release_ticket_id }} --message 'Staging deployed: {{ $json.body.version }} at {{ new Date().toISOString() }}'"
+      },
+      "id": "update-ticket-15",
+      "name": "Update release ticket: staging deployment log",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'qa-engineer', task: 'staging-performance', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-qa-15",
+      "name": "Spawn QA Pod: k6 performance + stress tests",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        720,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'security-engineer', task: 'staging-zap-confirmation', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-sec-15",
+      "name": "Spawn Security Pod: ZAP full scan confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        720,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'release-manager', task: 'go-nogo-assessment', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-rm-15",
+      "name": "Spawn RM Pod: go/no-go assessment (F-16)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        960,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: CI staging deployed": {
+      "main": [
+        [
+          {
+            "node": "Update release ticket: staging deployment log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update release ticket: staging deployment log": {
+      "main": [
+        [
+          {
+            "node": "Spawn QA Pod: k6 performance + stress tests",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn Security Pod: ZAP full scan confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn QA Pod: k6 performance + stress tests": {
+      "main": [
+        [
+          {
+            "node": "Spawn RM Pod: go/no-go assessment (F-16)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn Security Pod: ZAP full scan confirmation": {
+      "main": [
+        [
+          {
+            "node": "Spawn RM Pod: go/no-go assessment (F-16)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "staging"
+    },
+    {
+      "name": "phase-4"
+    }
+  ]
+}

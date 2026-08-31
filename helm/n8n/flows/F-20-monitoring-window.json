@@ -1,0 +1,237 @@
+{
+  "name": "F-20 Monitoring Window Complete",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "monitoring-complete",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-20",
+      "name": "Webhook: RM monitoring window signal",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.incident }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "incident-check-20",
+      "name": "Incident detected?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f20-incident",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "PRODUCTION INCIDENT"
+            },
+            {
+              "name": "metric",
+              "value": "={{ $json.body.metric }}"
+            },
+            {
+              "name": "value",
+              "value": "={{ $json.body.value }}"
+            },
+            {
+              "name": "trend",
+              "value": "={{ $json.body.trend }}"
+            },
+            {
+              "name": "recommended_action",
+              "value": "={{ $json.body.recommended_action }}"
+            },
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            }
+          ]
+        }
+      },
+      "id": "escalate-incident-20",
+      "name": "RM creates incident report + escalates to Edward",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        720,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "command": "glab issue update {{ $json.body.release_ticket_id }} --label-add 'monitoring:passed' && glab issue comment {{ $json.body.release_ticket_id }} --message 'Monitoring window complete. No incidents. Release confirmed stable.'"
+      },
+      "id": "confirm-release-20",
+      "name": "Update release ticket: monitoring passed",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        720,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "command": "echo '{\"role\":\"pm\",\"task\":\"release-communication\",\"version\":\"{{ $json.body.version }}\"}' > /tmp/pm-comms.json && opencode run --print \"$(cat /tmp/pm-comms.json)\""
+      },
+      "id": "pm-comms-20",
+      "name": "Spawn PM Pod: write release communication",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        960,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/cluster-sleep",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "cluster",
+              "value": "staging"
+            }
+          ]
+        }
+      },
+      "id": "sleep-staging-20",
+      "name": "Sleep staging cluster (F-27)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f20-notify-confirmed",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "v{{ $json.body.version }} successfully shipped. Release confirmed."
+            },
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            }
+          ]
+        }
+      },
+      "id": "notify-shipped-20",
+      "name": "Notify Edward: release confirmed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1440,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: RM monitoring window signal": {
+      "main": [
+        [
+          {
+            "node": "Incident detected?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Incident detected?": {
+      "main": [
+        [
+          {
+            "node": "RM creates incident report + escalates to Edward",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update release ticket: monitoring passed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update release ticket: monitoring passed": {
+      "main": [
+        [
+          {
+            "node": "Spawn PM Pod: write release communication",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn PM Pod: write release communication": {
+      "main": [
+        [
+          {
+            "node": "Sleep staging cluster (F-27)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sleep staging cluster (F-27)": {
+      "main": [
+        [
+          {
+            "node": "Notify Edward: release confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "production"
+    },
+    {
+      "name": "phase-5"
+    }
+  ]
+}

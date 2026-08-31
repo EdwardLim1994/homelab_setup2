@@ -5,10 +5,15 @@ image:
 storageSize: 5Gi
 
 env:
-  # LiteLLM as OpenAI-compatible backend
+  # ponytail: everything goes through LiteLLM (OpenAI-compatible) — chat models,
+  # the opencode agents, and the host Ollama. Direct Ollama is off so there's
+  # one gateway to auth and log.
   OPENAI_API_BASE_URL: "http://litellm.litellm.svc.cluster.local:4000"
+  # ponytail: LiteLLM master key — fine here, single-user trusted cluster.
+  # Swap for a virtual key (LiteLLM UI -> Keys) if this ever gets more users.
   OPENAI_API_KEY: "__LITELLM_MASTER_KEY__"
   OLLAMA_BASE_URL: ""
+  ENABLE_OLLAMA_API: "False"
 
   # OIDC / Authentik
   ENABLE_OAUTH_SIGNUP: "true"

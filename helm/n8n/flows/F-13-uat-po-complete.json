@@ -1,0 +1,184 @@
+{
+  "name": "F-13-uat-po-complete",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "po-validation-start",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-F-13-uat-po-complete",
+      "name": "Webhook: F-13-uat-po-complete trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'product-owner', task: 'uat-stage-3', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-F-13-uat-po-complete",
+      "name": "Spawn product-owner: uat-stage-3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exitCode }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "check-F-13-uat-po-complete",
+      "name": "Passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "glab issue update {{ $json.body.release_ticket_id }} --label-add 'po:uat-approved' && glab issue comment {{ $json.body.release_ticket_id }} --message 'po:uat-approved applied'"
+      },
+      "id": "label-F-13-uat-po-complete",
+      "name": "Apply po:uat-approved on release ticket",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        960,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f13-all-signoffs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            },
+            {
+              "name": "project",
+              "value": "={{ $json.body.project }}"
+            },
+            {
+              "name": "release_ticket_id",
+              "value": "={{ $json.body.release_ticket_id }}"
+            }
+          ]
+        }
+      },
+      "id": "next-F-13-uat-po-complete",
+      "name": "Trigger next stage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "command": "glab issue create --title '[bugfix] product-owner finding during uat-stage-3' --label 'type:bugfix,role:product-owner' --milestone '{{ $json.body.version }}' --description 'Found during UAT uat-stage-3. Environment: UAT cluster.'"
+      },
+      "id": "bug-F-13-uat-po-complete",
+      "name": "Create bug ticket (type:bug-uat)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        960,
+        440
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: F-13-uat-po-complete trigger": {
+      "main": [
+        [
+          {
+            "node": "Spawn product-owner: uat-stage-3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn product-owner: uat-stage-3": {
+      "main": [
+        [
+          {
+            "node": "Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Passed?": {
+      "main": [
+        [
+          {
+            "node": "Apply po:uat-approved on release ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create bug ticket (type:bug-uat)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply po:uat-approved on release ticket": {
+      "main": [
+        [
+          {
+            "node": "Trigger next stage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "uat"
+    },
+    {
+      "name": "phase-3"
+    }
+  ]
+}

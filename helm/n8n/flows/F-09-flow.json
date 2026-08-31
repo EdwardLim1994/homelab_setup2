@@ -1,0 +1,12 @@
+{
+  "name": "F-09 Version Built (CI Webhook)",
+  "nodes": [
+    { "parameters": { "httpMethod": "POST", "path": "ci-version-built", "responseMode": "lastNode", "options": {} }, "id": "webhook-ci-built", "name": "Webhook: CI image build complete", "type": "n8n-nodes-base.webhook", "typeVersion": 1, "position": [240, 300] },
+    { "parameters": { "jsCode": "const dag = $workflow.staticData.dagState || {};\ndag.builtImages = dag.builtImages || {};\ndag.builtImages[$json.body.service] = { rcTag: $json.body.rc_tag, image: $json.body.image, builtAt: new Date().toISOString() };\n$workflow.staticData.dagState = dag;\nreturn [{ json: { status: 'state-updated', service: $json.body.service, rcTag: $json.body.rc_tag, message: 'ArgoCD Image Updater handles SIT deploy automatically' } }];" }, "id": "update-image-state", "name": "Update n8n state: rc image built (state only)", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [480, 300] }
+  ],
+  "connections": {
+    "Webhook: CI image build complete": { "main": [[{ "node": "Update n8n state: rc image built (state only)", "type": "main", "index": 0 }]] }
+  },
+  "active": true, "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "development" }, { "name": "phase-2" }]
+}

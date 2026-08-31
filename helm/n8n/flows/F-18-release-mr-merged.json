@@ -1,0 +1,100 @@
+{
+  "name": "F-18 Release MR Merged",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "release-mr-merged",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-18",
+      "name": "Webhook: release MR merged by Edward",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "echo 'Post-merge CI fires on main: git diff, argocd sync production, health gate, git tag applied. No retry on failure.'"
+      },
+      "id": "wait-post-merge-ci-18",
+      "name": "Wait: post-merge CI deploys production + applies git tag",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/ci-production-deployed",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            },
+            {
+              "name": "release_ticket_id",
+              "value": "={{ $json.body.release_ticket_id }}"
+            },
+            {
+              "name": "project_id",
+              "value": "={{ $json.body.project_id }}"
+            }
+          ]
+        }
+      },
+      "id": "trigger-f19-18",
+      "name": "CI notifies n8n: production deployed \u2192 F-19",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        720,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: release MR merged by Edward": {
+      "main": [
+        [
+          {
+            "node": "Wait: post-merge CI deploys production + applies git tag",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait: post-merge CI deploys production + applies git tag": {
+      "main": [
+        [
+          {
+            "node": "CI notifies n8n: production deployed \u2192 F-19",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "production"
+    },
+    {
+      "name": "phase-5"
+    }
+  ]
+}

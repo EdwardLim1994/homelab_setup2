@@ -22,6 +22,20 @@ resource "null_resource" "opencode_image" {
   }
 }
 
+# ponytail: mirrors helm/opencode/Tiltfile — Claude Code OAuth token for the
+# `claude` CLI in opencode pods. Chart mounts it via claudeAuth.secretName with
+# optional:true, so a blank token just leaves `claude` unauthenticated.
+resource "kubernetes_secret" "opencode_claude_auth" {
+  metadata {
+    name      = "opencode-claude-auth"
+    namespace = kubernetes_namespace.opencode.metadata[0].name
+  }
+  data = {
+    CLAUDE_CODE_OAUTH_TOKEN = var.claude_code_token
+  }
+  depends_on = [kubernetes_namespace.opencode]
+}
+
 resource "helm_release" "opencode" {
   name              = "opencode"
   chart             = "${path.module}/../helm/opencode"
@@ -48,5 +62,5 @@ resource "helm_release" "opencode" {
     value = "false"
   }
 
-  depends_on = [kubernetes_namespace.opencode, null_resource.opencode_image]
+  depends_on = [kubernetes_namespace.opencode, null_resource.opencode_image, kubernetes_secret.opencode_claude_auth]
 }

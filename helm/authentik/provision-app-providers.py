@@ -59,7 +59,7 @@ scope_map = {'policy': sm_minio, 'openwebui_roles': sm_owui, 'litellm_role': sm_
 apps = [
     dict(name='GitLab', slug='gitlab',
          client_id=os.environ['GITLAB_OIDC_CLIENT_ID'], client_secret=os.environ['GITLAB_OIDC_CLIENT_SECRET'],
-         redirect_uris=[f'https://{ts_host}:8444/users/auth/openid_connect/callback']),
+         redirect_uris=[f'https://{ts_host}/users/auth/openid_connect/callback']),
     dict(name='MinIO', slug='minio',
          client_id=os.environ['MINIO_OIDC_CLIENT_ID'], client_secret=os.environ['MINIO_OIDC_CLIENT_SECRET'],
          redirect_uris=[f'https://{ts_host}:8445/oauth_callback'], extra_scopes=['policy']),

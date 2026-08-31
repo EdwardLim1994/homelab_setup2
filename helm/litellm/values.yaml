@@ -2,6 +2,20 @@ image:
   repository: ghcr.io/berriai/litellm
   tag: main-latest
 
+# ponytail: per-caller bearer for the gitlab MCP server (its
+# STREAMABLE_HTTP_AUTH_TOKEN). Same value as TF_VAR_gitlab_mcp_auth_token.
+mcpGitlabAuthToken: "__GITLAB_MCP_AUTH_TOKEN__"
+
+# ponytail: the host's Ollama, reached from the cluster via k3d's built-in
+# host alias. `ollama_chat/*` provider — no /v1 suffix. `ollamaModels` are the
+# tags shown by name in OpenWebUI's picker; add/remove to match `ollama list`.
+# host.docker.internal resolves from k3d pods on Docker Desktop; host.k3d.internal
+# depends on k3d's flaky CoreDNS NodeHosts injection and was failing name lookup.
+ollamaBaseUrl: "http://host.docker.internal:11434"
+ollamaModels:
+  - qwen3-coder-next
+  - "qwen3:1.7b"
+
 env:
   DATABASE_URL: "postgresql://litellm:__LITELLM_DB_PASSWORD__@litellm-postgres:5432/litellm"
   STORE_MODEL_IN_DB: "True"
@@ -29,6 +43,24 @@ resources:
     memory: 512Mi
   limits:
     memory: 2Gi
+
+# ponytail: one LiteLLM pass-through route per opencode role pod
+# (/opencode-<role> -> opencode-<role>.opencode.svc:4096). Duplicated from
+# helm/opencode/values.yaml `roles:` — n8n can't read that chart. Keep in sync,
+# or drop a name here to stop routing to it.
+opencodeRoles:
+  - backend-developer
+  - data-engineer
+  - devops-engineer
+  - frontend-developer
+  - product-owner
+  - project-manager
+  - qa-engineer
+  - release-manager
+  - security-engineer
+  - solution-architect
+  - tech-lead
+  - uiux-designer
 
 postgres:
   image: postgres:16

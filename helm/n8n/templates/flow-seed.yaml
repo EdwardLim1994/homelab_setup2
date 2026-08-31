@@ -1,0 +1,63 @@
+{{- if .Values.flowSeed.enabled }}
+# ponytail: upserts the SDLC flows through the n8n REST API from a Job on
+# every post-install/post-upgrade — matches by name, PUT if present else POST,
+# then activates. API-key path (not `n8n import:workflow`) to avoid mounting
+# the RWO sqlite PVC while the main pod holds it. Key is one-time manual setup
+# like the other apps' — empty key => seed.sh no-ops, deploy still succeeds.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: n8n-flow-seed
+  namespace: {{ .Release.Namespace }}
+data:
+{{ (.Files.Glob "flows/F-*.json").AsConfig | indent 2 }}
+  seed.sh: |
+{{ .Files.Get "flows/seed.sh" | indent 4 }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: n8n-flow-seed
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+stringData:
+  apiKey: {{ .Values.flowSeed.apiKey | quote }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: n8n-flow-seed
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed
+          image: {{ .Values.flowSeed.image | quote }}
+          command: ["sh", "-c"]
+          args:
+            - apk add --no-cache --quiet curl jq bash && exec bash /seed/seed.sh
+          env:
+            - name: N8N_URL
+              value: "http://n8n:5678"
+            - name: FLOW_DIR
+              value: /seed
+            - name: N8N_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-flow-seed
+                  key: apiKey
+          volumeMounts:
+            - name: seed
+              mountPath: /seed
+      volumes:
+        - name: seed
+          configMap:
+            name: n8n-flow-seed
+{{- end }}

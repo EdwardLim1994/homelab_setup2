@@ -1,0 +1,87 @@
+# ponytail: LiteLLM proxy config. model_list here + any DB models
+# (STORE_MODEL_IN_DB=True) merge at startup — this file guarantees a working
+# model list even on a fresh DB.
+#
+#  - <ollama models>  : the host's Ollama (ollamaBaseUrl). Named entries show
+#                       in OpenWebUI's picker; `ollama/*` wildcard routes any
+#                       other tag you pull later. OpenWebUI reaches these ONLY
+#                       through LiteLLM (its OLLAMA_BASE_URL is blank).
+#  - opencode[-<role>] : opencode pods, via opencode-adapter (OpenAI shim).
+#                        Role pods are scale-to-zero; the adapter scales them
+#                        up on first request.
+#  - pass_through /opencode[-<role>]/* : raw opencode serve API, auth'd+logged
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  namespace: {{ .Release.Namespace }}
+data:
+  config.yaml: |
+    model_list:
+      {{- range $m := .Values.ollamaModels }}
+      - model_name: {{ $m | quote }}
+        litellm_params:
+          model: "ollama_chat/{{ $m }}"
+          api_base: {{ $.Values.ollamaBaseUrl | quote }}
+      {{- end }}
+      # catch-all: any ollama tag not named above, addressed as ollama/<tag>
+      - model_name: "ollama/*"
+        litellm_params:
+          model: "ollama_chat/*"
+          api_base: {{ .Values.ollamaBaseUrl | quote }}
+      - model_name: opencode
+        litellm_params:
+          model: openai/opencode
+          api_base: http://opencode-adapter.opencode.svc.cluster.local:8000/v1
+          api_key: "dummy"
+      {{- range $r := .Values.opencodeRoles }}
+      - model_name: opencode-{{ $r }}
+        litellm_params:
+          model: openai/opencode-{{ $r }}
+          api_base: http://opencode-adapter.opencode.svc.cluster.local:8000/v1
+          api_key: "dummy"
+      {{- end }}
+
+    # ponytail: the 5 servers from helm/mcp-servers. Paths assume each image's
+    # default MCP route (/mcp for streamable-http, /sse for nx). Adjust `url`
+    # if an image serves it elsewhere. Only gitlab needs a per-caller bearer
+    # (its STREAMABLE_HTTP_AUTH_TOKEN); the rest carry their upstream token in
+    # the server pod's own env.
+    mcp_servers:
+      grafana:
+        url: "http://mcp-servers-grafana.mcp-servers.svc.cluster.local:8000/mcp"
+        transport: "http"
+        description: "Grafana / observability"
+      sonarqube:
+        url: "http://mcp-servers-sonarqube.mcp-servers.svc.cluster.local:8080/mcp"
+        transport: "http"
+        description: "SonarQube code quality"
+      gitlab:
+        url: "http://mcp-servers-gitlab.mcp-servers.svc.cluster.local:3002/mcp"
+        transport: "http"
+        description: "GitLab API"
+        auth_type: "bearer_token"
+        auth_value: {{ .Values.mcpGitlabAuthToken | quote }}
+      playwright:
+        url: "http://mcp-servers-playwright.mcp-servers.svc.cluster.local:8931/mcp"
+        transport: "http"
+        description: "Playwright browser automation"
+      nx:
+        url: "http://mcp-servers-nx.mcp-servers.svc.cluster.local:9921/sse"
+        transport: "sse"
+        description: "Nx workspace / Nx Cloud"
+
+    general_settings:
+      pass_through_endpoints:
+        - path: "/opencode"
+          target: "http://opencode.opencode.svc.cluster.local:4096"
+          include_subpath: true
+          forward_headers: true
+          methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+      {{- range $r := .Values.opencodeRoles }}
+        - path: "/opencode-{{ $r }}"
+          target: "http://opencode-{{ $r }}.opencode.svc.cluster.local:4096"
+          include_subpath: true
+          forward_headers: true
+          methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+      {{- end }}

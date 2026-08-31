@@ -3,6 +3,7 @@ litellm_oidc_client_secret = os.getenv('TF_VAR_litellm_oidc_client_secret', 'dev
 litellm_master_key         = os.getenv('TF_VAR_litellm_master_key', 'sk-dev-litellm-master-key-not-for-prod-use')
 litellm_salt_key           = os.getenv('TF_VAR_litellm_salt_key', 'sk-dev-litellm-salt-key-not-for-prod-use')
 litellm_db_password        = os.getenv('TF_VAR_litellm_db_password', 'dev-litellm-db-password')
+gitlab_mcp_auth_token      = os.getenv('TF_VAR_gitlab_mcp_auth_token', 'dev-gitlab-mcp-auth-token')
 ts_host                    = os.getenv('TS_HOST', '')
 
 k8s_yaml(blob("""apiVersion: v1
@@ -17,6 +18,7 @@ rendered = rendered.replace('__LITELLM_OIDC_CLIENT_SECRET__', litellm_oidc_clien
 rendered = rendered.replace('__LITELLM_MASTER_KEY__', litellm_master_key)
 rendered = rendered.replace('__LITELLM_SALT_KEY__', litellm_salt_key)
 rendered = rendered.replace('__LITELLM_DB_PASSWORD__', litellm_db_password)
+rendered = rendered.replace('__GITLAB_MCP_AUTH_TOKEN__', gitlab_mcp_auth_token)
 rendered = rendered.replace('__TS_HOST__', ts_host)
 
 k8s_yaml(blob(rendered))

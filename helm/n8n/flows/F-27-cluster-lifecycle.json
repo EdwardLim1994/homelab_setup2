@@ -1,0 +1,201 @@
+{
+  "name": "F-27 Cluster Lifecycle Management",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cluster-wake",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-wake-27",
+      "name": "Webhook: cluster wake",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cluster-sleep",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-sleep-27",
+      "name": "Webhook: cluster sleep",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.cluster }}",
+              "rightValue": "sit",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "not-sit-wake-27",
+      "name": "Not SIT? (SIT always on)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "command": "kubectl scale deployment --all --replicas=1 -n {{ $json.body.cluster }} && kubectl rollout status deployment --all -n {{ $json.body.cluster }} && echo 'Cluster {{ $json.body.cluster }} healthy'"
+      },
+      "id": "wake-cmd-27",
+      "name": "kubectl scale up: wake cluster",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        720,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.cluster }}",
+              "rightValue": "production",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "not-prod-sleep-27",
+      "name": "Not production? (production never sleeps)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "command": "kubectl scale deployment --all --replicas=0 -n {{ $json.body.cluster }}-server && kubectl scale deployment --all --replicas=0 -n {{ $json.body.cluster }}-frontend && echo 'Cluster {{ $json.body.cluster }} sleeping. Infra namespace stays warm.'"
+      },
+      "id": "sleep-cmd-27",
+      "name": "kubectl scale down: sleep cluster (infra stays warm)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        720,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const dag = $workflow.staticData.dagState || {};\ndag.clusterStates = dag.clusterStates || {};\ndag.clusterStates[$json.body.cluster] = $json.body.cluster ? 'awake' : 'sleeping';\n$workflow.staticData.dagState = dag;\nreturn [{ json: { updated: true } }];"
+      },
+      "id": "update-cluster-state-27",
+      "name": "Update cluster state in DAG",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: cluster wake": {
+      "main": [
+        [
+          {
+            "node": "Not SIT? (SIT always on)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Not SIT? (SIT always on)": {
+      "main": [
+        [
+          {
+            "node": "kubectl scale up: wake cluster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "kubectl scale up: wake cluster": {
+      "main": [
+        [
+          {
+            "node": "Update cluster state in DAG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: cluster sleep": {
+      "main": [
+        [
+          {
+            "node": "Not production? (production never sleeps)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Not production? (production never sleeps)": {
+      "main": [
+        [
+          {
+            "node": "kubectl scale down: sleep cluster (infra stays warm)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "kubectl scale down: sleep cluster (infra stays warm)": {
+      "main": [
+        [
+          {
+            "node": "Update cluster state in DAG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "cross-cutting"
+    }
+  ]
+}

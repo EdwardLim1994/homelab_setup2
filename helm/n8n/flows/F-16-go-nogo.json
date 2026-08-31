@@ -1,0 +1,192 @@
+{
+  "name": "F-16 Release Manager Go/No-Go",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "go-nogo-result",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-16",
+      "name": "Webhook: RM go/no-go signal",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.decision }}",
+              "rightValue": "go",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "go-check-16",
+      "name": "GO or NO-GO?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "glab issue update {{ $json.body.release_ticket_id }} --label-add 'rm:go' && glab issue comment {{ $json.body.release_ticket_id }} --message 'rm:go applied by Release Manager. Staging validation passed. Ready for /release-production.'"
+      },
+      "id": "apply-rmgo-16",
+      "name": "Apply rm:go on release ticket",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        720,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f16-notify-go",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "Staging GO. Ready for /release-production."
+            },
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            }
+          ]
+        }
+      },
+      "id": "notify-go-16",
+      "name": "Notify Edward: GO, ready for /release-production",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        960,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "command": "glab issue comment {{ $json.body.release_ticket_id }} --message 'NO-GO: {{ $json.body.reason }}\n\nValidation table:\n{{ $json.body.validation_table }}\n\nSuggestions:\nA) {{ $json.body.suggestion_a }}\nB) {{ $json.body.suggestion_b }}\nC) {{ $json.body.suggestion_c }}\n\nAwaiting your decision.'"
+      },
+      "id": "post-nogo-report-16",
+      "name": "Post no-go report: reason + suggestions A/B/C on release ticket",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        720,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f16-notify-nogo",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "Staging NO-GO. Review release ticket for details."
+            },
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            },
+            {
+              "name": "reason",
+              "value": "={{ $json.body.reason }}"
+            }
+          ]
+        }
+      },
+      "id": "notify-nogo-16",
+      "name": "Notify Edward: NO-GO, awaiting decision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        960,
+        440
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: RM go/no-go signal": {
+      "main": [
+        [
+          {
+            "node": "GO or NO-GO?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GO or NO-GO?": {
+      "main": [
+        [
+          {
+            "node": "Apply rm:go on release ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post no-go report: reason + suggestions A/B/C on release ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply rm:go on release ticket": {
+      "main": [
+        [
+          {
+            "node": "Notify Edward: GO, ready for /release-production",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post no-go report: reason + suggestions A/B/C on release ticket": {
+      "main": [
+        [
+          {
+            "node": "Notify Edward: NO-GO, awaiting decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "staging"
+    },
+    {
+      "name": "phase-4"
+    }
+  ]
+}

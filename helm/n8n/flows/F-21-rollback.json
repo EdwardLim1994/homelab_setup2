@@ -1,0 +1,112 @@
+{
+  "name": "F-21 /rollback (Production)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rollback",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-21",
+      "name": "Webhook: /rollback command",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "argocd app rollback {{ $json.body.project }}-production --server $ARGOCD_URL && echo 'Rollback initiated for {{ $json.body.project }} production'"
+      },
+      "id": "rollback-21",
+      "name": "ArgoCD rollback production to previous version",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "glab issue create --title '[incident] Production rollback {{ $json.body.version }}' --label 'type:incident' --description 'Production rollback executed. Version: {{ $json.body.version }}. Reason: {{ $json.body.reason }}. Time: {{ new Date().toISOString() }}'"
+      },
+      "id": "create-incident-21",
+      "name": "Create incident ticket on release ticket",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'release-manager', task: 'monitor-rollback', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "rm-monitor-rollback-21",
+      "name": "RM Pod: monitor rollback health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        960,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: /rollback command": {
+      "main": [
+        [
+          {
+            "node": "ArgoCD rollback production to previous version",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ArgoCD rollback production to previous version": {
+      "main": [
+        [
+          {
+            "node": "Create incident ticket on release ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create incident ticket on release ticket": {
+      "main": [
+        [
+          {
+            "node": "RM Pod: monitor rollback health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "production"
+    },
+    {
+      "name": "phase-5"
+    }
+  ]
+}

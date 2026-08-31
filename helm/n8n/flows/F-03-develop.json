@@ -1,0 +1,392 @@
+{
+  "name": "F-03 /develop",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "develop",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-develop",
+      "name": "Webhook: /develop",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "$workflow.staticData.dagState = { version: $json.body.version, project: $json.body.project, stories: {}, retryCounters: {} };\nreturn [{ json: { status: 'dag-activated', version: $json.body.version } }];"
+      },
+      "id": "activate-dag",
+      "name": "Activate sprint DAG",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'devops-engineer', task: 'gate-A-infra-check', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-devops-gate-a",
+      "name": "Spawn DevOps Pod (gate A)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exitCode }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "gate-a-check",
+      "name": "Gate A: infra ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'data-engineer', task: 'gate-B-contracts', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-de-gate-b",
+      "name": "Spawn Data Engineer Pod (gate B)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exitCode }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "gate-b-check",
+      "name": "Gate B: types ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'tech-lead', task: 'gate-C-pseudocode', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-tl-pseudocode",
+      "name": "Spawn TL Pod (gate C): pseudocode authoring",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1680,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exitCode }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "gate-c-check",
+      "name": "Gate C: all openspec:ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'backend-developer', task: 'implement', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-backend-pods",
+      "name": "Spawn Backend Developer Pods (smol)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2160,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'frontend-developer', task: 'implement', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-frontend-pods",
+      "name": "Spawn Frontend Developer Pods (smol)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2160,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'qa-engineer', task: 'write-tests', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-qa-pods",
+      "name": "Spawn QA Pods (smol)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2160,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'devops-engineer', task: 'pipeline-config', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-devops-pods",
+      "name": "Spawn DevOps Pods (smol)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2160,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f03-infra-fail",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "Gate A failed: DevOps infra not ready"
+            }
+          ]
+        }
+      },
+      "id": "infra-fail-notify",
+      "name": "Notify: infra gate A failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        440
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: /develop": {
+      "main": [
+        [
+          {
+            "node": "Activate sprint DAG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Activate sprint DAG": {
+      "main": [
+        [
+          {
+            "node": "Spawn DevOps Pod (gate A)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn DevOps Pod (gate A)": {
+      "main": [
+        [
+          {
+            "node": "Gate A: infra ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate A: infra ready?": {
+      "main": [
+        [
+          {
+            "node": "Spawn Data Engineer Pod (gate B)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify: infra gate A failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn Data Engineer Pod (gate B)": {
+      "main": [
+        [
+          {
+            "node": "Gate B: types ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate B: types ready?": {
+      "main": [
+        [
+          {
+            "node": "Spawn TL Pod (gate C): pseudocode authoring",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify: infra gate A failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn TL Pod (gate C): pseudocode authoring": {
+      "main": [
+        [
+          {
+            "node": "Gate C: all openspec:ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate C: all openspec:ready?": {
+      "main": [
+        [
+          {
+            "node": "Spawn Backend Developer Pods (smol)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn Frontend Developer Pods (smol)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn QA Pods (smol)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn DevOps Pods (smol)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify: infra gate A failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "development"
+    },
+    {
+      "name": "phase-2"
+    }
+  ]
+}

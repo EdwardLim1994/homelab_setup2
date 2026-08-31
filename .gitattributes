@@ -1,0 +1,5 @@
+# ponytail: core.autocrlf=true rewrites these to CRLF on Windows checkout;
+# piped into a container `sh`/`bash` that then chokes on `set -e\r`
+# ("Illegal option -"). Force LF for anything executed inside Linux pods.
+*.sh text eol=lf
+*.bash text eol=lf

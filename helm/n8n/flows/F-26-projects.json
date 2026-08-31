@@ -1,0 +1,93 @@
+{
+  "name": "F-26 /projects",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "projects",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-26",
+      "name": "Webhook: /projects query",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const dag = $workflow.staticData.dagState || {};\nconst summary = {\n  version: dag.version,\n  project: dag.project,\n  phase: dag.currentPhase || 'unknown',\n  storiesTotal: dag.totalStories || 0,\n  storiesMerged: (dag.mergedStories || []).length,\n  storiesInProgress: Object.keys(dag.openMRs || {}).length,\n  clusterStates: dag.clusterStates || {},\n  lastActivity: dag.lastActivity || 'unknown',\n  pausedTasks: dag.pausedTasks || []\n};\nreturn [{ json: summary }];"
+      },
+      "id": "read-dag-26",
+      "name": "Read n8n DAG state for all active projects",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f26-report",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "report",
+              "value": "={{ JSON.stringify($json) }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "return-report-26",
+      "name": "Return project status report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        720,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: /projects query": {
+      "main": [
+        [
+          {
+            "node": "Read n8n DAG state for all active projects",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read n8n DAG state for all active projects": {
+      "main": [
+        [
+          {
+            "node": "Return project status report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "cross-cutting"
+    }
+  ]
+}

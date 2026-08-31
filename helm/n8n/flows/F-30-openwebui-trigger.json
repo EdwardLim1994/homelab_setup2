@@ -1,0 +1,96 @@
+{
+  "name": "F-30 Open WebUI Trigger",
+  "_comment": "Called by the Open WebUI 'n8n Trigger' pipe (helm/openwebui/functions/n8n_pipe.py). A prompt starting with '/<flow>' fans out to that flow's webhook via N8N_WEBHOOK_BASE; anything else returns a help string. responseMode=lastNode so the pipe reads the reply from {response}.",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "openwebui-trigger",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-30",
+      "name": "Webhook: /openwebui-trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $json.body || {};\nconst p = String(b.prompt || '').trim();\nconst m = p.match(/^\\/([a-z0-9-]+)\\s*([\\s\\S]*)$/i);\nreturn [{ json: {\n  prompt: p,\n  user: b.user || '',\n  command: m ? m[1].toLowerCase() : '',\n  args: m ? m[2].trim() : '',\n  hasCommand: !!m\n} }];"
+      },
+      "id": "parse-30",
+      "name": "Parse command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.command }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ]
+        }
+      },
+      "id": "if-30",
+      "name": "Has command?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/{{ $json.command }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source: 'openwebui', user: $json.user, raw: $json.args }) }}",
+        "options": { "allowUnauthorizedCerts": true, "response": { "response": { "neverError": true } } }
+      },
+      "id": "fanout-30",
+      "name": "Trigger flow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 200],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const cmd = $node['Parse command'].json.command;\nlet out = $json;\nif (out && typeof out === 'object' && 'body' in out) out = out.body;\nconst detail = typeof out === 'object' ? JSON.stringify(out, null, 2) : String(out || '');\nreturn [{ json: { response: `Triggered \\`/${cmd}\\`.\\n\\n${detail}`.trim() } }];"
+      },
+      "id": "reply-ok-30",
+      "name": "Reply (triggered)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { response: 'No command recognised. Start your message with a slash command, e.g.\\n\\n  /plan-release 1.4.0\\n  /kickoff my-project\\n  /develop 1.4.0\\n  /uat 1.4.0\\n\\nOne command maps to one F-* flow webhook.' } }];"
+      },
+      "id": "reply-help-30",
+      "name": "Reply (help)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 420]
+    }
+  ],
+  "connections": {
+    "Webhook: /openwebui-trigger": { "main": [[{ "node": "Parse command", "type": "main", "index": 0 }]] },
+    "Parse command": { "main": [[{ "node": "Has command?", "type": "main", "index": 0 }]] },
+    "Has command?": {
+      "main": [
+        [{ "node": "Trigger flow", "type": "main", "index": 0 }],
+        [{ "node": "Reply (help)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Trigger flow": { "main": [[{ "node": "Reply (triggered)", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

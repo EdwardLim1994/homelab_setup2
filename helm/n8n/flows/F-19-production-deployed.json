@@ -1,0 +1,207 @@
+{
+  "name": "F-19 Production Deployed (CI Webhook)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ci-production-deployed",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-19",
+      "name": "Webhook: CI production deployed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "glab issue comment {{ $json.body.release_ticket_id }} --message 'Production deployed: {{ $json.body.version }} at {{ new Date().toISOString() }}'"
+      },
+      "id": "update-ticket-19",
+      "name": "Update release ticket: deployed + timestamp",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'qa-engineer', task: 'smoke-tests', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "run-smoke-19",
+      "name": "Run smoke tests from QA smoke plan ticket",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exitCode }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "smoke-pass-19",
+      "name": "Smoke tests pass?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f19-smoke-fail",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "Smoke tests FAILED"
+            },
+            {
+              "name": "failed_test",
+              "value": "={{ $json.stdout }}"
+            },
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            }
+          ]
+        }
+      },
+      "id": "smoke-fail-notify-19",
+      "name": "Smoke fail: report + suggestion + escalate to Edward",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'release-manager', task: 'production-monitoring', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-rm-monitor-19",
+      "name": "Spawn RM Pod: production monitoring window (F-20)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "command": "glab release create {{ $json.body.version }} --title 'Release {{ $json.body.version }}' --notes 'See wiki for full release notes.' && echo 'Branch cleanup scheduled for 30 days.'"
+      },
+      "id": "release-artifacts-19",
+      "name": "n8n: create GitLab release object + schedule cleanup",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        320
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: CI production deployed": {
+      "main": [
+        [
+          {
+            "node": "Update release ticket: deployed + timestamp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update release ticket: deployed + timestamp": {
+      "main": [
+        [
+          {
+            "node": "Run smoke tests from QA smoke plan ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run smoke tests from QA smoke plan ticket": {
+      "main": [
+        [
+          {
+            "node": "Smoke tests pass?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smoke tests pass?": {
+      "main": [
+        [
+          {
+            "node": "Spawn RM Pod: production monitoring window (F-20)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "n8n: create GitLab release object + schedule cleanup",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Smoke fail: report + suggestion + escalate to Edward",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "production"
+    },
+    {
+      "name": "phase-5"
+    }
+  ]
+}

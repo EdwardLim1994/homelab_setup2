@@ -1,0 +1,251 @@
+{
+  "name": "F-17 /release-production",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "release-production",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-17",
+      "name": "Webhook: /release-production",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project_id }}/issues/{{ $json.body.release_ticket_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "id": "check-rmgo-17",
+      "name": "Safeguard: check rm:go label on release ticket",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const labels = $json.labels || [];\nconst hasGo = labels.includes('rm:go');\nreturn [{ json: { safe: hasGo, labels } }];"
+      },
+      "id": "validate-rmgo-17",
+      "name": "rm:go confirmed?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.safe }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "gate-17",
+      "name": "Staging GO confirmed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f17-feedback",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "Production blocked: rm:go not found on release ticket. Run /release-staging first."
+            }
+          ]
+        }
+      },
+      "id": "feedback-17",
+      "name": "Feedback to Edward: staging not GO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project_id }}/merge_requests",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "source_branch",
+              "value": "={{ 'promote/' + $json.body.version }}"
+            },
+            {
+              "name": "target_branch",
+              "value": "main"
+            },
+            {
+              "name": "title",
+              "value": "={{ '[release] ' + $json.body.version }}"
+            },
+            {
+              "name": "labels",
+              "value": "type:release"
+            },
+            {
+              "name": "description",
+              "value": "Release MR for {{ $json.body.version }}. CI validates no rc versions remain and all images in registry."
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "id": "create-release-mr-17",
+      "name": "Create promote\u2192main MR via GitLab API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f17-notify",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "Release MR created. Review, approve, and merge to deploy to production."
+            },
+            {
+              "name": "mr_url",
+              "value": "={{ $json.web_url }}"
+            }
+          ]
+        }
+      },
+      "id": "notify-17",
+      "name": "Notify Edward: release MR ready for review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1440,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: /release-production": {
+      "main": [
+        [
+          {
+            "node": "Safeguard: check rm:go label on release ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Safeguard: check rm:go label on release ticket": {
+      "main": [
+        [
+          {
+            "node": "rm:go confirmed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "rm:go confirmed?": {
+      "main": [
+        [
+          {
+            "node": "Staging GO confirmed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Staging GO confirmed?": {
+      "main": [
+        [
+          {
+            "node": "Create promote\u2192main MR via GitLab API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Feedback to Edward: staging not GO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create promote\u2192main MR via GitLab API": {
+      "main": [
+        [
+          {
+            "node": "Notify Edward: release MR ready for review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "production"
+    },
+    {
+      "name": "phase-5"
+    }
+  ]
+}

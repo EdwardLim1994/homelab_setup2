@@ -1,0 +1,410 @@
+{
+  "name": "F-01 /plan-release",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "plan-release",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-plan-release",
+      "name": "Webhook: /plan-release",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'solution-architect', task: 'gate-A-planning', version: $json.body.version, project: $json.body.project, openspec_path: 'openspec/architecture.md' }) }}",
+        "options": {}
+      },
+      "id": "spawn-architect-pod",
+      "name": "Spawn Architect Pod (gate A)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'data-engineer', task: 'gate-A-planning', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-de-pod",
+      "name": "Spawn Data Engineer Pod (gate A)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $node['Spawn Architect Pod (gate A)'].json.exitCode }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "check-gate-a",
+      "name": "Gate A: both complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'qa-engineer', task: 'gate-B-challenge', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-qa-pod",
+      "name": "Spawn QA Pod (gate B)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        960,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'security-engineer', task: 'gate-B-threat-model', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-sec-pod",
+      "name": "Spawn Security Pod (gate B)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'uiux-designer', task: 'gate-B-ux-spec', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-ux-pod",
+      "name": "Spawn UX Pod (gate B)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        960,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const revisionCount = $workflow.staticData.revisionCount || 0;\nif (revisionCount >= 3) {\n  return [{ json: { escalate: true, reason: 'Max arch revisions reached', revisions: revisionCount } }];\n}\n$workflow.staticData.revisionCount = revisionCount + 1;\nreturn [{ json: { escalate: false, revisionCount: revisionCount + 1 } }];"
+      },
+      "id": "check-arch-revision",
+      "name": "Check: arch revision needed? (max 3)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.escalate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "escalate-check",
+      "name": "Escalate or re-arch?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'project-manager', task: 'prd-and-task-breakdown', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-pm-pod",
+      "name": "Spawn PM Pod (gate C – PRD + scoring)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1680,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ role: 'security-engineer', task: 'priority-scoring', version: $json.body.version, project: $json.body.project }) }}",
+        "options": {}
+      },
+      "id": "spawn-scoring-pod",
+      "name": "Spawn Security Scoring Pod (gate C)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1680,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f01-notify-edward",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "Sprint plan ready for /kickoff"
+            },
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            },
+            {
+              "name": "project",
+              "value": "={{ $json.body.project }}"
+            }
+          ]
+        }
+      },
+      "id": "notify-edward",
+      "name": "Notify Edward: sprint plan ready",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1920,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: /plan-release": {
+      "main": [
+        [
+          {
+            "node": "Spawn Architect Pod (gate A)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn Data Engineer Pod (gate A)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn Architect Pod (gate A)": {
+      "main": [
+        [
+          {
+            "node": "Gate A: both complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn Data Engineer Pod (gate A)": {
+      "main": [
+        [
+          {
+            "node": "Gate A: both complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate A: both complete?": {
+      "main": [
+        [
+          {
+            "node": "Spawn QA Pod (gate B)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn Security Pod (gate B)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn UX Pod (gate B)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Edward: sprint plan ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn QA Pod (gate B)": {
+      "main": [
+        [
+          {
+            "node": "Check: arch revision needed? (max 3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn Security Pod (gate B)": {
+      "main": [
+        [
+          {
+            "node": "Check: arch revision needed? (max 3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn UX Pod (gate B)": {
+      "main": [
+        [
+          {
+            "node": "Check: arch revision needed? (max 3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check: arch revision needed? (max 3)": {
+      "main": [
+        [
+          {
+            "node": "Escalate or re-arch?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate or re-arch?": {
+      "main": [
+        [
+          {
+            "node": "Notify Edward: sprint plan ready",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Spawn PM Pod (gate C – PRD + scoring)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn Security Scoring Pod (gate C)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn PM Pod (gate C – PRD + scoring)": {
+      "main": [
+        [
+          {
+            "node": "Notify Edward: sprint plan ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn Security Scoring Pod (gate C)": {
+      "main": [
+        [
+          {
+            "node": "Notify Edward: sprint plan ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "planning"
+    },
+    {
+      "name": "phase-0"
+    }
+  ]
+}
