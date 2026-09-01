@@ -42,8 +42,8 @@ data:
           api_key: "dummy"
       {{- end }}
 
-    # ponytail: the 5 servers from helm/mcp-servers. Paths assume each image's
-    # default MCP route (/mcp for streamable-http, /sse for nx). Adjust `url`
+    # ponytail: the servers from helm/mcp-servers. Paths assume each image's
+    # default MCP route (/mcp for streamable-http). Adjust `url`
     # if an image serves it elsewhere. Only gitlab needs a per-caller bearer
     # (its STREAMABLE_HTTP_AUTH_TOKEN); the rest carry their upstream token in
     # the server pod's own env.
@@ -66,10 +66,6 @@ data:
         url: "http://mcp-servers-playwright.mcp-servers.svc.cluster.local:8931/mcp"
         transport: "http"
         description: "Playwright browser automation"
-      nx:
-        url: "http://mcp-servers-nx.mcp-servers.svc.cluster.local:9921/sse"
-        transport: "sse"
-        description: "Nx workspace / Nx Cloud"
 
     general_settings:
       pass_through_endpoints:

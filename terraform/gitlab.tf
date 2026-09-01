@@ -46,6 +46,22 @@ resource "kubernetes_secret" "gitlab_omniauth_authentik" {
   depends_on = [kubernetes_namespace.gitlab]
 }
 
+# ponytail: gitlab-runner distributed cache -> MinIO S3. Runner subchart's
+# cache secret expects literal keys accesskey/secretkey.
+resource "kubernetes_secret" "gitlab_runner_cache_credentials" {
+  metadata {
+    name      = "gitlab-runner-cache-credentials"
+    namespace = kubernetes_namespace.gitlab.metadata[0].name
+  }
+
+  data = {
+    accesskey = "admin"
+    secretkey = var.minio_root_password
+  }
+
+  depends_on = [kubernetes_namespace.gitlab]
+}
+
 resource "helm_release" "gitlab" {
   name              = "gitlab"
   chart             = "${path.module}/../helm/gitlab"
@@ -118,7 +134,7 @@ resource "helm_release" "gitlab" {
     value = var.admin_email
   }
 
-  depends_on = [kubernetes_namespace.gitlab, kubernetes_secret.gitlab_omniauth_authentik, kubectl_manifest.homelab_ca_issuer]
+  depends_on = [kubernetes_namespace.gitlab, kubernetes_secret.gitlab_omniauth_authentik, kubernetes_secret.gitlab_runner_cache_credentials, kubectl_manifest.homelab_ca_issuer]
 }
 
 # ponytail: mirrors Tiltfile's gitlab-promote-admin — promotes ADMIN_EMAIL to

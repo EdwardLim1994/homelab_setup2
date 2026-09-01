@@ -2,7 +2,7 @@
 
 Self-hosted homelab on a local k3d cluster: Authentik SSO, GitLab, MinIO,
 n8n, SonarQube, Seafile, ArgoCD, an LGTM observability stack, OpenWebUI,
-LiteLLM, Nx Cloud, and a set of MCP servers for in-cluster coding agents.
+LiteLLM, and a set of MCP servers for in-cluster coding agents.
 Every app gets SSO via Authentik and is reachable remotely over Tailscale.
 
 Two deployment paths exist side by side:
@@ -127,8 +127,6 @@ app is up, so the flow is: deploy once → generate → put in `.env` → redepl
 | `TF_VAR_grafana_mcp_token` | Grafana → Administration → Users and access → **Service accounts** → add account (role: Editor/Admin) → **Add service account token** → copy. | **Yes** — Grafana | Grafana MCP server boots, every tool call 401s |
 | `TF_VAR_sonarqube_mcp_token` | SonarQube → **My Account → Security → Generate Token** (type: User Token) → copy (shown once). | **Yes** — SonarQube | SonarQube MCP server boots, every tool call 401s |
 | `TF_VAR_gitlab_mcp_token` | GitLab → **Edit profile → Access Tokens** → new token, scope `api`, expiry as you like → copy. | **Yes** — GitLab | GitLab MCP server **hard-refuses to start** |
-| `TF_VAR_nx_cloud_mcp_token` | Nx Cloud → workspace settings → **access token**. Optional. | **Yes** — Nx Cloud | Nx MCP server still boots; some Nx Cloud tools limited |
-| `TF_VAR_nx_cloud_saml_cert` | After the first `tofu apply` / `tilt up`, `provision-app-providers.py` prints Authentik's signing cert between `NX_CLOUD_SAML_CERT_START` / `_END` markers — copy the base64 body (one line, no PEM headers). | **Yes** — Authentik | Nx Cloud SAML SSO stays off (password login only) |
 
 ### Not real credentials (safe defaults, listed for completeness)
 

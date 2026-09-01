@@ -31,7 +31,6 @@ apps=(
   "grafana:3000:grafana.local:8451"
   "openwebui:8080:openwebui.local:8452"
   "litellm:4000::8453:/ui"
-  "nx-cloud:8086:nx-cloud.local:8454"
 )
 
 check() {

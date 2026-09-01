@@ -167,31 +167,6 @@ variable "seafile_jwt_private_key" {
   default   = "dev-seafile-jwt-private-key-not-for-prod-use"
 }
 
-variable "nx_cloud_admin_password" {
-  type      = string
-  sensitive = true
-  default   = "dev-nx-cloud-admin-password"
-}
-
-variable "nx_cloud_mongo_password" {
-  type      = string
-  sensitive = true
-  default   = "dev-nx-cloud-mongo-password"
-}
-
-variable "nx_cloud_valkey_password" {
-  type      = string
-  sensitive = true
-  default   = "dev-nx-cloud-valkey-password"
-}
-
-# ponytail: no default — SAML SSO stays disabled (chart's optional secretKeyRef)
-# til this is set, same as Tiltfile's TF_VAR_nx_cloud_saml_cert fallback of "".
-variable "nx_cloud_saml_cert" {
-  type      = string
-  sensitive = true
-  default   = ""
-}
 
 variable "argocd_oidc_client_id" {
   type      = string
@@ -293,12 +268,6 @@ variable "gitlab_mcp_auth_token" {
   type      = string
   sensitive = true
   default   = "dev-gitlab-mcp-auth-token"
-}
-
-variable "nx_cloud_mcp_token" {
-  type      = string
-  sensitive = true
-  default   = ""
 }
 
 # Long-lived Claude Code OAuth token (`claude setup-token`) for the `claude` CLI

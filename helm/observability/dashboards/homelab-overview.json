@@ -17,7 +17,6 @@
     { "title": "minio-api",     "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8446" },
     { "title": "minio-console", "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8445" },
     { "title": "n8n",           "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8447" },
-    { "title": "nx-cloud",      "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8454" },
     { "title": "openwebui",     "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8452" },
     { "title": "seafile",       "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8449" },
     { "title": "sonarqube",     "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8448" }
@@ -88,19 +87,10 @@
 
     { "title": "Apps", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 } },
     {
-      "title": "URLs",
-      "type": "text",
-      "gridPos": { "h": 15, "w": 9, "x": 0, "y": 6 },
-      "options": {
-        "mode": "markdown",
-        "content": "### App URLs (Tailscale)\n\n| App | URL |\n|---|---|\n| argocd | https://__TS_HOST__:8450 |\n| authentik | https://__TS_HOST__:8443 |\n| gitlab | https://__TS_HOST__:443 |\n| grafana | https://__TS_HOST__:8451 |\n| litellm | https://__TS_HOST__:8453/ui |\n| minio (API) | https://__TS_HOST__:8446 |\n| minio (console) | https://__TS_HOST__:8445 |\n| n8n | https://__TS_HOST__:8447 |\n| nx-cloud | https://__TS_HOST__:8454 |\n| openwebui | https://__TS_HOST__:8452 |\n| seafile | https://__TS_HOST__:8449 |\n| sonarqube | https://__TS_HOST__:8448 |\n\n`.local` ingress hosts are in the table to the right. Source of truth: `scripts/tailscale-serve.sh`."
-      }
-    },
-    {
       "title": "Site health by app",
       "type": "table",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 15, "w": 15, "x": 9, "y": 6 },
+      "gridPos": { "h": 15, "w": 24, "x": 0, "y": 6 },
       "description": "Click an app to open its detail dashboard.",
       "targets": [
         { "refId": "READY", "instant": true, "format": "table", "expr": "sum by (namespace) (kube_pod_status_ready{namespace=~\"$namespace\", condition=\"true\"}) / count by (namespace) (kube_pod_info{namespace=~\"$namespace\"})" },

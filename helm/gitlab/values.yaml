@@ -79,14 +79,65 @@ gitlab:
   # disable non-essential components
   registry:
     enabled: false
+  # ponytail: chart 9.x renamed certmanager.install -> top-level
+  # installCertmanager. We run our own ClusterIssuer
+  # (global.ingress.configureCertmanager: false above) — no bundled
+  # cert-manager, no CRDs.
+  installCertmanager: false
   certmanager:
-    install: false
+    installCRDs: false
   nginx-ingress:
     enabled: false
-  # ponytail: no ingress means no external hostname for the runner to register
-  # against (dial fails on gitlab.gitlab.local); CI isn't needed for dev testing
+  # ponytail: runner registers + clones over the in-cluster Service, not the
+  # tailnet hostname — the job/runner pods aren't on the tailnet and
+  # `tailscale serve` is tailnet-only, so the external URL is unreachable
+  # from inside k3d.
+  # GitLab 18 removed registration tokens: the Tiltfile's
+  # gitlab-runner-auth-token step mints a glrt- auth token post-deploy and
+  # writes it into gitlab-gitlab-runner-secret (key: runner-token).
   gitlab-runner:
-    install: false
+    install: true
+    gitlabUrl: http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/
+    rbac:
+      create: true
+    runners:
+      # ponytail: privileged so `docker:dind` service containers work. k3d
+      # nodes already run privileged (k3s needs it), so this works on Docker
+      # Desktop. Prefer kaniko for image builds where you can — dind is the
+      # escape hatch for jobs that genuinely need the docker daemon.
+      privileged: true
+      # ponytail: distributed cache in MinIO so jobs on different runner pods
+      # share cache/. Secret carries the S3 creds (keys: accesskey/secretkey).
+      cache:
+        secretName: gitlab-runner-cache-credentials
+      config: |
+        [[runners]]
+          # ponytail: CI_REPOSITORY_URL is derived from GitLab's external URL,
+          # which job pods can't reach — force in-cluster clones.
+          clone_url = "http://gitlab-webservice-default.gitlab.svc.cluster.local:8181"
+          [runners.cache]
+            Type = "s3"
+            Shared = true
+            [runners.cache.s3]
+              ServerAddress = "minio.minio.svc.cluster.local:9000"
+              BucketName = "gitlab-runner-cache"
+              BucketLocation = "us-east-1"
+              Insecure = true
+          [runners.kubernetes]
+            namespace = "gitlab"
+            image = "alpine:3.21"
+            privileged = true
+            cpu_request = "100m"
+            memory_request = "256Mi"
+            cpu_limit = "1"
+            memory_limit = "2Gi"
+            # ponytail: shared /certs/client between build + docker:dind service
+            [[runners.kubernetes.volumes.empty_dir]]
+              name = "docker-certs"
+              mount_path = "/certs/client"
+              medium = "Memory"
+          [runners.kubernetes.pod_labels]
+            app = "gitlab-ci-job"
   prometheus:
     install: false
   grafana:
@@ -129,12 +180,19 @@ gitlab:
 
   postgresql:
     install: true
-    # ponytail: bitnami moved old image tags to bitnamilegacy on docker.io, upgrade image.tag when bumping chart
+    # ponytail: bitnami moved old image tags to bitnamilegacy on docker.io.
+    # Chart 9.11 = PostgreSQL 16 (was 14) — a MAJOR bump. The old PG 14 data
+    # dir will NOT start under PG 16: wipe the gitlab-postgresql PVC before
+    # deploying (dev data is throwaway; back up first if it isn't).
     image:
       repository: bitnamilegacy/postgresql
     metrics:
       image:
         repository: bitnamilegacy/postgres-exporter
+    # ponytail: volume-permissions init image — also moved to bitnamilegacy.
+    volumePermissions:
+      image:
+        repository: bitnamilegacy/os-shell
     primary:
       resources:
         requests:
@@ -145,14 +203,15 @@ gitlab:
 
   redis:
     install: true
-    # ponytail: chart's pinned 6.2.7 tag is amd64-only in bitnamilegacy; pinned to a same-minor tag with arm64 support
+    # ponytail: bitnami moved tags to bitnamilegacy; match chart 9.11's pinned
+    # redis 7.2.4 (chart config is written for redis 7 — a 6.x image mismatches).
     image:
       repository: bitnamilegacy/redis
-      tag: 6.2.16-debian-12-r3
+      tag: 7.2.4-debian-12-r9
     metrics:
       image:
         repository: bitnamilegacy/redis-exporter
-        tag: 1.76.0-debian-12-r0
+        tag: 1.58.0-debian-12-r4
     master:
       resources:
         requests:

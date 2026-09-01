@@ -16,6 +16,22 @@ minio:
   rootUser: admin
   rootPassword: ""  # set via terraform variable
 
+  # ponytail: chart's post-install job (`mc mb`) creates these. GitLab's
+  # consolidated object storage + the CI runner cache all need their bucket
+  # to pre-exist — S3 doesn't auto-create. Names must match the buckets in
+  # helm/gitlab/values.yaml appConfig + the runner cache config.
+  buckets:
+    - name: gitlab-runner-cache
+    - name: git-lfs
+    - name: gitlab-artifacts
+    - name: gitlab-uploads
+    - name: gitlab-packages
+    - name: gitlab-mr-diffs
+    - name: gitlab-dependency-proxy
+    - name: gitlab-terraform-state
+    - name: gitlab-ci-secure-files
+    - name: gitlab-backups
+
   persistence:
     size: 8Gi
 

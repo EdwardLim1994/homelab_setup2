@@ -15,8 +15,9 @@
 		"skipDefaultLibCheck": true,
 		"strict": false,
 		"paths": {
-			"project-generator": ["./tools/project-generator/src/index.ts"],
-			"skill-generator": ["./tools/skill-generator/src/index.ts"]
+			"@edwardlim1994/project-generator": [
+				"./tools/project-generator/src/index.ts"
+			]
 		}
 	},
 	"exclude": ["node_modules", "tmp"]

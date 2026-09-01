@@ -44,12 +44,20 @@
     ]
   },
   "panels": [
-    { "title": "Site health", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "title": "",
+      "type": "text",
+      "transparent": true,
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
+      "options": { "mode": "markdown", "content": "[Homelab Overview](/d/homelab-overview/homelab-overview) &nbsp;&rsaquo;&nbsp; Homelab App Detail &nbsp;&rsaquo;&nbsp; **$namespace**" }
+    },
+
+    { "title": "$namespace — site health", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 2 } },
     {
       "title": "Pods ready",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 5, "w": 5, "x": 0, "y": 1 },
+      "gridPos": { "h": 5, "w": 5, "x": 0, "y": 3 },
       "fieldConfig": { "defaults": { "unit": "none", "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
       "targets": [ { "refId": "A", "expr": "sum(kube_pod_status_ready{namespace=\"$namespace\", condition=\"true\"})" } ]
@@ -58,7 +66,7 @@
       "title": "Pods not running",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 5, "w": 5, "x": 5, "y": 1 },
+      "gridPos": { "h": 5, "w": 5, "x": 5, "y": 3 },
       "fieldConfig": { "defaults": { "unit": "none", "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
       "targets": [ { "refId": "A", "expr": "sum(kube_pod_status_phase{namespace=\"$namespace\", phase!~\"Running|Succeeded\"}) or vector(0)" } ]
@@ -67,7 +75,7 @@
       "title": "Restarts (1h)",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 5, "w": 5, "x": 10, "y": 1 },
+      "gridPos": { "h": 5, "w": 5, "x": 10, "y": 3 },
       "fieldConfig": { "defaults": { "unit": "none", "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 } ] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
       "targets": [ { "refId": "A", "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"$namespace\"}[1h])) or vector(0)" } ]
@@ -76,7 +84,7 @@
       "title": "5xx rate",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 5, "w": 4, "x": 15, "y": 1 },
+      "gridPos": { "h": 5, "w": 4, "x": 15, "y": 3 },
       "fieldConfig": { "defaults": { "unit": "reqps", "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.01 } ] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
       "targets": [ { "refId": "A", "expr": "sum(rate(traefik_service_requests_total{service=~\"$app\", code=~\"5..\"}[5m])) or vector(0)" } ]
@@ -85,7 +93,7 @@
       "title": "Deployments available",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 5, "w": 5, "x": 19, "y": 1 },
+      "gridPos": { "h": 5, "w": 5, "x": 19, "y": 3 },
       "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "green", "value": 1 } ] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
       "targets": [ { "refId": "A", "expr": "sum(kube_deployment_status_replicas_available{namespace=\"$namespace\"}) / clamp_min(sum(kube_deployment_spec_replicas{namespace=\"$namespace\"}), 1)" } ]
@@ -94,17 +102,17 @@
       "title": "App request success ratio (Traefik)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 6 },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 8 },
       "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } },
       "targets": [ { "refId": "A", "legendFormat": "{{service}}", "expr": "sum by (service) (rate(traefik_service_requests_total{service=~\"$app\", code!~\"5..\"}[5m])) / clamp_min(sum by (service) (rate(traefik_service_requests_total{service=~\"$app\"}[5m])), 0.001)" } ]
     },
 
-    { "title": "CPU / Memory", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 12 } },
+    { "title": "CPU / Memory", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 } },
     {
       "title": "CPU usage (cores) by pod",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
       "fieldConfig": { "defaults": { "unit": "none" } },
       "targets": [ { "refId": "A", "legendFormat": "{{pod}}", "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", container!=\"\", pod!=\"\"}[5m]))" } ]
     },
@@ -112,17 +120,17 @@
       "title": "Memory working set by pod",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
       "fieldConfig": { "defaults": { "unit": "bytes" } },
       "targets": [ { "refId": "A", "legendFormat": "{{pod}}", "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\", container!=\"\"})" } ]
     },
 
-    { "title": "Latency / Traffic (Traefik)", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 } },
+    { "title": "Latency / Traffic (Traefik)", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 } },
     {
       "title": "Request rate",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 22 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
       "fieldConfig": { "defaults": { "unit": "reqps" } },
       "targets": [ { "refId": "A", "legendFormat": "{{service}}", "expr": "sum by (service) (rate(traefik_service_requests_total{service=~\"$app\"}[5m]))" } ]
     },
@@ -130,7 +138,7 @@
       "title": "Error rate (4xx/5xx)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 22 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
       "fieldConfig": { "defaults": { "unit": "reqps" } },
       "targets": [
         { "refId": "A", "legendFormat": "{{service}} 4xx", "expr": "sum by (service) (rate(traefik_service_requests_total{service=~\"$app\", code=~\"4..\"}[5m]))" },
@@ -141,7 +149,7 @@
       "title": "p95 / p50 latency",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 22 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
       "fieldConfig": { "defaults": { "unit": "s" } },
       "targets": [
         { "refId": "A", "legendFormat": "{{service}} p95", "expr": "histogram_quantile(0.95, sum by (le, service) (rate(traefik_service_request_duration_seconds_bucket{service=~\"$app\"}[5m])))" },
@@ -152,7 +160,7 @@
       "title": "p95 latency by traced service (OTLP spans, if any)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 30 },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 32 },
       "fieldConfig": { "defaults": { "unit": "s" } },
       "targets": [ { "refId": "A", "legendFormat": "{{service}}", "expr": "histogram_quantile(0.95, sum by (le, service) (rate(traces_spanmetrics_latency_bucket[5m])))" } ]
     },
@@ -160,7 +168,7 @@
       "title": "Network traffic by pod",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 30 },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 32 },
       "fieldConfig": { "defaults": { "unit": "Bps" } },
       "targets": [
         { "refId": "A", "legendFormat": "{{pod}} rx", "expr": "sum by (pod) (rate(container_network_receive_bytes_total{namespace=\"$namespace\"}[5m]))" },
@@ -168,12 +176,12 @@
       ]
     },
 
-    { "title": "Logs", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 37 } },
+    { "title": "Logs", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 } },
     {
-      "title": "Logs",
+      "title": "Logs — $namespace",
       "type": "logs",
       "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 38 },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 40 },
       "options": { "showTime": true, "wrapLogMessage": true, "enableLogDetails": true, "dedupStrategy": "none", "sortOrder": "Descending" },
       "targets": [ { "refId": "A", "expr": "{namespace=\"$namespace\"} |~ \"$search\"" } ]
     }

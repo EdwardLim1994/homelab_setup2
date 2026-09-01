@@ -8,7 +8,6 @@ grafana_mcp_token = os.getenv('TF_VAR_grafana_mcp_token', '')
 sonarqube_mcp_token = os.getenv('TF_VAR_sonarqube_mcp_token', '')
 gitlab_mcp_token = os.getenv('TF_VAR_gitlab_mcp_token', '')
 gitlab_mcp_auth_token = os.getenv('TF_VAR_gitlab_mcp_auth_token', 'dev-gitlab-mcp-auth-token')
-nx_cloud_mcp_token = os.getenv('TF_VAR_nx_cloud_mcp_token', '')
 
 k8s_yaml(helm(
   '.',
@@ -19,7 +18,6 @@ k8s_yaml(helm(
     'servers.sonarqube.env.SONARQUBE_TOKEN=' + sonarqube_mcp_token,
     'servers.gitlab.env.GITLAB_PERSONAL_ACCESS_TOKEN=' + gitlab_mcp_token,
     'servers.gitlab.env.STREAMABLE_HTTP_AUTH_TOKEN=' + gitlab_mcp_auth_token,
-    'servers.nx.env.NX_CLOUD_ACCESS_TOKEN=' + nx_cloud_mcp_token,
   ],
 ))
 
@@ -29,4 +27,3 @@ k8s_resource('mcp-servers-grafana', port_forwards=['9101:8000'])
 k8s_resource('mcp-servers-sonarqube', port_forwards=['9102:8080'])
 k8s_resource('mcp-servers-gitlab', port_forwards=['9103:3002'])
 k8s_resource('mcp-servers-playwright', port_forwards=['9104:8931'])
-k8s_resource('mcp-servers-nx', port_forwards=['9105:9921'])

@@ -28,7 +28,6 @@ apps=(
   "grafana:observability:observability-grafana:80:3000:8451"
   "openwebui:openwebui:openwebui:8080:8080:8452"
   "litellm:litellm:litellm:4000:4000:8453"
-  "nx-cloud:nx-cloud:nx-cloud-frontend-service:8080:8086:8454"
 )
 
 pids=()

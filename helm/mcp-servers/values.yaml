@@ -58,15 +58,3 @@ servers:
         memory: 512Mi
       limits:
         memory: 1Gi
-
-  # ponytail: no official nx-mcp Docker image — runs via `npx` on a bare
-  # node image. It's designed to introspect a *live Nx workspace directory*,
-  # which isn't mounted here (this repo isn't an Nx workspace); expect only
-  # Nx Cloud-facing tools to work until/unless a workspace volume is added.
-  nx:
-    image: node:20-alpine
-    command: ["npx"]
-    args: ["-y", "nx-mcp@latest", "--transport", "sse", "--port", "9921"]
-    port: 9921
-    env:
-      NX_CLOUD_ACCESS_TOKEN: ""  # set via Tiltfile/terraform

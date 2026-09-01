@@ -84,6 +84,18 @@ stringData:
     aws_secret_access_key: ''' + minio_root_password + '''
 '''))
 
+# ponytail: gitlab-runner distributed cache -> MinIO S3. Runner subchart's
+# cache secret expects literal keys accesskey/secretkey (not the fog YAML
+# blob above). Reuses minio root creds like gitlab-object-storage does.
+k8s_yaml(blob('''apiVersion: v1
+kind: Secret
+metadata:
+  name: gitlab-runner-cache-credentials
+  namespace: gitlab
+stringData:
+  accesskey: admin
+  secretkey: ''' + minio_root_password))
+
 k8s_yaml(helm(
   '.',
   name='gitlab',
@@ -127,5 +139,19 @@ local_resource(
   'gitlab-promote-admin',
   cmd="kubectl exec -i -n gitlab deploy/gitlab-webservice-default -c webservice -- env ADMIN_EMAIL=%s sh < promote-admin.sh" % admin_email,
   deps=['promote-admin.sh'],
+  resource_deps=['gitlab-webservice-default'],
+)
+
+# ponytail: GitLab 18 dropped runner registration tokens. Mint a modern
+# glrt- authentication token, write it into gitlab-gitlab-runner-secret, and
+# restart the runner. Idempotent; the runner may crashloop for a minute
+# before this lands on the first deploy.
+local_resource(
+  'gitlab-runner-auth-token',
+  cmd='bash setup-runner-token.sh',
+  deps=['setup-runner-token.sh', 'runner-auth-token.sh'],
+  # ponytail: only webservice — NOT gitlab-gitlab-runner. The runner can't
+  # become ready until this step gives it a token, so depending on it
+  # deadlocks.
   resource_deps=['gitlab-webservice-default'],
 )

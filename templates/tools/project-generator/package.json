@@ -1,7 +1,6 @@
 {
-	"name": "project-generator",
+	"name": "@edwardlim1994/project-generator",
 	"version": "0.0.1",
-	"private": true,
 	"type": "commonjs",
 	"main": "./src/index.js",
 	"types": "./src/index.d.ts",

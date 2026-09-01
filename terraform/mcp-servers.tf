@@ -35,10 +35,5 @@ resource "helm_release" "mcp_servers" {
     value = var.gitlab_mcp_auth_token
   }
 
-  set_sensitive {
-    name  = "servers.nx.env.NX_CLOUD_ACCESS_TOKEN"
-    value = var.nx_cloud_mcp_token
-  }
-
   depends_on = [kubernetes_namespace.mcp_servers]
 }

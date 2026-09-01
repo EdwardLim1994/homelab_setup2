@@ -1,12 +1,13 @@
 # CI/CD for the nx-project-template workspace.
-# Stages: test -> build -> publish (publish runs on git tags only).
+# Stages: test -> build -> publish.
 #
-# Publishing target: GitLab Package Registry (npm). The registry URL is left
-# BLANK on purpose for now -- set the NPM_REGISTRY_URL CI/CD variable when
-# ready. Until it is set, the publish job is skipped (see its rules).
-# Expected value (Settings > CI/CD > Variables, not protected/masked needed):
-#   NPM_REGISTRY_URL = ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/npm/
-# Auth uses the automatic CI_JOB_TOKEN -- no PAT required.
+# publish pushes every built package under dist/tools/* to this project's
+# GitLab Package Registry (npm). Auth is the automatic CI_JOB_TOKEN -- no PAT,
+# no CI/CD variable to configure. It runs on git tags only; the tag name is
+# the published version (tag `v1.2.3` -> package version must be `1.2.3`).
+#
+# Install the published package elsewhere with a group-level .npmrc:
+#   @edwardlim1994:registry=${CI_SERVER_URL}/api/v4/groups/<group-id>/-/packages/npm/
 
 stages:
   - test
@@ -15,8 +16,6 @@ stages:
 
 variables:
   BUN_VERSION: "1.4.0"
-  NPM_REGISTRY_URL: ""          # blank for now -- see header
-  # nx run-many over everything; no nx cloud, no affected-base needed
   NX_DAEMON: "false"
 
 default:
@@ -51,17 +50,30 @@ publish:
   stage: publish
   needs: ["build"]
   rules:
-    # only on a tag, and only once NPM_REGISTRY_URL has been filled in
-    - if: '$CI_COMMIT_TAG && $NPM_REGISTRY_URL != ""'
+    - if: $CI_COMMIT_TAG
+  before_script: []          # skip bun install; publishing only needs npm + dist/
   script:
     - |
+      set -e
+      registry="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/npm/"
+      auth_host="//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/"
+      published=0
       for pkg in dist/tools/*/; do
-        [ -f "$pkg/package.json" ] || continue
-        echo "publishing $pkg"
+        [ -f "${pkg}package.json" ] || continue
+        name=$(node -p "require('./${pkg}package.json').name")
+        case "$name" in
+          @*) ;;
+          *) echo "skip ${pkg}: name '${name}' is not scoped"; continue ;;
+        esac
+        echo "publishing ${name} from ${pkg}"
         ( cd "$pkg"
           npm pkg delete private
-          printf 'registry=%s\n' "$NPM_REGISTRY_URL"            >  .npmrc
-          printf '%s:_authToken=%s\n' "${NPM_REGISTRY_URL#https:}" "$CI_JOB_TOKEN" >> .npmrc
+          {
+            echo "${name%%/*}:registry=${registry}"
+            echo "${auth_host}:_authToken=${CI_JOB_TOKEN}"
+          } > .npmrc
           npm publish
         )
+        published=$((published+1))
       done
+      [ "$published" -gt 0 ] || { echo "nothing published"; exit 1; }

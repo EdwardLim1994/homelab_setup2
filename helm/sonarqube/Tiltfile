@@ -59,7 +59,7 @@ k8s_resource(
 admin_email = os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com')
 local_resource(
   'sonarqube-promote-admin',
-  cmd="ADMIN_EMAIL=%s sh promote-admin.sh" % admin_email,
+  cmd="kubectl exec -i -n sonarqube sonarqube-sonarqube-0 -c sonarqube -- env ADMIN_EMAIL=%s sh < promote-admin.sh" % admin_email,
   deps=['promote-admin.sh'],
   resource_deps=['sonarqube-sonarqube'],
 )

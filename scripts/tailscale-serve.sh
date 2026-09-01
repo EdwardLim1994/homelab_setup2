@@ -19,7 +19,6 @@ apps=(
   "8451:3000"  # grafana
   "8452:8080"  # openwebui
   "8453:4000"  # litellm
-  "8454:8086"  # nx-cloud frontend
 )
 
 for entry in "${apps[@]}"; do

@@ -148,7 +148,7 @@ resource "local_file" "authentik_app_providers_script" {
     "  GRAFANA_OIDC_CLIENT_ID='${var.grafana_oidc_client_id}' GRAFANA_OIDC_CLIENT_SECRET='${var.grafana_oidc_client_secret}' \\",
     "  OPENWEBUI_OIDC_CLIENT_ID='${var.openwebui_oidc_client_id}' OPENWEBUI_OIDC_CLIENT_SECRET='${var.openwebui_oidc_client_secret}' \\",
     "  LITELLM_OIDC_CLIENT_ID='${var.litellm_oidc_client_id}' LITELLM_OIDC_CLIENT_SECRET='${var.litellm_oidc_client_secret}' \\",
-    "  ADMIN_EMAIL='${var.admin_email}' TS_HOST='${var.ts_host}' NX_CLOUD_APP_URL='https://${var.ts_host}:8454' \\",
+    "  ADMIN_EMAIL='${var.admin_email}' TS_HOST='${var.ts_host}' \\",
     "  ak shell < '${abspath(path.module)}/../helm/authentik/provision-app-providers.py'",
     "",
   ])
