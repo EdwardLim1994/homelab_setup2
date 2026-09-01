@@ -1,0 +1,20 @@
+{{- /*
+ponytail: one ConfigMap per JSON file in dashboards/. Grafana's dashboard
+sidecar (grafana.sidecar.dashboards) auto-loads any ConfigMap in this
+namespace carrying the grafana_dashboard label. Add a dashboard = drop a
+.json in dashboards/, no template change.
+*/ -}}
+{{- range $path, $_ := .Files.Glob "dashboards/*.json" }}
+{{- $name := base $path | trimSuffix ".json" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $.Release.Name }}-dashboard-{{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    grafana_dashboard: "1"
+data:
+  {{ $name }}.json: |-
+{{ $.Files.Get $path | indent 4 }}
+---
+{{- end }}

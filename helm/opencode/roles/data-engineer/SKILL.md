@@ -1,7 +1,7 @@
 ---
 name: data-engineer
 description: Data Engineer agent for API contract authoring. Use when writing proto3 contracts, GraphQL SDL, Kafka topic schemas, publishing to Apicurio schema registry, running buf generate, running graphql-codegen, and committing generated TypeScript types to the api repo. Runs at /develop gate B — all other developer pods are blocked until this completes.
-compatibility: opencode, omp
+compatibility: opencode, omp, claude-code
 license: MIT
 ---
 

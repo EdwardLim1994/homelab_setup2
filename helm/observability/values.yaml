@@ -34,7 +34,7 @@ grafana:
         - name: Mimir
           uid: mimir
           type: prometheus
-          url: http://observability-mimir-distributed-query-frontend.observability.svc.cluster.local:8080/prometheus
+          url: http://observability-mimir-query-frontend.observability.svc.cluster.local:8080/prometheus
           isDefault: true
           jsonData:
             timeInterval: 15s
@@ -73,6 +73,17 @@ grafana:
   persistence:
     enabled: true
     size: 2Gi
+
+  # ponytail: sidecar auto-loads any ConfigMap in this namespace labelled
+  # grafana_dashboard. templates/dashboards.yaml emits one per dashboards/*.json.
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: observability
+      folder: /tmp/dashboards
+      provider:
+        foldersFromFilesStructure: false
 
   resources:
     requests:
@@ -139,6 +150,26 @@ loki:
 # ── Tempo ─────────────────────────────────────────────────────────────────────
 tempo:
   tempo:
+    # ponytail: metrics-generator turns spans into RED metrics (rate/errors/
+    # duration) and remote-writes them to Mimir — that's the latency + traffic
+    # panels. Needs traces flowing in via OTLP (already wired through Alloy).
+    metricsGenerator:
+      enabled: true
+      remoteWriteUrl: "http://observability-mimir-distributor.observability.svc.cluster.local:8080/api/v1/push"
+      processor:
+        span_metrics:
+          enable_target_info: true
+        service_graphs: {}
+      storage:
+        path: /var/tempo/generator/wal
+      traces_storage:
+        path: /var/tempo/generator/traces
+    overrides:
+      defaults:
+        metrics_generator:
+          processors:
+            - service-graphs
+            - span-metrics
     storage:
       trace:
         backend: local
@@ -368,7 +399,7 @@ alloy:
 
         prometheus.remote_write "mimir" {
           endpoint {
-            url = "http://observability-mimir-distributed-distributor.observability.svc.cluster.local:8080/api/v1/push"
+            url = "http://observability-mimir-distributor.observability.svc.cluster.local:8080/api/v1/push"
           }
         }
 
@@ -403,17 +434,22 @@ prometheus:
     # ponytail: remote_write to Mimir so metrics survive beyond Prometheus's
     # own retention window and are queryable from Grafana's Mimir datasource.
     remoteWrite:
-      - url: "http://observability-mimir-distributed-distributor.observability.svc.cluster.local:8080/api/v1/push"
+      - url: "http://observability-mimir-distributor.observability.svc.cluster.local:8080/api/v1/push"
     persistentVolume:
       enabled: true
       size: 10Gi
-    retention: "7d"
+    # ponytail: 3d not 7d — one node, cadvisor + kube-state + node-exporter +
+    # traefik is a lot of series; longer history lives in Mimir via remoteWrite.
+    retention: "3d"
     resources:
       requests:
         cpu: 50m
-        memory: 256Mi
-      limits:
+        # ponytail: 512Mi OOMKills mid-WAL-replay -> 503 on every query ->
+        # crashloop. WAL replay is the memory peak; 2Gi clears it. Drop back
+        # toward 1Gi if the node gets tight.
         memory: 512Mi
+      limits:
+        memory: 2Gi
 
   alertmanager:
     enabled: false

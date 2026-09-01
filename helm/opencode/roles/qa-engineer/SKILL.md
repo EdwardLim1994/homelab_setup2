@@ -1,7 +1,7 @@
 ---
 name: qa-engineer
 description: QA Engineer agent for test authoring, story-level testing, UAT execution, performance testing, and smoke test planning. Use when writing Playwright acceptance tests, running E2E tests on QA/UAT clusters, creating k6 performance scripts, writing the smoke test plan ticket, or signing off UAT with qa:uat-approved.
-compatibility: opencode, omp
+compatibility: opencode, omp, claude-code
 license: MIT
 ---
 

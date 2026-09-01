@@ -1,7 +1,7 @@
 ---
 name: tech-lead
 description: Tech Lead agent for pseudocode authoring, MR code review, Definition of Done enforcement, story MR creation, and retrospective code quality analysis. The most reasoning-intensive role — uses the smart/slow model. Runs at /develop gate C for pseudocode, then for each task MR review in parallel with CI, then for DoD check when all story tasks merge.
-compatibility: opencode, omp
+compatibility: opencode, omp, claude-code
 license: MIT
 ---
 

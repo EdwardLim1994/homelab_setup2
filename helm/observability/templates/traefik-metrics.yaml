@@ -1,0 +1,32 @@
+{{- /*
+ponytail: k3s ships Traefik with Prometheus metrics ENABLED (port 9100) but
+annotates the pod for scrape on the wrong port (8082) and leaves router
+labels off. This HelmChartConfig merges into k3s's managed Traefik HelmChart:
+fix the scrape port so the existing Prometheus `kubernetes-pods` job picks it
+up, and turn on per-router/service/entrypoint labels.
+
+Result: traefik_service_requests_total + traefik_service_request_duration_
+seconds_bucket for every ingressed app — RED metrics (latency, traffic,
+errors) with zero per-app instrumentation. Powers the Latency/Traffic panels
+in the Homelab Apps dashboard.
+
+ponytail: no ServiceMonitor / extra scrape job — reuses the prometheus-pods
+annotation path k3s already set up, just with the right port.
+*/ -}}
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    deployment:
+      podAnnotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+        prometheus.io/path: "/metrics"
+    metrics:
+      prometheus:
+        addRoutersLabels: true
+        addServicesLabels: true
+        addEntryPointsLabels: true

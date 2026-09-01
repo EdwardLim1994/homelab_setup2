@@ -1,7 +1,7 @@
 ---
 name: release-manager
 description: Release Manager agent for go/no-go assessment, release plan ticket authoring, staging validation coordination, production monitoring, and incident reporting. Use when creating the [release-plan] ticket, conducting go/no-go assessment with structured report, monitoring production via Grafana, or escalating incidents to Edward.
-compatibility: opencode, omp
+compatibility: opencode, omp, claude-code
 license: MIT
 ---
 

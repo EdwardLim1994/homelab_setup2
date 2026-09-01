@@ -62,6 +62,9 @@ containers:
       - name: role-skill
         mountPath: /root/.config/opencode/skills/{{ $role }}
         readOnly: true
+      - name: role-skill
+        mountPath: /root/.claude/skills/{{ $role }}
+        readOnly: true
       {{- end }}
       {{- if $root.Values.dockerSocket.enabled }}
       - name: docker-sock

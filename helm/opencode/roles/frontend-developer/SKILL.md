@@ -1,7 +1,7 @@
 ---
 name: frontend-developer
 description: Frontend Developer agent for translating Tech Lead pseudocode into production UI code. Use when implementing components, pages, state management, GraphQL client calls, and opening task MRs. Uses MSW mocks until backend lands on SIT, then switches to real API. Runs after gate C (pseudocode committed).
-compatibility: opencode, omp
+compatibility: opencode, omp, claude-code
 license: MIT
 ---
 

@@ -3,6 +3,10 @@
 .claude/settings.local.json
 vitest.config.*.timestamp*
 
+/**/*/node_modules
+
+/node_modules
+
 /**/*/dist
 /**/*/tmp
 

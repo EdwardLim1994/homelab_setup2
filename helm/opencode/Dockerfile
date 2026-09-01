@@ -117,5 +117,20 @@ RUN printf '%s\n' \
       '  "autoUpdaterStatus": "disabled"' \
       '}' > /root/.claude.json
 
+# --- SDLC role skills: baked into BOTH the opencode and claude-code skill dirs ---
+# ponytail: the per-role ConfigMap in roles.yaml ships only the top-level
+# roles/<role>/SKILL.md; the curated sub-skill packs (with their references/)
+# come from here. Every SKILL.md dir is linked into opencode's dir AND
+# /root/.claude/skills/ so `claude` discovers the same set. Duplicate sub-skill
+# names across roles (spec-miner, database-optimizer, api-designer) are byte
+# identical copies — ln -sfn just takes the last one.
+COPY roles/ /opt/roles/
+RUN mkdir -p /root/.claude/skills /root/.config/opencode/skills \
+    && for f in $(find /opt/roles -maxdepth 3 -name SKILL.md); do \
+         d=$(dirname "$f"); n=$(basename "$d"); \
+         ln -sfn "$d" "/root/.config/opencode/skills/$n"; \
+         ln -sfn "$d" "/root/.claude/skills/$n"; \
+       done
+
 WORKDIR /workspace
 EXPOSE 4096

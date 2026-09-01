@@ -1,8 +1,10 @@
 {{- /*
   Per-role pods: one Deployment + Service + ConfigMap per entry in
   .Values.roles. The ConfigMap carries that role's roles/<name>/SKILL.md
-  (shipped in this chart), mounted into the opencode skill dir on top of the
-  image's baked caveman/ponytail skills — no git clone, unlike the slot pool.
+  (shipped in this chart), mounted into BOTH the opencode and claude-code skill
+  dirs on top of the image's baked caveman/ponytail + curated role skills. The
+  curated sub-skill packs (roles/<name>/<skill>/) are baked into the image, not
+  this ConfigMap — no git clone, unlike the slot pool.
   ponytail: all at replicas 0 (12 roles x 512Mi-2Gi). Wake one with
     kubectl -n opencode scale deploy/opencode-<role> --replicas=1
 */ -}}

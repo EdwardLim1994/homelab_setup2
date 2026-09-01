@@ -1,0 +1,67 @@
+# CI/CD for the nx-project-template workspace.
+# Stages: test -> build -> publish (publish runs on git tags only).
+#
+# Publishing target: GitLab Package Registry (npm). The registry URL is left
+# BLANK on purpose for now -- set the NPM_REGISTRY_URL CI/CD variable when
+# ready. Until it is set, the publish job is skipped (see its rules).
+# Expected value (Settings > CI/CD > Variables, not protected/masked needed):
+#   NPM_REGISTRY_URL = ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/npm/
+# Auth uses the automatic CI_JOB_TOKEN -- no PAT required.
+
+stages:
+  - test
+  - build
+  - publish
+
+variables:
+  BUN_VERSION: "1.4.0"
+  NPM_REGISTRY_URL: ""          # blank for now -- see header
+  # nx run-many over everything; no nx cloud, no affected-base needed
+  NX_DAEMON: "false"
+
+default:
+  image: node:20-slim
+  cache:
+    key:
+      files:
+        - bun.lock
+    paths:
+      - node_modules/
+      - .nx/cache/
+  before_script:
+    - npm install -g "bun@${BUN_VERSION}"
+    - bun install --frozen-lockfile
+
+test:
+  stage: test
+  script:
+    - bunx biome ci .
+    - bunx nx run-many -t test --parallel=3
+
+build:
+  stage: build
+  script:
+    - bunx nx run-many -t build --parallel=3
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+
+publish:
+  stage: publish
+  needs: ["build"]
+  rules:
+    # only on a tag, and only once NPM_REGISTRY_URL has been filled in
+    - if: '$CI_COMMIT_TAG && $NPM_REGISTRY_URL != ""'
+  script:
+    - |
+      for pkg in dist/tools/*/; do
+        [ -f "$pkg/package.json" ] || continue
+        echo "publishing $pkg"
+        ( cd "$pkg"
+          npm pkg delete private
+          printf 'registry=%s\n' "$NPM_REGISTRY_URL"            >  .npmrc
+          printf '%s:_authToken=%s\n' "${NPM_REGISTRY_URL#https:}" "$CI_JOB_TOKEN" >> .npmrc
+          npm publish
+        )
+      done

@@ -1,7 +1,7 @@
 ---
-name: ui-ux-designer
+name: uiux-designer
 description: UI/UX Designer agent for user flow mapping, interaction specifications, accessibility requirements, and component behaviour specs during the planning phase. Runs at /plan-release gate B in parallel with QA and Security pods. Output feeds into the PRD and openspec.
-compatibility: opencode, omp
+compatibility: opencode, omp, claude-code
 license: MIT
 ---
 

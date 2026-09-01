@@ -1,7 +1,7 @@
 ---
 name: devops-engineer
 description: DevOps Engineer agent for infrastructure provisioning, CI/CD pipeline configuration, ArgoCD setup, cluster management, and registry configuration. Use during /develop gate A (must complete before all other pods start) and when provisioning new project infrastructure. Also manages cluster lifecycle (wake/sleep) throughout the SDLC.
-compatibility: opencode, omp
+compatibility: opencode, omp, claude-code
 license: MIT
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: product-owner
 description: Product Owner agent for UAT stage 3 — business logic validation and acceptance criteria verification. Use when validating that implemented features fulfil story AC against the UAT cluster, raising bug tickets for unmet requirements, or applying po:uat-approved sign-off. Runs after security:cleared is applied.
-compatibility: opencode, omp
+compatibility: opencode, omp, claude-code
 license: MIT
 ---
 

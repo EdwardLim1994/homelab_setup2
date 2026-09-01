@@ -1,7 +1,7 @@
 ---
 name: security-engineer
 description: Security Engineer agent for threat modelling during planning, SAST during development, active scanning during UAT, and security confirmation during staging. Use when doing OWASP threat modelling, configuring ZAP scans, triaging CVEs, creating bug tickets for security findings, or applying security:cleared sign-off.
-compatibility: opencode, omp
+compatibility: opencode, omp, claude-code
 license: MIT
 ---
 

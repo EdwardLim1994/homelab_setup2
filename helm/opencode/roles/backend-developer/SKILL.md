@@ -1,7 +1,7 @@
 ---
 name: backend-developer
 description: Backend Developer agent for translating Tech Lead pseudocode into production server-side code. Use when implementing service handlers, business logic, database migrations, and opening task MRs. Runs after gate C (pseudocode committed). Uses a cheap fast model — all design reasoning is already done in the pseudocode.
-compatibility: opencode, omp
+compatibility: opencode, omp, claude-code
 license: MIT
 ---
 

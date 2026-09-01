@@ -1,0 +1,138 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "title": "Homelab Overview",
+  "uid": "homelab-overview",
+  "tags": ["homelab"],
+  "links": [
+    { "type": "dashboards", "tags": ["homelab"], "title": "Homelab", "asDropdown": true, "keepTime": true, "icon": "apps" },
+    { "title": "argocd",        "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8450" },
+    { "title": "authentik",     "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8443" },
+    { "title": "gitlab",        "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:443" },
+    { "title": "grafana",       "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8451" },
+    { "title": "litellm",       "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8453/ui" },
+    { "title": "minio-api",     "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8446" },
+    { "title": "minio-console", "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8445" },
+    { "title": "n8n",           "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8447" },
+    { "title": "nx-cloud",      "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8454" },
+    { "title": "openwebui",     "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8452" },
+    { "title": "seafile",       "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8449" },
+    { "title": "sonarqube",     "type": "link", "icon": "external link", "targetBlank": true, "url": "https://__TS_HOST__:8448" }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(kube_pod_info{namespace!~\"opencode|observability|kube-system|kube-node-lease|kube-public|cert-manager|local-path-storage\"}, namespace)",
+        "includeAll": true,
+        "multi": true,
+        "refresh": 2,
+        "sort": 1,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    { "title": "Health summary", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "title": "Pods ready",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 5, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "none", "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [ { "refId": "A", "expr": "sum(kube_pod_status_ready{namespace=~\"$namespace\", condition=\"true\"})" } ]
+    },
+    {
+      "title": "Pods not running",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 5, "x": 5, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "none", "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [ { "refId": "A", "expr": "sum(kube_pod_status_phase{namespace=~\"$namespace\", phase!~\"Running|Succeeded\"}) or vector(0)" } ]
+    },
+    {
+      "title": "Restarts (1h)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 5, "x": 10, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "none", "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 } ] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [ { "refId": "A", "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\"}[1h])) or vector(0)" } ]
+    },
+    {
+      "title": "Apps serving 5xx",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 15, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "none", "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [ { "refId": "A", "expr": "count(sum by (service) (rate(traefik_service_requests_total{code=~\"5..\"}[5m])) > 0) or vector(0)" } ]
+    },
+    {
+      "title": "Deployments available",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 5, "x": 19, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "green", "value": 1 } ] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [ { "refId": "A", "expr": "sum(kube_deployment_status_replicas_available{namespace=~\"$namespace\"}) / clamp_min(sum(kube_deployment_spec_replicas{namespace=~\"$namespace\"}), 1)" } ]
+    },
+
+    { "title": "Apps", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 } },
+    {
+      "title": "URLs",
+      "type": "text",
+      "gridPos": { "h": 15, "w": 9, "x": 0, "y": 6 },
+      "options": {
+        "mode": "markdown",
+        "content": "### App URLs (Tailscale)\n\n| App | URL |\n|---|---|\n| argocd | https://__TS_HOST__:8450 |\n| authentik | https://__TS_HOST__:8443 |\n| gitlab | https://__TS_HOST__:443 |\n| grafana | https://__TS_HOST__:8451 |\n| litellm | https://__TS_HOST__:8453/ui |\n| minio (API) | https://__TS_HOST__:8446 |\n| minio (console) | https://__TS_HOST__:8445 |\n| n8n | https://__TS_HOST__:8447 |\n| nx-cloud | https://__TS_HOST__:8454 |\n| openwebui | https://__TS_HOST__:8452 |\n| seafile | https://__TS_HOST__:8449 |\n| sonarqube | https://__TS_HOST__:8448 |\n\n`.local` ingress hosts are in the table to the right. Source of truth: `scripts/tailscale-serve.sh`."
+      }
+    },
+    {
+      "title": "Site health by app",
+      "type": "table",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 15, "w": 15, "x": 9, "y": 6 },
+      "description": "Click an app to open its detail dashboard.",
+      "targets": [
+        { "refId": "READY", "instant": true, "format": "table", "expr": "sum by (namespace) (kube_pod_status_ready{namespace=~\"$namespace\", condition=\"true\"}) / count by (namespace) (kube_pod_info{namespace=~\"$namespace\"})" },
+        { "refId": "PODS", "instant": true, "format": "table", "expr": "count by (namespace) (kube_pod_info{namespace=~\"$namespace\"})" },
+        { "refId": "RESTARTS", "instant": true, "format": "table", "expr": "sum by (namespace) (increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\"}[1h]))" }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        { "id": "organize", "options": {
+          "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true, "endpoint": true, "container": true, "pod": true, "uid": true },
+          "renameByName": { "namespace": "App", "Value #READY": "Health", "Value #PODS": "Pods", "Value #RESTARTS": "Restarts (1h)" },
+          "indexByName": { "namespace": 0, "Value #READY": 1, "Value #PODS": 2, "Value #RESTARTS": 3 }
+        } }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "left" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "App" }, "properties": [
+            { "id": "links", "value": [ { "title": "Detail: ${__value.text}", "url": "/d/homelab-app-detail/homelab-app-detail?var-namespace=${__value.text}&${__url_time_range}", "targetBlank": false } ] }
+          ] },
+          { "matcher": { "id": "byName", "options": "Health" }, "properties": [
+            { "id": "unit", "value": "percentunit" },
+            { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+            { "id": "thresholds", "value": { "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "green", "value": 1 } ] } }
+          ] },
+          { "matcher": { "id": "byName", "options": "Restarts (1h)" }, "properties": [
+            { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+            { "id": "thresholds", "value": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 } ] } }
+          ] }
+        ]
+      }
+    }
+  ],
+  "schemaVersion": 39
+}
