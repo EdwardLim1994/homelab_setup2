@@ -404,7 +404,7 @@
                   {
                     "title": "Open ${__value.text} detail",
                     "url": "/d/homelab-app-detail/homelab-app-detail?var-namespace=${__value.text}&${__url_time_range}",
-                    "targetBlank": false
+                    "targetBlank": true
                   }
                 ]
               }
@@ -588,7 +588,7 @@
                   {
                     "title": "Open omp detail (logs filtered to ${__value.text})",
                     "url": "/d/homelab-app-detail/homelab-app-detail?var-namespace=omp&var-search=${__value.text}&${__url_time_range}",
-                    "targetBlank": false
+                    "targetBlank": true
                   }
                 ]
               }
