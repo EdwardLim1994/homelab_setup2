@@ -1,3 +1,11 @@
+# ponytail: terraform/Tiltfile do a plain string-replace of __TS_HOST__ across
+# this file, so exposing it as a value lets templates/dashboards.yaml reuse the
+# substituted host without a second injection path.
+tsHost: "__TS_HOST__"
+# ponytail: tailnet MagicDNS suffix — dashboards/*.json use https://<app>.__TAILNET_DOMAIN__
+# for their nav links now that each app has its own tailscale-operator host.
+tailnetDomain: "__TAILNET_DOMAIN__"
+
 grafana:
   # ponytail: chart refuses to render any sensitive key (client_secret,
   # adminPassword, etc.) in plain values as a guard against accidental
@@ -9,17 +17,23 @@ grafana:
 
   grafana.ini:
     server:
-      root_url: "https://__TS_HOST__:8451"
+      root_url: "__APP_URL__"
     auth:
       # ponytail: keep login form so local admin still works as fallback
       disable_login_form: "false"
+      # ponytail: Grafana 11+ defaults this false and stops matching an OAuth
+      # login to an existing user by email — so when Authentik's `sub` changes
+      # (provider re-provisioned on a cluster rebuild), the old user row is
+      # orphaned and login dies with "user.sync: unable to create user: user
+      # not found". Authentik verifies the email, so matching on it is safe here.
+      oauth_allow_insecure_email_lookup: "true"
     auth.generic_oauth:
       enabled: "true"
       name: "Authentik"
       client_id: "__GRAFANA_OIDC_CLIENT_ID__"
       client_secret: "__GRAFANA_OIDC_CLIENT_SECRET__"
       scopes: "openid profile email"
-      auth_url: "https://__TS_HOST__:8443/application/o/authorize/"
+      auth_url: "__AUTHENTIK_URL__/application/o/authorize/"
       # ponytail: token/userinfo use in-cluster DNS — browser never touches
       # these endpoints so no need for the Tailscale HTTPS port here.
       token_url: "http://authentik-server.authentik.svc.cluster.local/application/o/token/"

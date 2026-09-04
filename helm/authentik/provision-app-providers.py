@@ -5,7 +5,12 @@ from authentik.crypto.models import CertificateKeyPair
 import os
 
 admin_email = os.environ['ADMIN_EMAIL']
-ts_host = os.environ['TS_HOST']
+# Tailnet MagicDNS suffix (e.g. tail1234.ts.net). Each app is reached at
+# https://<slug>.<app_domain> via the Tailscale k8s operator.
+app_domain = os.environ['APP_DOMAIN']
+
+def app_url(slug):
+    return f'https://{slug}.{app_domain}'
 
 admin_user = User.objects.filter(email=admin_email).first()
 if admin_user:
@@ -57,31 +62,31 @@ scope_map = {'policy': sm_minio, 'openwebui_roles': sm_owui, 'litellm_role': sm_
 apps = [
     dict(name='GitLab', slug='gitlab',
          client_id=os.environ['GITLAB_OIDC_CLIENT_ID'], client_secret=os.environ['GITLAB_OIDC_CLIENT_SECRET'],
-         redirect_uris=[f'https://{ts_host}/users/auth/openid_connect/callback']),
+         redirect_uris=[app_url('gitlab') + '/users/auth/openid_connect/callback']),
     dict(name='MinIO', slug='minio',
          client_id=os.environ['MINIO_OIDC_CLIENT_ID'], client_secret=os.environ['MINIO_OIDC_CLIENT_SECRET'],
-         redirect_uris=[f'https://{ts_host}:8445/oauth_callback'], extra_scopes=['policy']),
+         redirect_uris=[app_url('minio-console') + '/oauth_callback'], extra_scopes=['policy']),
     dict(name='n8n', slug='n8n',
          client_id=os.environ['N8N_OIDC_CLIENT_ID'], client_secret=os.environ['N8N_OIDC_CLIENT_SECRET'],
-         redirect_uris=[f'https://{ts_host}:8447/auth/oidc/callback']),
+         redirect_uris=[app_url('n8n') + '/auth/oidc/callback']),
     dict(name='SonarQube', slug='sonarqube',
          client_id=os.environ['SONARQUBE_OIDC_CLIENT_ID'], client_secret=os.environ['SONARQUBE_OIDC_CLIENT_SECRET'],
-         redirect_uris=[f'https://{ts_host}:8448/oauth2/callback/oidc']),
-    dict(name='Seafile', slug='seafile',
-         client_id=os.environ['SEAFILE_OIDC_CLIENT_ID'], client_secret=os.environ['SEAFILE_OIDC_CLIENT_SECRET'],
-         redirect_uris=[f'https://{ts_host}:8449/oauth/callback/']),
+         redirect_uris=[app_url('sonarqube') + '/oauth2/callback/oidc']),
+    dict(name='Nextcloud', slug='nextcloud',
+         client_id=os.environ['NEXTCLOUD_OIDC_CLIENT_ID'], client_secret=os.environ['NEXTCLOUD_OIDC_CLIENT_SECRET'],
+         redirect_uris=[app_url('nextcloud') + '/apps/sociallogin/custom_oidc/authentik']),
     dict(name='ArgoCD', slug='argocd',
          client_id=os.environ['ARGOCD_OIDC_CLIENT_ID'], client_secret=os.environ['ARGOCD_OIDC_CLIENT_SECRET'],
-         redirect_uris=[f'https://{ts_host}:8450/auth/callback']),
+         redirect_uris=[app_url('argocd') + '/auth/callback']),
     dict(name='Grafana', slug='grafana',
          client_id=os.environ['GRAFANA_OIDC_CLIENT_ID'], client_secret=os.environ['GRAFANA_OIDC_CLIENT_SECRET'],
-         redirect_uris=[f'https://{ts_host}:8451/login/generic_oauth']),
+         redirect_uris=[app_url('grafana') + '/login/generic_oauth']),
     dict(name='OpenWebUI', slug='openwebui',
          client_id=os.environ['OPENWEBUI_OIDC_CLIENT_ID'], client_secret=os.environ['OPENWEBUI_OIDC_CLIENT_SECRET'],
-         redirect_uris=[f'https://{ts_host}:8452/oauth/oidc/callback'], extra_scopes=['openwebui_roles']),
+         redirect_uris=[app_url('openwebui') + '/oauth/oidc/callback'], extra_scopes=['openwebui_roles']),
     dict(name='LiteLLM', slug='litellm',
          client_id=os.environ['LITELLM_OIDC_CLIENT_ID'], client_secret=os.environ['LITELLM_OIDC_CLIENT_SECRET'],
-         redirect_uris=[f'https://{ts_host}:8453/sso/callback'],
+         redirect_uris=[app_url('litellm') + '/sso/callback'],
          sub_mode='user_username', extra_scopes=['litellm_role']),
 ]
 

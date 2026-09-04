@@ -1,0 +1,69 @@
+# ponytail: plain official mariadb:11, same pattern as helm/n8n's postgres — the
+# nextcloud chart's bundled mariadb is bitnami, whose free images are gone. Pod
+# name stays nextcloud-mariadb-0 so scripts/{linux,windows}/reset-nextcloud still
+# target it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: nextcloud-mariadb
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: nextcloud-mariadb
+  ports:
+    - port: 3306
+      targetPort: 3306
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nextcloud-mariadb
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceName: nextcloud-mariadb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nextcloud-mariadb
+  template:
+    metadata:
+      labels:
+        app: nextcloud-mariadb
+    spec:
+      containers:
+        - name: mariadb
+          image: "{{ .Values.mariadb.image }}"
+          env:
+            - name: MARIADB_DATABASE
+              value: {{ .Values.mariadb.database | quote }}
+            - name: MARIADB_USER
+              value: {{ .Values.mariadb.username | quote }}
+            - name: MARIADB_PASSWORD
+              value: {{ .Values.mariadb.password | quote }}
+            - name: MARIADB_ROOT_PASSWORD
+              value: {{ .Values.mariadb.rootPassword | quote }}
+          args:
+            - --transaction-isolation=READ-COMMITTED
+            - --binlog-format=ROW
+          ports:
+            - containerPort: 3306
+          readinessProbe:
+            exec:
+              command: ["healthcheck.sh", "--connect", "--innodb_initialized"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+          resources:
+            {{- toYaml .Values.mariadb.resources | nindent 12 }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.mariadb.storageSize | quote }}

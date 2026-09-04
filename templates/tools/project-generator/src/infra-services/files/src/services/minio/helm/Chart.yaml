@@ -1,6 +1,0 @@
-apiVersion: v2
-name: minio
-description: MinIO object storage (single instance) — shared infra, deployed independently of any app
-type: application
-version: 0.2.0
-appVersion: "RELEASE.2024-11-07T00-52-20Z"

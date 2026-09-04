@@ -1,6 +1,18 @@
 n8n:
-  # ponytail: sqlite (chart default) instead of the bundled postgres subchart
-  # — one more app, one more moving part isn't worth it for a homelab
+  # ponytail: postgres (external) instead of sqlite — sqlite's single-writer
+  # lock stalls under the SDLC flows' concurrent webhook fan-out, and the file
+  # lives on a PVC that gets wiped on encryption-key resets. The server is a
+  # plain postgres:16 StatefulSet from this chart's own templates/postgres.yaml
+  # (see the comment there for why not the bundled bitnami subchart).
+  db:
+    type: postgresdb
+  externalPostgresql:
+    host: n8n-postgres
+    port: 5432
+    username: n8n
+    database: n8n
+    password: ""  # set via Tiltfile/terraform, matches postgres.password below
+
   main:
     persistence:
       enabled: true
@@ -59,15 +71,31 @@ n8n:
       N8N_ADDITIONAL_NON_UI_ROUTES: "auth"
       EXTERNAL_FRONTEND_HOOKS_URLS: "/assets/oidc-frontend-hook.js"
       N8N_PROTOCOL: "https"
-      OIDC_ISSUER_URL: "https://__TS_HOST__:8443/application/o/n8n/"
+      # __APP_URL__ / __AUTHENTIK_URL__ are string-replaced by terraform/Tiltfile
+      # with this app's and Authentik's tailscale-operator MagicDNS URLs
+      # (https://n8n.<tailnet>.ts.net etc).
+      N8N_EDITOR_BASE_URL: "__APP_URL__/"
+      WEBHOOK_URL: "__APP_URL__/"
+      OIDC_ISSUER_URL: "__AUTHENTIK_URL__/application/o/n8n/"
       # OIDC_CLIENT_ID / OIDC_CLIENT_SECRET set via Tiltfile/terraform (.env)
-      OIDC_REDIRECT_URI: "https://__TS_HOST__:8447/auth/oidc/callback"
+      OIDC_REDIRECT_URI: "__APP_URL__/auth/oidc/callback"
 
-# ponytail: post-install/post-upgrade Job that seeds helm/n8n/flows/F-*.json
-# via the n8n REST API. apiKey is one-time manual setup (n8n Settings -> API
-# Keys), injected from .env as TF_VAR_n8n_api_key / TS via Tiltfile. Empty
-# key => the Job logs and exits 0.
-flowSeed:
-  enabled: true
-  apiKey: ""
-  image: "alpine:3"
+# ponytail: flow seeding (and n8n owner setup + API-key minting) moved to the
+# ansible runner — helm/ansible/flows/ + playbooks/n8n.yml. Run it with
+# `scripts/ansible-run.sh n8n`.
+
+# ponytail: consumed by templates/postgres.yaml (this wrapper chart's own
+# template, not the n8n subchart). n8n connects to it via n8n.externalPostgresql
+# above — keep host/user/db/password in sync between the two blocks.
+postgres:
+  image: postgres:16
+  database: n8n
+  username: n8n
+  password: ""  # set via Tiltfile/terraform
+  storageSize: 2Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi

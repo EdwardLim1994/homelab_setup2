@@ -1,0 +1,9 @@
+# ponytail: the chart only reads roles/<role>/SKILL.md (see templates/roles.yaml).
+# The curated sub-skill packs under roles/<role>/<skill>/ are baked into the
+# image via Dockerfile COPY, not the chart — packaging them blew the helm
+# release Secret past its 1 MiB limit.
+roles/*/*/
+
+.git/
+.gitignore
+*.tmp

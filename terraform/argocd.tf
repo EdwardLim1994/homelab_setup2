@@ -15,16 +15,14 @@ resource "helm_release" "argocd" {
   # convention Tiltfile's string-replace uses), so terraform substitutes
   # the same way instead of introducing a second convention via `set`.
   values = [
-    replace(
-      replace(
-        replace(
-          replace(file("${path.module}/../helm/argocd/values.yaml"), "__TS_HOST__", var.ts_host),
-          "__ARGOCD_OIDC_CLIENT_ID__", var.argocd_oidc_client_id
-        ),
-        "__ARGOCD_OIDC_CLIENT_SECRET__", var.argocd_oidc_client_secret
-      ),
-      "__ADMIN_EMAIL__", var.admin_email
-    )
+    replace(replace(replace(replace(replace(replace(
+      file("${path.module}/../helm/argocd/values.yaml"),
+      "__TS_HOST__", var.ts_host),
+      "__AUTHENTIK_URL__", local.authentik_url),
+      "__APP_URL__", local.app_url["argocd"]),
+      "__ARGOCD_OIDC_CLIENT_ID__", var.argocd_oidc_client_id),
+      "__ARGOCD_OIDC_CLIENT_SECRET__", var.argocd_oidc_client_secret),
+    "__ADMIN_EMAIL__", var.admin_email),
   ]
 
   depends_on = [kubernetes_namespace.argocd]

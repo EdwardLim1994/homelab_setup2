@@ -22,7 +22,13 @@ resource "helm_release" "n8n" {
   timeout           = 600
   dependency_update = true
 
-  values = [replace(file("${path.module}/../helm/n8n/values.yaml"), "__TS_HOST__", var.ts_host)]
+  values = [
+    replace(replace(replace(
+      file("${path.module}/../helm/n8n/values.yaml"),
+      "__TS_HOST__", var.ts_host),
+      "__AUTHENTIK_URL__", local.authentik_url),
+    "__APP_URL__", local.app_url["n8n"]),
+  ]
 
   set_sensitive {
     name  = "n8n.encryptionKey"
@@ -40,9 +46,17 @@ resource "helm_release" "n8n" {
   }
 
   set_sensitive {
-    name  = "flowSeed.apiKey"
-    value = var.n8n_api_key
+    name  = "n8n.externalPostgresql.password"
+    value = var.n8n_db_password
   }
+
+  set_sensitive {
+    name  = "postgres.password"
+    value = var.n8n_db_password
+  }
+
+  # ponytail: flow seeding + owner setup + API-key minting all moved to the
+  # ansible runner — `scripts/ansible-run.sh n8n`.
 
   depends_on = [kubernetes_namespace.n8n, kubernetes_config_map.n8n_oidc_hooks]
 }

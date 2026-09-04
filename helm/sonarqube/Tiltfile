@@ -38,7 +38,7 @@ rendered = str(helm(
   name='sonarqube',
   namespace='sonarqube',
   set=[
-    'postgresql.auth.password=' + sonarqube_db_password,
+    'postgres.password=' + sonarqube_db_password,
     'sonarqube.jdbcOverwrite.jdbcPassword=' + sonarqube_db_password,
     'sonarqube.monitoringPasscode=' + sonarqube_monitoring_passcode,
   ],

@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      {{- include "omp.podSpec" (dict
+            "root" .
+            "skillsRepo" .Values.skillsRepo
+            "workspaceClaim" (ternary .Release.Name "" .Values.persistence.enabled)
+          ) | nindent 6 }}

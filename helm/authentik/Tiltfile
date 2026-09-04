@@ -41,7 +41,7 @@ k8s_yaml(helm(
   set=[
     'authentik.authentik.secret_key=' + authentik_secret_key,
     'authentik.authentik.postgresql.password=' + authentik_db_password,
-    'authentik.postgresql.auth.password=' + authentik_db_password,
+    'postgres.password=' + authentik_db_password,
     'authentik.global.env[0].name=AUTHENTIK_BOOTSTRAP_TOKEN',
     'authentik.global.env[0].value=' + authentik_bootstrap_token,
     'authentik.global.env[1].name=AUTHENTIK_BOOTSTRAP_PASSWORD',
@@ -85,7 +85,7 @@ GITLAB_OIDC_CLIENT_ID=%s GITLAB_OIDC_CLIENT_SECRET=%s \
 MINIO_OIDC_CLIENT_ID=%s MINIO_OIDC_CLIENT_SECRET=%s \
 N8N_OIDC_CLIENT_ID=%s N8N_OIDC_CLIENT_SECRET=%s \
 SONARQUBE_OIDC_CLIENT_ID=%s SONARQUBE_OIDC_CLIENT_SECRET=%s \
-SEAFILE_OIDC_CLIENT_ID=%s SEAFILE_OIDC_CLIENT_SECRET=%s \
+NEXTCLOUD_OIDC_CLIENT_ID=%s NEXTCLOUD_OIDC_CLIENT_SECRET=%s \
 ARGOCD_OIDC_CLIENT_ID=%s ARGOCD_OIDC_CLIENT_SECRET=%s \
 GRAFANA_OIDC_CLIENT_ID=%s GRAFANA_OIDC_CLIENT_SECRET=%s \
 OPENWEBUI_OIDC_CLIENT_ID=%s OPENWEBUI_OIDC_CLIENT_SECRET=%s \
@@ -100,8 +100,8 @@ ak shell < provision-app-providers.py''' % (
     os.getenv('TF_VAR_n8n_oidc_client_secret', 'dev-n8n-oidc-client-secret-not-for-prod-use'),
     os.getenv('TF_VAR_sonarqube_oidc_client_id', 'dev-sonarqube-oidc-client-id'),
     os.getenv('TF_VAR_sonarqube_oidc_client_secret', 'dev-sonarqube-oidc-client-secret-not-for-prod-use'),
-    os.getenv('TF_VAR_seafile_oidc_client_id', 'dev-seafile-oidc-client-id'),
-    os.getenv('TF_VAR_seafile_oidc_client_secret', 'dev-seafile-oidc-client-secret-not-for-prod-use'),
+    os.getenv('TF_VAR_nextcloud_oidc_client_id', 'dev-nextcloud-oidc-client-id'),
+    os.getenv('TF_VAR_nextcloud_oidc_client_secret', 'dev-nextcloud-oidc-client-secret-not-for-prod-use'),
     os.getenv('TF_VAR_argocd_oidc_client_id', 'dev-argocd-oidc-client-id'),
     os.getenv('TF_VAR_argocd_oidc_client_secret', 'dev-argocd-oidc-client-secret-not-for-prod-use'),
     os.getenv('TF_VAR_grafana_oidc_client_id', 'dev-grafana-oidc-client-id'),

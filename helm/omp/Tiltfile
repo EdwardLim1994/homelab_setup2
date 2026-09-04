@@ -1,0 +1,26 @@
+k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: omp'))
+
+docker_build('omp-box:dev', '.', dockerfile='./Dockerfile')
+
+# ponytail: Claude Code OAuth token (see .env / .env.example). Mounted into
+# every omp pod as CLAUDE_CODE_OAUTH_TOKEN so a pod can run `claude`
+# without an interactive login. Empty is fine — secretRef is optional.
+claude_code_token = os.getenv('TF_VAR_claude_code_token', '').strip()
+k8s_yaml(blob('''apiVersion: v1
+kind: Secret
+metadata:
+  name: omp-claude-auth
+  namespace: omp
+stringData:
+  CLAUDE_CODE_OAUTH_TOKEN: "''' + claude_code_token + '''"
+'''))
+
+k8s_yaml(helm(
+  '.',
+  name='omp',
+  namespace='omp',
+  # ponytail: Tilt always wants it running; the chart itself defaults to 0.
+  set=['replicas=1'],
+))
+
+k8s_resource('omp', port_forwards=['9110:4096'])

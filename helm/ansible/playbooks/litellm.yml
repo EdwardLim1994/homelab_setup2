@@ -1,0 +1,123 @@
+# litellm post-install: wait for the proxy, confirm models loaded, mint a
+# virtual key for OpenWebUI (so it stops using the raw master key — see the
+# TODO in helm/openwebui/values.yaml), store it in Secret
+# litellm/litellm-openwebui-key, and patch it into OpenWebUI's env.
+#
+#   scripts/ansible-run.sh litellm
+#
+# Idempotent: reuses the existing key if the Secret already holds a valid one.
+- name: litellm post-install
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    litellm_url: "http://litellm.litellm.svc.cluster.local:4000"
+    master_key: "{{ lookup('env', 'litellm_master_key') }}"
+    key_alias: openwebui
+    secret_ns: litellm
+    secret_name: litellm-openwebui-key
+  tasks:
+    - name: Wait for the proxy to be ready
+      ansible.builtin.uri:
+        url: "{{ litellm_url }}/health/readiness"
+        status_code: 200
+      register: ready
+      until: ready.status == 200
+      retries: 30
+      delay: 5
+
+    - name: List models
+      ansible.builtin.uri:
+        url: "{{ litellm_url }}/v1/models"
+        headers:
+          Authorization: "Bearer {{ master_key }}"
+      register: models
+
+    - name: Fail if no models loaded
+      ansible.builtin.assert:
+        that: models.json.data | length > 0
+        fail_msg: "litellm answered but has no models — check the config.yaml ConfigMap"
+
+    - name: Read existing key Secret (if any)
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        namespace: "{{ secret_ns }}"
+        name: "{{ secret_name }}"
+      register: existing
+
+    - name: Decode existing key
+      ansible.builtin.set_fact:
+        existing_key: "{{ (existing.resources[0].data.OPENAI_API_KEY | b64decode)
+                          if (existing.resources | length > 0
+                              and existing.resources[0].data.OPENAI_API_KEY is defined)
+                          else '' }}"
+
+    - name: Validate existing key still works
+      ansible.builtin.uri:
+        url: "{{ litellm_url }}/v1/models"
+        headers:
+          Authorization: "Bearer {{ existing_key }}"
+        status_code: [200, 401]
+      register: keycheck
+      when: existing_key | length > 0
+
+    - name: Mint a virtual key
+      ansible.builtin.uri:
+        url: "{{ litellm_url }}/key/generate"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ master_key }}"
+        body_format: json
+        body:
+          key_alias: "{{ key_alias }}"
+          models: []          # [] = all models the proxy knows
+          duration: null      # never expires
+        status_code: 200
+      register: newkey
+      when: existing_key | length == 0 or (keycheck.status | default(401)) != 200
+      no_log: true
+
+    - name: Settle on the key to store
+      ansible.builtin.set_fact:
+        api_key: "{{ newkey.json.key if (newkey is not skipped) else existing_key }}"
+
+    - name: Write it into the Secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ secret_name }}"
+            namespace: "{{ secret_ns }}"
+          stringData:
+            OPENAI_API_KEY: "{{ api_key }}"
+      no_log: true
+
+    - name: Patch the key into OpenWebUI's env
+      # ponytail: strategic-merge env patch, same as the other playbooks — a
+      # helm/tofu apply of the openwebui chart resets it to the master key, so
+      # re-run this after one.
+      kubernetes.core.k8s:
+        state: patched
+        api_version: apps/v1
+        kind: Deployment
+        namespace: openwebui
+        name: openwebui
+        definition:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: openwebui
+                    env:
+                      - name: OPENAI_API_KEY
+                        value: "{{ api_key }}"
+      no_log: true
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "litellm: {{ models.json.data | length }} models |
+              openwebui key {{ 'reused' if (newkey is skipped) else 'minted' }},
+              stored in {{ secret_ns }}/{{ secret_name }} + patched into openwebui env"

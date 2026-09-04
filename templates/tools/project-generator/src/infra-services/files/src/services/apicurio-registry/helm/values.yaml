@@ -1,3 +1,0 @@
-namespace: infra
-
-image: apicurio/apicurio-registry:3.0.6

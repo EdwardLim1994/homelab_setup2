@@ -1,0 +1,61 @@
+# omp gitlab auth: push a GitLab token from .env (via ansible-secrets)
+# into every omp pod as GITLAB_TOKEN / GITLAB_HOST — picked up by `glab`
+# and git clone against the in-cluster GitLab.
+#
+#   scripts/ansible-run.sh omp
+#
+# ponytail: strategic-merge env patch, same as mcp-servers.yml — a `helm`/tofu
+# apply of the omp chart overwrites it, so re-run this after one.
+- name: omp gitlab auth
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    oc_ns: omp
+    gitlab_host: "http://gitlab-webservice-default.gitlab.svc:8181"
+    token: "{{ lookup('env', 'omp_gitlab_token') | default('', true) }}"
+  tasks:
+    - name: Require a token
+      ansible.builtin.assert:
+        that: token | length > 0
+        fail_msg: >-
+          omp_gitlab_token is empty. Set TF_VAR_omp_gitlab_token in .env,
+          then: tofu apply -target=kubernetes_secret.ansible_secrets
+
+    - name: List omp Deployments
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ oc_ns }}"
+      register: deps
+
+    - name: Patch GITLAB_TOKEN / GITLAB_HOST into each omp container
+      kubernetes.core.k8s:
+        state: patched
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ oc_ns }}"
+        name: "{{ item.metadata.name }}"
+        definition:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: omp
+                    env:
+                      - name: GITLAB_TOKEN
+                        value: "{{ token }}"
+                      - name: GITLAB_HOST
+                        value: "{{ gitlab_host }}"
+      # ponytail: skip Deployments without an "omp" container (e.g. the
+      # adapter) — a strategic merge would otherwise add a bogus container.
+      when: "'omp' in (item.spec.template.spec.containers | map(attribute='name') | list)"
+      loop: "{{ deps.resources }}"
+      loop_control:
+        label: "{{ item.metadata.name }}"
+      no_log: true
+      register: patched
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "GITLAB_TOKEN set on: {{ patched.results | rejectattr('skipped', 'defined') | map(attribute='item.metadata.name') | list }}"

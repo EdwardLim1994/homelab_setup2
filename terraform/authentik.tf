@@ -22,8 +22,9 @@ resource "helm_release" "authentik" {
     value = var.authentik_db_password
   }
 
+  # ponytail: this wrapper chart's own plain postgres:16 StatefulSet (not bitnami)
   set_sensitive {
-    name  = "authentik.postgresql.auth.password"
+    name  = "postgres.password"
     value = var.authentik_db_password
   }
 
@@ -79,10 +80,14 @@ resource "null_resource" "authentik_github_source" {
     client_id     = var.github_oauth_client_id
     client_secret = var.github_oauth_client_secret
     admin_email   = var.admin_email
+    # ponytail: re-run on a fresh Authentik deploy — its DB is wiped on every
+    # cluster rebuild and the source/provider objects go with it, but the vars
+    # above don't change so nothing else would retrigger this.
+    authentik_release = helm_release.authentik.metadata[0].revision
   }
 
   provisioner "local-exec" {
-    interpreter = ["bash", "-c"]
+    interpreter = [local.bash_bin, "-c"]
     command     = "kubectl exec -i -n authentik deploy/authentik-server -- env GITHUB_OAUTH_CLIENT_ID=${var.github_oauth_client_id} GITHUB_OAUTH_CLIENT_SECRET=${var.github_oauth_client_secret} ADMIN_EMAIL=${var.admin_email} ak shell < \"${abspath(path.module)}/../helm/authentik/provision-github-source.py\""
   }
 
@@ -95,36 +100,38 @@ resource "null_resource" "authentik_github_source" {
 # provider that doesn't exist ("client not found" / login errors).
 resource "null_resource" "authentik_app_providers" {
   triggers = {
-    gitlab_id       = var.gitlab_oidc_client_id
-    gitlab_secret   = var.gitlab_oidc_client_secret
-    minio_id        = var.minio_oidc_client_id
-    minio_secret    = var.minio_oidc_client_secret
-    n8n_id          = var.n8n_oidc_client_id
-    n8n_secret      = var.n8n_oidc_client_secret
+    gitlab_id        = var.gitlab_oidc_client_id
+    gitlab_secret    = var.gitlab_oidc_client_secret
+    minio_id         = var.minio_oidc_client_id
+    minio_secret     = var.minio_oidc_client_secret
+    n8n_id           = var.n8n_oidc_client_id
+    n8n_secret       = var.n8n_oidc_client_secret
     sonarqube_id     = var.sonarqube_oidc_client_id
     sonarqube_secret = var.sonarqube_oidc_client_secret
-    seafile_id      = var.seafile_oidc_client_id
-    seafile_secret  = var.seafile_oidc_client_secret
-    argocd_id       = var.argocd_oidc_client_id
-    argocd_secret   = var.argocd_oidc_client_secret
-    grafana_id      = var.grafana_oidc_client_id
-    grafana_secret  = var.grafana_oidc_client_secret
+    nextcloud_id     = var.nextcloud_oidc_client_id
+    nextcloud_secret = var.nextcloud_oidc_client_secret
+    argocd_id        = var.argocd_oidc_client_id
+    argocd_secret    = var.argocd_oidc_client_secret
+    grafana_id       = var.grafana_oidc_client_id
+    grafana_secret   = var.grafana_oidc_client_secret
     openwebui_id     = var.openwebui_oidc_client_id
     openwebui_secret = var.openwebui_oidc_client_secret
-    litellm_id      = var.litellm_oidc_client_id
-    litellm_secret  = var.litellm_oidc_client_secret
-    admin_email     = var.admin_email
-    ts_host         = var.ts_host
-    script_hash     = filesha1("${path.module}/../helm/authentik/provision-app-providers.py")
+    litellm_id       = var.litellm_oidc_client_id
+    litellm_secret   = var.litellm_oidc_client_secret
+    admin_email      = var.admin_email
+    app_domain       = local.tailnet_domain
+    script_hash      = filesha1("${path.module}/../helm/authentik/provision-app-providers.py")
+    # ponytail: re-run on a fresh Authentik deploy (DB wiped on cluster rebuild).
+    authentik_release = helm_release.authentik.metadata[0].revision
   }
 
   provisioner "local-exec" {
-    interpreter = ["bash", "-c"]
+    interpreter = [local.bash_bin, "-c"]
     # ponytail: run a real script file, not an inline command string —
     # a long inline command with embedded quotes/redirection got mangled by
     # Windows CreateProcess argv re-escaping in a way a short two-token
     # command ("bash" + script path) sidesteps entirely.
-    command = "bash '${local_file.authentik_app_providers_script.filename}'"
+    command = "'${local.bash_bin}' '${local_file.authentik_app_providers_script.filename}'"
   }
 
   depends_on = [helm_release.authentik, local_file.authentik_app_providers_script]
@@ -143,12 +150,12 @@ resource "local_file" "authentik_app_providers_script" {
     "  MINIO_OIDC_CLIENT_ID='${var.minio_oidc_client_id}' MINIO_OIDC_CLIENT_SECRET='${var.minio_oidc_client_secret}' \\",
     "  N8N_OIDC_CLIENT_ID='${var.n8n_oidc_client_id}' N8N_OIDC_CLIENT_SECRET='${var.n8n_oidc_client_secret}' \\",
     "  SONARQUBE_OIDC_CLIENT_ID='${var.sonarqube_oidc_client_id}' SONARQUBE_OIDC_CLIENT_SECRET='${var.sonarqube_oidc_client_secret}' \\",
-    "  SEAFILE_OIDC_CLIENT_ID='${var.seafile_oidc_client_id}' SEAFILE_OIDC_CLIENT_SECRET='${var.seafile_oidc_client_secret}' \\",
+    "  NEXTCLOUD_OIDC_CLIENT_ID='${var.nextcloud_oidc_client_id}' NEXTCLOUD_OIDC_CLIENT_SECRET='${var.nextcloud_oidc_client_secret}' \\",
     "  ARGOCD_OIDC_CLIENT_ID='${var.argocd_oidc_client_id}' ARGOCD_OIDC_CLIENT_SECRET='${var.argocd_oidc_client_secret}' \\",
     "  GRAFANA_OIDC_CLIENT_ID='${var.grafana_oidc_client_id}' GRAFANA_OIDC_CLIENT_SECRET='${var.grafana_oidc_client_secret}' \\",
     "  OPENWEBUI_OIDC_CLIENT_ID='${var.openwebui_oidc_client_id}' OPENWEBUI_OIDC_CLIENT_SECRET='${var.openwebui_oidc_client_secret}' \\",
     "  LITELLM_OIDC_CLIENT_ID='${var.litellm_oidc_client_id}' LITELLM_OIDC_CLIENT_SECRET='${var.litellm_oidc_client_secret}' \\",
-    "  ADMIN_EMAIL='${var.admin_email}' TS_HOST='${var.ts_host}' \\",
+    "  ADMIN_EMAIL='${var.admin_email}' APP_DOMAIN='${local.tailnet_domain}' \\",
     "  ak shell < '${abspath(path.module)}/../helm/authentik/provision-app-providers.py'",
     "",
   ])

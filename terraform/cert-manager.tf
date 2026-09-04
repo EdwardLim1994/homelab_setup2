@@ -5,9 +5,9 @@ resource "kubernetes_namespace" "cert_manager" {
 }
 
 resource "helm_release" "cert_manager" {
-  name             = "cert-manager"
-  chart            = "${path.module}/../helm/cert-manager"
-  namespace        = kubernetes_namespace.cert_manager.metadata[0].name
+  name              = "cert-manager"
+  chart             = "${path.module}/../helm/cert-manager"
+  namespace         = kubernetes_namespace.cert_manager.metadata[0].name
   dependency_update = true
 
   values = [file("${path.module}/../helm/cert-manager/values.yaml")]
@@ -53,6 +53,18 @@ resource "kubectl_manifest" "homelab_ca" {
   YAML
 
   depends_on = [kubectl_manifest.selfsigned_bootstrap]
+}
+
+# ponytail: kubectl_manifest returns as soon as the Certificate object is
+# applied, not when cert-manager has issued it — so on a clean deploy the
+# openwebui `data.kubernetes_secret.homelab_ca` read races ahead of the secret
+# existing ("secret not found", whole apply fails). Block on the cert going
+# Ready. Needs kubectl on PATH (same as the other local-exec provisioners).
+resource "null_resource" "homelab_ca_ready" {
+  provisioner "local-exec" {
+    command = "kubectl wait --for=condition=Ready certificate/homelab-ca -n cert-manager --timeout=180s"
+  }
+  depends_on = [kubectl_manifest.homelab_ca]
 }
 
 resource "kubectl_manifest" "homelab_ca_issuer" {

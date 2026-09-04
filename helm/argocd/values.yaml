@@ -73,14 +73,14 @@ argo-cd:
       # ponytail: url must match the external Tailscale URL — ArgoCD embeds
       # it in the OIDC redirect_uri sent to Authentik. Wrong url = callback
       # mismatch error after login.
-      url: "https://__TS_HOST__:8450"
+      url: "__APP_URL__"
       # ponytail: oidc.config drives ArgoCD's built-in OIDC client (no Dex).
       # clientSecret is plain text here (ConfigMap, not Secret) because helm
       # template base64-encodes Secret values before rendered.replace() runs —
       # the placeholder would never match. Homelab trade-off: acceptable.
       oidc.config: |
         name: Authentik
-        issuer: https://__TS_HOST__:8443/application/o/argocd/
+        issuer: __AUTHENTIK_URL__/application/o/argocd/
         clientID: __ARGOCD_OIDC_CLIENT_ID__
         clientSecret: __ARGOCD_OIDC_CLIENT_SECRET__
         requestedScopes:

@@ -1,0 +1,107 @@
+# n8n post-deploy: owner setup -> mint API key -> seed SDLC flows.
+# Replaces the one-time-manual steps (n8n Settings -> API Keys). Idempotent:
+# skips owner setup if already done, always re-seeds flows (seed.sh upserts
+# by name). Flow JSON lives in helm/ansible/flows/, mounted at /flows.
+#
+#   scripts/ansible-run.sh n8n
+#   scripts/ansible-run.sh n8n --syntax-check     # parse-only self-check
+- name: n8n post-deploy
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    n8n_url: "{{ lookup('env', 'N8N_URL') }}"
+    owner_email: "{{ lookup('env', 'n8n_owner_email') }}"
+    owner_password: "{{ lookup('env', 'n8n_owner_password') }}"
+  tasks:
+    - name: Wait for n8n to answer
+      ansible.builtin.uri:
+        url: "{{ n8n_url }}/healthz"
+        status_code: 200
+      register: health
+      until: health.status == 200
+      retries: 30
+      delay: 5
+
+    - name: Read n8n settings
+      ansible.builtin.uri:
+        url: "{{ n8n_url }}/rest/settings"
+      register: settings
+
+    - name: Create owner account (first-run only)
+      when: settings.json.data.userManagement.showSetupOnFirstLoad | default(false)
+      ansible.builtin.uri:
+        url: "{{ n8n_url }}/rest/owner/setup"
+        method: POST
+        body_format: json
+        body:
+          email: "{{ owner_email }}"
+          firstName: Homelab
+          lastName: Admin
+          password: "{{ owner_password }}"
+        status_code: 200
+      register: setup_resp
+
+    - name: Log in (owner already existed)
+      when: not (settings.json.data.userManagement.showSetupOnFirstLoad | default(false))
+      ansible.builtin.uri:
+        url: "{{ n8n_url }}/rest/login"
+        method: POST
+        body_format: json
+        body:
+          emailOrLdapLoginId: "{{ owner_email }}"
+          password: "{{ owner_password }}"
+        status_code: 200
+      register: login_resp
+
+    # ponytail: n8n's auth is a single `n8n-auth` cookie on both responses.
+    - name: Capture auth cookie
+      ansible.builtin.set_fact:
+        n8n_auth: "{{ (setup_resp if setup_resp.skipped is not defined else login_resp).cookies['n8n-auth'] }}"
+
+    # ponytail: newer n8n requires an explicit scopes array on api-key creation.
+    # Ask the instance what scopes exist rather than hard-coding a list that
+    # drifts — 404 on older builds, so tolerate that and fall back to [].
+    - name: Get available API-key scopes
+      ansible.builtin.uri:
+        url: "{{ n8n_url }}/rest/api-keys/scopes"
+        headers:
+          Cookie: "n8n-auth={{ n8n_auth }}"
+        status_code: [200, 404]
+      register: scopes_resp
+
+    - name: Mint an API key
+      ansible.builtin.uri:
+        url: "{{ n8n_url }}/rest/api-keys"
+        method: POST
+        headers:
+          Cookie: "n8n-auth={{ n8n_auth }}"
+        body_format: json
+        body:
+          label: "ansible-{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+          expiresAt: null
+          scopes: "{{ scopes_resp.json.data | default(scopes_resp.json, true) | default([], true) }}"
+        status_code: [200, 201]
+      register: keyresp
+
+    - name: Extract raw key
+      ansible.builtin.set_fact:
+        n8n_api_key: "{{ keyresp.json.data.rawApiKey | default(keyresp.json.data.apiKey) }}"
+
+    - name: Seed flows with the existing seed.sh
+      ansible.builtin.command: bash /flows/seed.sh
+      environment:
+        N8N_URL: "{{ n8n_url }}"
+        N8N_API_KEY: "{{ n8n_api_key }}"
+      register: seed
+      changed_when: "'created' in seed.stdout or 'updated' in seed.stdout"
+
+    - name: seed.sh output
+      ansible.builtin.debug:
+        var: seed.stdout_lines
+
+    - name: Persist this key for terraform / other tools
+      ansible.builtin.debug:
+        msg: >-
+          API key minted. Put it in .env so `tofu apply` and Tilt reuse it:
+          TF_VAR_n8n_api_key={{ n8n_api_key }}

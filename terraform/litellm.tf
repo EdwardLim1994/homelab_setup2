@@ -6,15 +6,18 @@ resource "kubernetes_namespace" "litellm" {
 
 # ponytail: __PLACEHOLDER__ -> secret substitution, one replace() per key.
 locals {
-  litellm_values = replace(replace(replace(replace(replace(replace(replace(
+  litellm_values = replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
     file("${path.module}/../helm/litellm/values.yaml"),
     "__TS_HOST__", var.ts_host),
+    "__AUTHENTIK_URL__", local.authentik_url),
+    "__APP_URL__", local.app_url["litellm"]),
     "__LITELLM_DB_PASSWORD__", var.litellm_db_password),
     "__LITELLM_MASTER_KEY__", var.litellm_master_key),
     "__LITELLM_SALT_KEY__", var.litellm_salt_key),
     "__LITELLM_OIDC_CLIENT_ID__", var.litellm_oidc_client_id),
     "__LITELLM_OIDC_CLIENT_SECRET__", var.litellm_oidc_client_secret),
-  "__GITLAB_MCP_AUTH_TOKEN__", var.gitlab_mcp_auth_token)
+    "__GITLAB_MCP_AUTH_TOKEN__", var.gitlab_mcp_auth_token),
+  "__SONARQUBE_MCP_TOKEN__", var.sonarqube_mcp_token)
 }
 
 resource "helm_release" "litellm" {

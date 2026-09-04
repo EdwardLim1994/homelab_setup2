@@ -2,36 +2,24 @@ authentik:
   authentik:
     secret_key: ""  # set via terraform variable
     log_level: info
+    # ponytail: point at this wrapper chart's own plain postgres:16 /
+    # redis:7-alpine StatefulSets (templates/), NOT the goauthentik chart's
+    # bundled bitnami subcharts — bitnami sunset the free images. Same pattern
+    # as helm/n8n and helm/litellm.
     postgresql:
-      host: "authentik-postgresql"
+      host: "authentik-postgres"
+      name: "authentik"
+      user: "authentik"
       password: ""  # set via terraform variable
+    redis:
+      host: "authentik-redis"
 
+  # ponytail: bundled bitnami subcharts off — replaced by templates/postgres.yaml
+  # + templates/redis.yaml below.
   postgresql:
-    enabled: true
-    # ponytail: bitnami moved old image tags to bitnamilegacy on docker.io, upgrade image.tag when bumping chart
-    image:
-      repository: bitnamilegacy/postgresql
-    auth:
-      password: ""  # set via terraform variable
-    primary:
-      resources:
-        requests:
-          cpu: 50m
-          memory: 256Mi
-        limits:
-          memory: 512Mi
-
+    enabled: false
   redis:
-    enabled: true
-    image:
-      repository: bitnamilegacy/redis
-    master:
-      resources:
-        requests:
-          cpu: 25m
-          memory: 64Mi
-        limits:
-          memory: 128Mi
+    enabled: false
 
   server:
     replicas: 1
@@ -61,3 +49,28 @@ authentik:
         memory: 512Mi
       limits:
         memory: 1Gi
+
+# ponytail: consumed by templates/postgres.yaml + templates/redis.yaml (this
+# wrapper chart's own templates). Keep db name/user/password in sync with
+# authentik.authentik.postgresql above.
+postgres:
+  image: postgres:16
+  database: authentik
+  username: authentik
+  password: ""  # set via terraform / Tiltfile
+  storageSize: 4Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+redis:
+  image: redis:7-alpine
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      memory: 128Mi

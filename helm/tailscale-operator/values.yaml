@@ -1,0 +1,16 @@
+tailscale-operator:
+  # ponytail: oauth.clientId / oauth.clientSecret come from Tiltfile/terraform
+  # (.env: TF_VAR_tailscale_oauth_client_id / _secret). Create the OAuth client
+  # once in the Tailscale admin console (Settings -> OAuth clients) with write
+  # scope on Devices/Core and Keys/Auth Keys, and set tag:k8s-operator as a
+  # tagOwner of tag:k8s in the tailnet ACL. See helm/tailscale-operator/README
+  # note in terraform/tailscale.tf.
+  oauth:
+    clientId: ""
+    clientSecret: ""
+
+  # ponytail: chart default already creates the `tailscale` IngressClass and
+  # installs CRDs — nothing else to configure for L7 Ingress exposure. Each
+  # app opts in with `ingressClassName: tailscale` + `tls.hosts: [<name>]`.
+  operatorConfig:
+    hostname: "homelab-operator"

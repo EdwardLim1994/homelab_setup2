@@ -1,0 +1,79 @@
+# ponytail: one CronJob, permanently suspended, is the whole "ansible server".
+# scripts/ansible-run.sh does `kubectl create job --from=cronjob/ansible-runner`
+# to spawn a one-shot Job from this template, overriding PLAYBOOK / ANSIBLE_ARGS
+# via env. The pod runs the playbook and exits; ttlSecondsAfterFinished reaps it.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-runner
+  namespace: {{ .Release.Namespace }}
+# ponytail: no Role yet — n8n.yml only needs network access to the n8n Service.
+# Add a Role/RoleBinding here the first time a playbook uses kubernetes.core.k8s.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-playbooks
+  namespace: {{ .Release.Namespace }}
+data:
+{{ (.Files.Glob "playbooks/*.yml").AsConfig | indent 2 }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-runner
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  suspend: true
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: {{ .Values.ttlSecondsAfterFinished }}
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: {{ .Release.Name }}-runner
+          containers:
+            - name: ansible
+              image: {{ .Values.image | quote }}
+              command: ["sh", "-c"]
+              args:
+                - |
+                  set -e
+                  # seed.sh (reused by n8n.yml) needs curl/jq/bash; the k8s
+                  # playbooks need py3-kubernetes (the kubernetes.core collection
+                  # is already bundled in alpine/ansible). ~10s per run.
+                  apk add --no-cache --quiet bash curl jq py3-kubernetes
+                  exec ansible-playbook -i 'localhost,' -c local \
+                    ${ANSIBLE_ARGS:-} "/playbooks/${PLAYBOOK:-{{ .Values.defaultPlaybook }}}"
+              env:
+                - name: PLAYBOOK
+                  value: {{ .Values.defaultPlaybook | quote }}
+                - name: ANSIBLE_ARGS
+                  value: ""
+                - name: ANSIBLE_HOST_KEY_CHECKING
+                  value: "False"
+                - name: N8N_URL
+                  value: {{ .Values.n8nUrl | quote }}
+              # ponytail: every key in ansible-secrets becomes an env var;
+              # playbooks read them with lookup('env', '<key>').
+              envFrom:
+                - secretRef:
+                    name: ansible-secrets
+              resources: {{ .Values.resources | toYaml | nindent 16 }}
+              volumeMounts:
+                - name: playbooks
+                  mountPath: /playbooks
+                - name: flows
+                  mountPath: /flows
+          volumes:
+            - name: playbooks
+              configMap:
+                name: {{ .Release.Name }}-playbooks
+            - name: flows
+              # ponytail: the n8n SDLC flows live with the n8n chart; terraform
+              # (ansible.tf) mounts the same files here so they aren't duplicated.
+              configMap:
+                name: ansible-n8n-flows

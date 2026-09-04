@@ -1,0 +1,23 @@
+# ponytail: the runner is a suspended CronJob used purely as a reusable Job
+# template. It never fires on its own (suspend: true AND a schedule that can't
+# occur). Trigger a run with scripts/ansible-run.sh, which clones a Job from it.
+image: alpine/ansible:2.18.1
+
+# Feb 31 — a date that never exists, so even if un-suspended it stays dormant.
+schedule: "0 0 31 2 *"
+
+# k8s deletes the finished Job (and its pod) this many seconds after it ends.
+ttlSecondsAfterFinished: 600
+
+# Default playbook when scripts/ansible-run.sh is called with no argument.
+defaultPlaybook: site.yml
+
+# In-cluster n8n endpoint the n8n.yml playbook talks to.
+n8nUrl: "http://n8n.n8n.svc:5678"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 256Mi

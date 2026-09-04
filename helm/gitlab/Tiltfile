@@ -102,12 +102,12 @@ k8s_yaml(helm(
   namespace='gitlab',
   set=[
     'gitlab.global.initialRootPassword.secret=gitlab-initial-root-password',
-    'gitlab.postgresql.auth.password=' + gitlab_db_password,
+    'postgres.password=' + gitlab_db_password,
     # ponytail: GitLab bakes its own external URL into generated links,
     # including the internally-managed "GitLab Web IDE" OAuth app's callback
     # (https://<host>/-/ide/oauth_redirect). The chart has NO non-standard
-    # port support here, so GitLab is served on the tailnet's 443 (see
-    # scripts/tailscale-serve.sh) and only the host needs setting.
+    # port support here, so GitLab is served on the tailnet's 443 (Tailscale
+    # k8s operator, terraform/tailscale-ingress.tf) and only the host needs setting.
     'gitlab.global.hosts.https=true',
     'gitlab.global.hosts.gitlab.name=' + ts_host,
     'gitlab.global.hosts.gitlab.https=true',

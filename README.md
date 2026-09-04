@@ -1,7 +1,7 @@
 # homelab_setup2
 
 Self-hosted homelab on a local k3d cluster: Authentik SSO, GitLab, MinIO,
-n8n, SonarQube, Seafile, ArgoCD, an LGTM observability stack, OpenWebUI,
+n8n, SonarQube, Nextcloud, ArgoCD, an LGTM observability stack, OpenWebUI,
 LiteLLM, and a set of MCP servers for in-cluster coding agents.
 Every app gets SSO via Authentik and is reachable remotely over Tailscale.
 
@@ -39,13 +39,17 @@ Edit `.env`:
 - Everything else already has a working dev-placeholder default.
 
 ```bash
-./scripts/create-cluster.sh   # one-time: creates the k3d cluster
+./scripts/linux/create-cluster.sh   # one-time: creates the k3d cluster
 ```
+
+Scripts are grouped by platform: `scripts/linux/*.sh` (bash) and
+`scripts/windows/*.ps1` (PowerShell 7+). The two sets are equivalent — use
+whichever matches your shell.
 
 ### Development (Tilt)
 
 ```bash
-./scripts/dev-up.sh
+./scripts/linux/dev-up.sh
 ```
 
 This sources `.env` and runs `tilt up`. Opens the Tilt web UI; every app in
@@ -61,7 +65,7 @@ override with `K3D_CLUSTER_NAME`), update that line or export
 ### Production (Terraform)
 
 ```bash
-./scripts/gen-tfvars.sh              # regenerate terraform/local.auto.tfvars from .env
+./scripts/linux/gen-tfvars.sh              # regenerate terraform/local.auto.tfvars from .env
 cd terraform
 tofu init                            # first time only
 tofu plan
@@ -93,7 +97,7 @@ or the underlying Python script change.
 ### 1. Dev-fixed — leave them alone
 
 Passwords, DB passwords, encryption/salt keys, and every OIDC
-`client_id` / `client_secret` pair (gitlab, minio, n8n, sonarqube, seafile,
+`client_id` / `client_secret` pair (gitlab, minio, n8n, sonarqube, nextcloud,
 argocd, grafana, openwebui, litellm). Authentik trusts whatever value it's
 given, so a placeholder is exactly as real as a generated one. The whole
 cluster comes up with the shipped defaults untouched.
@@ -121,8 +125,8 @@ app is up, so the flow is: deploy once → generate → put in `.env` → redepl
 
 | Variable | How to generate | Needs app running first? | What breaks without it |
 |---|---|---|---|
-| `TF_VAR_github_oauth_client_id`<br>`TF_VAR_github_oauth_client_secret` | [github.com/settings/developers](https://github.com/settings/developers) → **New OAuth App**. Homepage: `https://<TS_HOST>:8443`. Authorization callback URL: `https://<TS_HOST>:8443/source/oauth/callback/github/` (confirm the exact path in Authentik → Directory → Federation & Social login → GitHub once it's up). Copy the client ID; **Generate a new client secret** and copy that. | No | Authentik admin login via GitHub |
-| `TF_VAR_claude_code_token` | On your own machine with Claude Code installed and logged in (Pro/Max): `claude setup-token` → opens a browser → paste the `sk-ant-oat01-…` line it prints. Long-lived (~1 yr), revocable at [claude.ai](https://claude.ai) → Settings. | No | opencode pods can't auth `claude` (they still start; opencode-via-Ollama still works) |
+| `TF_VAR_github_oauth_client_id`<br>`TF_VAR_github_oauth_client_secret` | [github.com/settings/developers](https://github.com/settings/developers) → **New OAuth App**. Homepage: `https://authentik.<tailnet_domain>`. Authorization callback URL: `https://authentik.<tailnet_domain>/source/oauth/callback/github/` (confirm the exact path in Authentik → Directory → Federation & Social login → GitHub once it's up). Copy the client ID; **Generate a new client secret** and copy that. | No | Authentik admin login via GitHub |
+| `TF_VAR_claude_code_token` | On your own machine with Claude Code installed and logged in (Pro/Max): `claude setup-token` → opens a browser → paste the `sk-ant-oat01-…` line it prints. Long-lived (~1 yr), revocable at [claude.ai](https://claude.ai) → Settings. | No | omp pods can't auth `claude` (they still start; omp-via-Ollama still works) |
 | `TF_VAR_n8n_api_key` | n8n UI → **Settings → API Keys → Create**. Must be created while logged in as the SSO account you normally use, or seeded workflows show "without permissions". | **Yes** — n8n | SDLC flows (`helm/n8n/flows/F-*.json`) aren't auto-seeded / re-seeded |
 | `TF_VAR_grafana_mcp_token` | Grafana → Administration → Users and access → **Service accounts** → add account (role: Editor/Admin) → **Add service account token** → copy. | **Yes** — Grafana | Grafana MCP server boots, every tool call 401s |
 | `TF_VAR_sonarqube_mcp_token` | SonarQube → **My Account → Security → Generate Token** (type: User Token) → copy (shown once). | **Yes** — SonarQube | SonarQube MCP server boots, every tool call 401s |
@@ -138,26 +142,34 @@ app is up, so the flow is: deploy once → generate → put in `.env` → redepl
 ### After editing `.env` for a Terraform deploy
 
 ```bash
-./scripts/gen-tfvars.sh            # regenerate terraform/local.auto.tfvars
+./scripts/linux/gen-tfvars.sh            # regenerate terraform/local.auto.tfvars
 cd terraform && tofu apply
 ```
 
-For Tilt, re-run `./scripts/dev-up.sh` (or just save any watched file — the
+For Tilt, re-run `./scripts/linux/dev-up.sh` (or just save any watched file — the
 Tiltfiles read `.env` on load).
 
 ## Accessing apps
 
 ```bash
-./scripts/list-urls.sh                        # print every app's URL + live status
-./scripts/port-forward-terraform-apps.sh       # start local port-forwards for all terraform-managed apps
-./scripts/tailscale-serve.sh                   # map each app's tailnet HTTPS port to its local port-forward
+./scripts/linux/list-urls.sh                        # print every app's URL + live status
 ```
 
-Every app is reachable two ways: `https://<TS_HOST>:<port>` from any device
-on your tailnet (see `scripts/tailscale-serve.sh` for the port map), or
-`https://<app>.local` locally (needs a `/etc/hosts` entry — or Windows
+Every app is reachable two ways: `https://<app>.<tailnet_domain>` from any
+device on your tailnet — provisioned by the **Tailscale Kubernetes operator**
+(`terraform/tailscale.tf`, `terraform/tailscale-ingress.tf`), one MagicDNS host
++ Let's Encrypt cert per app, no host-side port-forward — or `https://<app>.local`
+on the LAN (needs a `/etc/hosts` entry — or Windows
 `C:\Windows\System32\drivers\etc\hosts` — plus trusting the homelab's
 self-signed CA, `terraform/cert-manager.tf`'s `homelab-ca-issuer`).
+
+**One-time operator setup** (see the header comment in `terraform/tailscale.tf`):
+add `tag:k8s-operator` / `tag:k8s` tagOwners to the tailnet ACL, generate an
+OAuth client (Devices/Core + Keys/Auth Keys, write), and put its id/secret in
+`.env` as `TF_VAR_tailscale_oauth_client_id` / `_secret`.
+
+`scripts/{linux,windows}/port-forward-terraform-apps.*` is the pre-operator
+fallback — deprecated, kept for ad-hoc single-app debugging.
 
 `mcp-servers` has no ingress or tailscale port — it's ClusterIP-only,
 meant to be called from *inside* the cluster (a coding agent pod), not

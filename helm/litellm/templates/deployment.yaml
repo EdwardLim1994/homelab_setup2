@@ -12,6 +12,10 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}
+      annotations:
+        # ponytail: roll the pod whenever config.yaml changes — LiteLLM reads
+        # --config only at startup, so a bare cm update is invisible otherwise.
+        checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
     spec:
       initContainers:
         - name: wait-for-db

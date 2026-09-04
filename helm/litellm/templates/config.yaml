@@ -6,10 +6,10 @@
 #                       in OpenWebUI's picker; `ollama/*` wildcard routes any
 #                       other tag you pull later. OpenWebUI reaches these ONLY
 #                       through LiteLLM (its OLLAMA_BASE_URL is blank).
-#  - opencode[-<role>] : opencode pods, via opencode-adapter (OpenAI shim).
+#  - omp[-<role>] : omp pods, via omp-adapter (OpenAI shim).
 #                        Role pods are scale-to-zero; the adapter scales them
 #                        up on first request.
-#  - pass_through /opencode[-<role>]/* : raw opencode serve API, auth'd+logged
+#  - pass_through /omp[-<role>]/* : omp pods' OpenAI API, auth'd+logged
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -29,16 +29,16 @@ data:
         litellm_params:
           model: "ollama_chat/*"
           api_base: {{ .Values.ollamaBaseUrl | quote }}
-      - model_name: opencode
+      - model_name: omp
         litellm_params:
-          model: openai/opencode
-          api_base: http://opencode-adapter.opencode.svc.cluster.local:8000/v1
+          model: openai/omp
+          api_base: http://omp-adapter.omp.svc.cluster.local:8000/v1
           api_key: "dummy"
-      {{- range $r := .Values.opencodeRoles }}
-      - model_name: opencode-{{ $r }}
+      {{- range $r := .Values.ompRoles }}
+      - model_name: omp-{{ $r }}
         litellm_params:
-          model: openai/opencode-{{ $r }}
-          api_base: http://opencode-adapter.opencode.svc.cluster.local:8000/v1
+          model: openai/omp-{{ $r }}
+          api_base: http://omp-adapter.omp.svc.cluster.local:8000/v1
           api_key: "dummy"
       {{- end }}
 
@@ -56,6 +56,11 @@ data:
         url: "http://mcp-servers-sonarqube.mcp-servers.svc.cluster.local:8080/mcp"
         transport: "http"
         description: "SonarQube code quality"
+        # ponytail: HTTP-mode sonarqube-mcp wants the SonarQube token per request
+        # (Authorization: Bearer), not from its own env. Same token as
+        # TF_VAR_sonarqube_mcp_token / the server's SONARQUBE_TOKEN.
+        auth_type: "bearer_token"
+        auth_value: {{ .Values.mcpSonarqubeAuthToken | quote }}
       gitlab:
         url: "http://mcp-servers-gitlab.mcp-servers.svc.cluster.local:3002/mcp"
         transport: "http"
@@ -69,14 +74,14 @@ data:
 
     general_settings:
       pass_through_endpoints:
-        - path: "/opencode"
-          target: "http://opencode.opencode.svc.cluster.local:4096"
+        - path: "/omp"
+          target: "http://omp.omp.svc.cluster.local:4096"
           include_subpath: true
           forward_headers: true
           methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-      {{- range $r := .Values.opencodeRoles }}
-        - path: "/opencode-{{ $r }}"
-          target: "http://opencode-{{ $r }}.opencode.svc.cluster.local:4096"
+      {{- range $r := .Values.ompRoles }}
+        - path: "/omp-{{ $r }}"
+          target: "http://omp-{{ $r }}.omp.svc.cluster.local:4096"
           include_subpath: true
           forward_headers: true
           methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]

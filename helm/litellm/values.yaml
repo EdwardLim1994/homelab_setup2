@@ -6,6 +6,11 @@ image:
 # STREAMABLE_HTTP_AUTH_TOKEN). Same value as TF_VAR_gitlab_mcp_auth_token.
 mcpGitlabAuthToken: "__GITLAB_MCP_AUTH_TOKEN__"
 
+# ponytail: SonarQube user token LiteLLM forwards to the sonarqube MCP server
+# as `Authorization: Bearer` (HTTP mode needs it per request). Same value as
+# TF_VAR_sonarqube_mcp_token.
+mcpSonarqubeAuthToken: "__SONARQUBE_MCP_TOKEN__"
+
 # ponytail: the host's Ollama, reached from the cluster via k3d's built-in
 # host alias. `ollama_chat/*` provider — no /v1 suffix. `ollamaModels` are the
 # tags shown by name in OpenWebUI's picker; add/remove to match `ollama list`.
@@ -28,13 +33,13 @@ env:
   # ponytail: browser-navigated endpoint must use Tailscale HTTPS (external).
   # Token and userinfo are server-side calls — use in-cluster HTTP to avoid
   # self-signed cert validation against homelab CA.
-  GENERIC_AUTHORIZATION_ENDPOINT: "https://__TS_HOST__:8443/application/o/authorize/"
+  GENERIC_AUTHORIZATION_ENDPOINT: "__AUTHENTIK_URL__/application/o/authorize/"
   GENERIC_TOKEN_ENDPOINT: "http://authentik-server.authentik.svc.cluster.local/application/o/token/"
   GENERIC_USERINFO_ENDPOINT: "http://authentik-server.authentik.svc.cluster.local/application/o/userinfo/"
   GENERIC_SCOPE: "openid profile email litellm_role"
   GENERIC_USER_ROLE_ATTRIBUTE: "litellm_role"
-  PROXY_BASE_URL: "https://__TS_HOST__:8453"
-  PROXY_LOGOUT_URL: "https://__TS_HOST__:8443/application/o/litellm/end-session/"
+  PROXY_BASE_URL: "__APP_URL__"
+  PROXY_LOGOUT_URL: "__AUTHENTIK_URL__/application/o/litellm/end-session/"
   AUTO_REDIRECT_UI_LOGIN_TO_SSO: "true"
 
 resources:
@@ -44,11 +49,11 @@ resources:
   limits:
     memory: 2Gi
 
-# ponytail: one LiteLLM pass-through route per opencode role pod
-# (/opencode-<role> -> opencode-<role>.opencode.svc:4096). Duplicated from
-# helm/opencode/values.yaml `roles:` — n8n can't read that chart. Keep in sync,
+# ponytail: one LiteLLM pass-through route per omp role pod
+# (/omp-<role> -> omp-<role>.omp.svc:4096). Duplicated from
+# helm/omp/values.yaml `roles:` — n8n can't read that chart. Keep in sync,
 # or drop a name here to stop routing to it.
-opencodeRoles:
+ompRoles:
   - backend-developer
   - data-engineer
   - devops-engineer

@@ -11,7 +11,14 @@ resource "helm_release" "minio" {
   timeout           = 600
   dependency_update = true
 
-  values = [replace(file("${path.module}/../helm/minio/values.yaml"), "__TS_HOST__", var.ts_host)]
+  values = [
+    replace(replace(replace(replace(
+      file("${path.module}/../helm/minio/values.yaml"),
+      "__TS_HOST__", var.ts_host),
+      "__AUTHENTIK_URL__", local.authentik_url),
+      "__APP_URL__", local.app_url["minio"]),
+    "__CONSOLE_URL__", local.app_url["minio-console"]),
+  ]
 
   set_sensitive {
     name  = "minio.rootPassword"

@@ -48,9 +48,9 @@ sonarqube:
   # apps). Server base URL uses the tailscale hostname so the browser
   # redirect and the plugin's own redirect URI agree on the same authority.
   sonarProperties:
-    sonar.core.serverBaseURL: "https://__TS_HOST__:8448"
+    sonar.core.serverBaseURL: "__APP_URL__"
     sonar.auth.oidc.enabled: "true"
-    sonar.auth.oidc.issuerUri: "https://__TS_HOST__:8443/application/o/sonarqube/"
+    sonar.auth.oidc.issuerUri: "__AUTHENTIK_URL__/application/o/sonarqube/"
     # sonar.auth.oidc.clientId.secured set via Tiltfile/terraform (.env)
     sonar.auth.oidc.loginButtonText: "Log in with Authentik"
 
@@ -61,9 +61,14 @@ sonarqube:
   # dev-fixed OIDC secrets.
   sonarSecretProperties: sonarqube-oidc-secret
 
+  # ponytail: use this wrapper chart's own plain postgres:16 StatefulSet
+  # (templates/postgres.yaml), not the bitnami subchart the SonarSource chart
+  # would bundle — bitnami sunset the free images.
+  postgresql:
+    enabled: false
   jdbcOverwrite:
     enabled: true
-    jdbcUrl: "jdbc:postgresql://sonarqube-postgresql:5432/sonarqube"
+    jdbcUrl: "jdbc:postgresql://sonarqube-postgres:5432/sonarqube"
     jdbcUsername: "sonarqube"
 
   ingress:
@@ -78,18 +83,17 @@ sonarqube:
         hosts:
           - sonarqube.local
 
-postgresql:
-  # ponytail: bitnami moved old image tags to bitnamilegacy on docker.io,
-  # same fix as gitlab's postgresql subchart.
-  image:
-    repository: bitnamilegacy/postgresql
-  auth:
-    username: sonarqube
-    database: sonarqube
-  primary:
-    resources:
-      requests:
-        cpu: 50m
-        memory: 256Mi
-      limits:
-        memory: 512Mi
+# ponytail: consumed by templates/postgres.yaml (this wrapper chart's own
+# template). Keep in sync with sonarqube.jdbcOverwrite above.
+postgres:
+  image: postgres:16
+  database: sonarqube
+  username: sonarqube
+  password: ""  # set via terraform / Tiltfile
+  storageSize: 5Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi

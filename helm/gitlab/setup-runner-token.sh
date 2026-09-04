@@ -5,8 +5,23 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-TOKEN=$(kubectl exec -i -n gitlab deploy/gitlab-webservice-default -c webservice -- sh < runner-auth-token.sh \
-  | grep -o 'RUNNER_AUTH_TOKEN=[^[:space:]]*' | cut -d= -f2 || true)
+# ponytail: pass the root password through so runner-auth-token.sh can create
+# the root admin if the chart never seeded one.
+ROOT_PW=$(kubectl get secret -n gitlab gitlab-initial-root-password -o jsonpath='{.data.password}' | base64 -d)
+
+# ponytail: a fresh `helm upgrade` rolls gitlab-postgresql, which then does crash
+# recovery for ~2-3 min on local-path storage ("the database system is starting
+# up" / "Connection refused"). Retry the whole thing instead of failing the
+# apply — 40 x 15s = 10 min ceiling.
+TOKEN=""
+for i in $(seq 1 40); do
+  OUT=$(kubectl exec -i -n gitlab deploy/gitlab-webservice-default -c webservice -- \
+    env GITLAB_ROOT_PASSWORD="$ROOT_PW" sh < runner-auth-token.sh 2>&1 || true)
+  TOKEN=$(printf '%s' "$OUT" | grep -o 'RUNNER_AUTH_TOKEN=[^[:space:]]*' | cut -d= -f2 || true)
+  [ -n "$TOKEN" ] && break
+  echo "gitlab not ready yet (attempt $i/40): $(printf '%s' "$OUT" | grep -viE '^\s+from ' | tail -1)" >&2
+  sleep 15
+done
 
 if [ -z "${TOKEN:-}" ]; then
   echo "could not obtain runner auth token from gitlab" >&2

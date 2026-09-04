@@ -1,6 +1,0 @@
-dependencies:
-- name: seafile
-  repository: https://geek-cookbook.github.io/charts/
-  version: 3.2.0
-digest: sha256:f0bd1a423b148f8c31f21f485706d1aab8e30e5e5d60c5b89741078c8c3f0ccd
-generated: "2026-08-24T11:18:33.431542867+08:00"

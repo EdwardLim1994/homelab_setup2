@@ -15,6 +15,6 @@ metadata:
     grafana_dashboard: "1"
 data:
   {{ $name }}.json: |-
-{{ $.Files.Get $path | indent 4 }}
+{{ $.Files.Get $path | replace "__TS_HOST__" $.Values.tsHost | replace "__TAILNET_DOMAIN__" $.Values.tailnetDomain | indent 4 }}
 ---
 {{- end }}

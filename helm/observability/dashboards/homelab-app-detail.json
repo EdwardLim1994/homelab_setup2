@@ -17,7 +17,7 @@
         "label": "App (namespace)",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": "label_values(kube_pod_info{namespace!~\"opencode|observability|kube-system|kube-node-lease|kube-public|cert-manager|local-path-storage\"}, namespace)",
+        "query": "label_values(kube_pod_info{namespace!~\"observability|kube-system|kube-node-lease|kube-public|cert-manager|local-path-storage\"}, namespace)",
         "includeAll": false,
         "multi": false,
         "refresh": 2,
@@ -49,7 +49,7 @@
       "type": "text",
       "transparent": true,
       "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
-      "options": { "mode": "markdown", "content": "[Homelab Overview](/d/homelab-overview/homelab-overview) &nbsp;&rsaquo;&nbsp; Homelab App Detail &nbsp;&rsaquo;&nbsp; **$namespace**" }
+      "options": { "mode": "markdown", "content": "[Homelab Overview](/d/homelab-overview/homelab-overview) &nbsp;&rsaquo;&nbsp; Homelab App Detail &nbsp;&rsaquo;&nbsp; **[$namespace](https://$namespace.__TAILNET_DOMAIN__)** &nbsp;&rsaquo;&nbsp; [open site &rarr;](https://$namespace.__TAILNET_DOMAIN__)" }
     },
 
     { "title": "$namespace — site health", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 2 } },

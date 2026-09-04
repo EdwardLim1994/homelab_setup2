@@ -1,7 +1,9 @@
 openwebui_oidc_client_id     = os.getenv('TF_VAR_openwebui_oidc_client_id', 'dev-openwebui-oidc-client-id')
 openwebui_oidc_client_secret = os.getenv('TF_VAR_openwebui_oidc_client_secret', 'dev-openwebui-oidc-client-secret-not-for-prod-use')
 litellm_master_key           = os.getenv('TF_VAR_litellm_master_key', 'sk-dev-litellm-master-key-not-for-prod-use')
-ts_host                      = os.getenv('TS_HOST', '')
+tailnet_domain               = os.getenv('TF_VAR_tailnet_domain', '') or os.getenv('TS_HOST', '').split('.', 1)[-1]
+app_url                      = 'https://openwebui.' + tailnet_domain if tailnet_domain else 'https://openwebui.local'
+authentik_url                = 'https://authentik.' + tailnet_domain if tailnet_domain else 'https://authentik.local'
 
 # ponytail: extract CA cert (already base64-encoded in Secret data) and inject
 # into openwebui namespace so OpenWebUI can trust homelab's self-signed TLS
@@ -29,7 +31,8 @@ rendered = str(helm('.', name='openwebui', namespace='openwebui'))
 rendered = rendered.replace('__OPENWEBUI_OIDC_CLIENT_ID__', openwebui_oidc_client_id)
 rendered = rendered.replace('__OPENWEBUI_OIDC_CLIENT_SECRET__', openwebui_oidc_client_secret)
 rendered = rendered.replace('__LITELLM_MASTER_KEY__', litellm_master_key)
-rendered = rendered.replace('__TS_HOST__', ts_host)
+rendered = rendered.replace('__AUTHENTIK_URL__', authentik_url)
+rendered = rendered.replace('__APP_URL__', app_url)
 
 k8s_yaml(blob(rendered))
 

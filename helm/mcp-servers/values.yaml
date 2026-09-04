@@ -11,7 +11,13 @@ defaultResources:
 servers:
   grafana:
     image: grafana/mcp-grafana:latest
-    args: ["-t", "streamable-http", "--address", ":8000"]
+    # ponytail: override the image's baked entrypoint flags
+    # (`--transport sse --address 0.0.0.0:8000`) so `args` is the whole set.
+    command: ["/app/mcp-grafana"]
+    # ponytail: -allowed-hosts "*" — LiteLLM's MCP client connects by Service
+    # DNS, so mcp-grafana's DNS-rebind Host-header check 403s it otherwise.
+    # "*" is safe here: only in-cluster traffic can reach :8000.
+    args: ["-transport", "streamable-http", "-address", "0.0.0.0:8000", "-allowed-hosts", "*", "-allowed-origins", "*"]
     port: 8000
     env:
       GRAFANA_URL: http://observability-grafana.observability.svc.cluster.local
@@ -20,13 +26,26 @@ servers:
   sonarqube:
     image: sonarsource/sonarqube-mcp:latest
     port: 8080
+    # ponytail: JVM server + downloads analyzer plugins on boot — OOMKills
+    # (exit 137, CrashLoopBackOff) at the 256Mi default. 1Gi limit gives the
+    # container-aware JVM enough headroom; drop it if analyzer set shrinks.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
     env:
       SONARQUBE_TRANSPORT: "http"
       SONARQUBE_HTTP_PORT: "8080"
       SONARQUBE_HTTP_HOST: "0.0.0.0"
       SONARQUBE_MCP_IN_CONTAINER: "true"
       SONARQUBE_URL: http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000
-      SONARQUBE_TOKEN: ""  # set via Tiltfile/terraform
+      # ponytail: used only for this server's background plugin sync. In HTTP
+      # mode the per-request token comes from the caller's `Authorization:
+      # Bearer` header (LiteLLM sends it — see helm/litellm mcpSonarqubeAuthToken).
+      # Must be a VALID SonarQube user token or bg init logs "Not authorized".
+      SONARQUBE_TOKEN: ""  # set via Tiltfile/terraform (TF_VAR_sonarqube_mcp_token)
 
   gitlab:
     # ponytail: NOT mcp/gitlab (Docker's own catalog wrapper, stdio-only) —
@@ -38,6 +57,9 @@ servers:
       STREAMABLE_HTTP: "true"
       HOST: "0.0.0.0"
       PORT: "3002"
+      # ponytail: without this the /mcp DNS-rebind guard 403s any request whose
+      # Host header isn't loopback — LiteLLM connects by this Service DNS name.
+      MCP_SERVER_URL: "http://mcp-servers-gitlab.mcp-servers.svc.cluster.local:3002"
       GITLAB_API_URL: http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/api/v4
       GITLAB_PERSONAL_ACCESS_TOKEN: ""  # set via Tiltfile/terraform
       # ponytail: server holds a static PAT (not per-client OAuth), so this
@@ -48,7 +70,9 @@ servers:
   playwright:
     image: mcr.microsoft.com/playwright/mcp:latest
     command: ["node", "/app/cli.js"]
-    args: ["--headless", "--browser", "chromium", "--no-sandbox", "--port", "8931", "--host", "0.0.0.0"]
+    # ponytail: --allowed-hosts "*" — same DNS-rebind guard as the others; the
+    # server otherwise 403s anything not hitting it as localhost:8931.
+    args: ["--headless", "--browser", "chromium", "--no-sandbox", "--port", "8931", "--host", "0.0.0.0", "--allowed-hosts", "*"]
     port: 8931
     # ponytail: real chromium instance, not a thin API wrapper — needs more
     # than the other servers' default resources.

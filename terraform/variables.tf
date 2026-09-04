@@ -41,6 +41,32 @@ variable "ts_host" {
   type = string
 }
 
+# ponytail: MagicDNS suffix of the tailnet (everything after the first label of
+# ts_host). Each app's tailscale Ingress is reachable at <app>.<tailnet_domain>.
+variable "tailnet_domain" {
+  type    = string
+  default = ""
+}
+
+variable "bash_bin" {
+  type    = string
+  default = ""
+  # Override only if Git Bash isn't at the default Windows path. Empty =
+  # auto-detect (see locals.tf bash_bin).
+}
+
+variable "tailscale_oauth_client_id" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "tailscale_oauth_client_secret" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
 variable "gitlab_root_password" {
   type      = string
   sensitive = true
@@ -107,6 +133,25 @@ variable "n8n_api_key" {
   default   = "" # create in n8n Settings -> API Keys; enables flow seeding
 }
 
+variable "n8n_owner_password" {
+  type      = string
+  sensitive = true
+  default   = "Homelab-n8n-Dev-2026" # n8n requires an uppercase letter + digit
+  # owner account the ansible n8n.yml playbook creates; email is admin_email
+}
+
+variable "n8n_db_password" {
+  type      = string
+  sensitive = true
+  default   = "dev-n8n-db-password-not-for-prod-use"
+}
+
+variable "omp_gitlab_token" {
+  type      = string
+  sensitive = true
+  default   = "" # GitLab token pushed into every omp pod by ansible omp.yml
+}
+
 variable "sonarqube_db_password" {
   type      = string
   sensitive = true
@@ -131,40 +176,34 @@ variable "sonarqube_oidc_client_secret" {
   default   = "dev-sonarqube-oidc-client-secret-not-for-prod-use"
 }
 
-variable "seafile_db_password" {
+variable "nextcloud_db_password" {
   type      = string
   sensitive = true
-  default   = "dev-seafile-db-password"
+  default   = "dev-nextcloud-db-password"
 }
 
-variable "seafile_db_root_password" {
+variable "nextcloud_db_root_password" {
   type      = string
   sensitive = true
-  default   = "dev-seafile-db-root-password"
+  default   = "dev-nextcloud-db-root-password"
 }
 
-variable "seafile_admin_password" {
+variable "nextcloud_admin_password" {
   type      = string
   sensitive = true
-  default   = "dev-seafile-admin-password"
+  default   = "dev-nextcloud-admin-password"
 }
 
-variable "seafile_oidc_client_id" {
+variable "nextcloud_oidc_client_id" {
   type      = string
   sensitive = true
-  default   = "dev-seafile-oidc-client-id"
+  default   = "dev-nextcloud-oidc-client-id"
 }
 
-variable "seafile_oidc_client_secret" {
+variable "nextcloud_oidc_client_secret" {
   type      = string
   sensitive = true
-  default   = "dev-seafile-oidc-client-secret-not-for-prod-use"
-}
-
-variable "seafile_jwt_private_key" {
-  type      = string
-  sensitive = true
-  default   = "dev-seafile-jwt-private-key-not-for-prod-use"
+  default   = "dev-nextcloud-oidc-client-secret-not-for-prod-use"
 }
 
 
@@ -271,7 +310,7 @@ variable "gitlab_mcp_auth_token" {
 }
 
 # Long-lived Claude Code OAuth token (`claude setup-token`) for the `claude` CLI
-# inside opencode pods. Blank = pods still start, `claude` just has no auth.
+# inside omp pods. Blank = pods still start, `claude` just has no auth.
 variable "claude_code_token" {
   type      = string
   sensitive = true

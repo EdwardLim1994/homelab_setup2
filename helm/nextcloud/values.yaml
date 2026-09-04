@@ -1,0 +1,133 @@
+nextcloud:
+  nextcloud:
+    # ponytail: ingress rule host stays the LAN name; the tailnet name is the
+    # "real" external URL Nextcloud bakes into generated links, injected via
+    # OVERWRITEHOST/CLIURL below. __APP_HOST__ (no scheme) / __APP_URL__ (with
+    # https) are string-replaced by terraform + Tiltfile with the tailscale
+    # operator MagicDNS name (nextcloud.<tailnet>.ts.net).
+    host: nextcloud.local
+    username: admin
+    password: ""  # set via Tiltfile/terraform
+    extraEnv:
+      # ponytail: both names must be trusted or Nextcloud 400s the request whose
+      # Host header it doesn't recognise (tailnet host arrives via the operator).
+      - name: NEXTCLOUD_TRUSTED_DOMAINS
+        value: "nextcloud.local __APP_HOST__"
+      - name: OVERWRITEHOST
+        value: __APP_HOST__
+      - name: OVERWRITEPROTOCOL
+        value: https
+      - name: OVERWRITECLIURL
+        value: __APP_URL__
+      # ponytail: traefik pod (cluster CIDR) + tailscale operator proxy
+      # (100.64/10 CGNAT) sit in front — without this, X-Forwarded-* is
+      # ignored and every generated link points at the in-pod address.
+      - name: TRUSTED_PROXIES
+        value: "10.0.0.0/8 100.64.0.0/10"
+    # ponytail: single pod, so APCu local cache is enough — no redis subchart,
+    # no "don't name the Service 'redis'" dance seafile needed. apcu.config.php
+    # is on by default via defaultConfigs.
+
+    # ponytail: chart default fsGroupChangePolicy is Always, so the kubelet
+    # recursively chowns all ~15k files of the data PVC on every pod start —
+    # minutes of stall on local-path storage, and it made helm --wait time out
+    # ("Setting volume ownership ... is taking longer than expected"). This
+    # replaces the chart's default block, so fsGroup: 33 must stay. OnRootMismatch
+    # only chowns when the volume root's gid is wrong (i.e. first boot only).
+    podSecurityContext:
+      fsGroup: 33
+      fsGroupChangePolicy: OnRootMismatch
+
+  # ponytail: OAuth wiring via `occ` in postStart — the chart has no init
+  # hook-point after the entrypoint's first-boot install. Polls until installed,
+  # then every boot re-applies the Social Login provider so URL changes take
+  # effect. Key is nextcloud.lifecycle (chart root), NOT nextcloud.nextcloud.*.
+  # __AUTHENTIK_URL__ / __NEXTCLOUD_OIDC_CLIENT_ID__ / _SECRET__ are string-
+  # replaced on the rendered YAML by terraform + Tiltfile (not --set — this is
+  # one multi-line shell string). authorizeUrl is the external tailnet URL (the
+  # browser hits it); token + userinfo are in-cluster http (the pod hits them).
+  lifecycle:
+    postStartCommand:
+      - /bin/sh
+      - -c
+      - |
+        OCC="runuser -u www-data -- php /var/www/html/occ"
+        i=0
+        until $OCC status 2>/dev/null | grep -q 'installed: true'; do
+          i=$((i+1)); [ $i -ge 240 ] && exit 0; sleep 2
+        done
+        $OCC app:install sociallogin 2>/dev/null || $OCC app:enable sociallogin || true
+        $OCC config:system:set allow_local_remote_servers --type=boolean --value=true
+        $OCC config:app:set sociallogin custom_providers --value='{"custom_oidc":[{"name":"authentik","title":"Authentik","authorizeUrl":"__AUTHENTIK_URL__/application/o/authorize/","tokenUrl":"http://authentik-server.authentik.svc.cluster.local/application/o/token/","userInfoUrl":"http://authentik-server.authentik.svc.cluster.local/application/o/userinfo/","logoutUrl":"","clientId":"__NEXTCLOUD_OIDC_CLIENT_ID__","clientSecret":"__NEXTCLOUD_OIDC_CLIENT_SECRET__","scope":"openid profile email","groupsClaim":"groups","displayNameClaim":"name","style":"","defaultGroup":""}]}'
+        $OCC config:app:set sociallogin update_profile_on_login --value=1
+        $OCC config:app:set sociallogin disable_registration --value=0
+        # ponytail: auto-redirect login page straight to Authentik. Reach the
+        # local login form at /login?noredir=1 if you ever need it.
+        $OCC config:system:set social_login_auto_redirect --type=boolean --value=true
+
+  # ponytail: first boot rsyncs ~10k files of /var/www/html onto local-path
+  # storage (slow on a Docker-Desktop bind mount) - the default liveness probe
+  # SIGKILLs the container mid-init (exit 137) and it never finishes. startupProbe
+  # suspends liveness until install completes; 120 x 10s = 20 min ceiling. Raise
+  # failureThreshold if a fresh PVC still gets killed.
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 120
+
+  internalDatabase:
+    enabled: false
+
+  # ponytail: bundled bitnami mariadb off — replaced by templates/mariadb.yaml
+  # (plain official mariadb:11 image, same pattern as helm/n8n's postgres).
+  mariadb:
+    enabled: false
+  externalDatabase:
+    enabled: true
+    type: mysql
+    host: nextcloud-mariadb
+    database: nextcloud
+    user: nextcloud
+    password: ""  # set via Tiltfile/terraform
+
+  redis:
+    enabled: false
+
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 20Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1536Mi
+
+  ingress:
+    enabled: true
+    className: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: homelab-ca-issuer
+    tls:
+      - secretName: nextcloud.local-tls
+        hosts:
+          - nextcloud.local
+
+# ponytail: consumed by templates/mariadb.yaml (this wrapper chart's own
+# template). Keep database/user/password in sync with nextcloud.externalDatabase.
+mariadb:
+  image: mariadb:11.4
+  database: nextcloud
+  username: nextcloud
+  password: ""       # set via terraform / Tiltfile
+  rootPassword: ""   # set via terraform / Tiltfile
+  storageSize: 4Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi

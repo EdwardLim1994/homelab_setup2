@@ -3,7 +3,12 @@ charts/*.tgz
 k3d-storage/
 terraform/local.auto.tfvars
 terraform/.authentik-app-providers.sh
-terraform/.seafile-promote-admin.sh
+terraform/.nextcloud-promote-admin.sh
 terraform/.gitlab-promote-admin.sh
+terraform/.gitlab-runner-auth-token.sh
 
 /**/*/node_modules/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/tfplan
+helm/**/tmpcharts*/

@@ -22,20 +22,27 @@ terraform {
   }
 }
 
+# ponytail: override with TF_VAR_kube_context if your cluster isn't named
+# "internal" (create-cluster.sh default -> context "k3d-internal").
+variable "kube_context" {
+  type    = string
+  default = "k3d-internal"
+}
+
 provider "helm" {
   kubernetes {
     config_path    = "~/.kube/config"
-    config_context = "k3d-internal"
+    config_context = var.kube_context
   }
 }
 
 provider "kubernetes" {
   config_path    = "~/.kube/config"
-  config_context = "k3d-internal"
+  config_context = var.kube_context
 }
 
 provider "kubectl" {
   config_path      = "~/.kube/config"
-  config_context   = "k3d-internal"
+  config_context   = var.kube_context
   load_config_file = true
 }

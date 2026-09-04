@@ -1,0 +1,7 @@
+# ponytail: flows/ is mounted into the runner via terraform's
+# kubernetes_config_map.ansible_n8n_flows, not templated by this chart — keep it
+# out of the release Secret.
+flows/
+
+.git/
+*.tmp

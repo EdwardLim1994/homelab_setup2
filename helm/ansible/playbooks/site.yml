@@ -1,0 +1,6 @@
+# ponytail: the "run everything" entrypoint. Add post-deploy playbooks here as
+# they get migrated in. scripts/ansible-run.sh with no argument runs this.
+- import_playbook: n8n.yml
+- import_playbook: mcp-servers.yml
+- import_playbook: omp.yml
+- import_playbook: litellm.yml

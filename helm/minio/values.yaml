@@ -52,11 +52,11 @@ minio:
   # which doesn't block startup), not worth patching the chart for a homelab.
   environment:
     MINIO_BROWSER: "on"
-    MINIO_IDENTITY_OPENID_CONFIG_URL: "https://__TS_HOST__:8443/application/o/minio/.well-known/openid-configuration"
+    MINIO_IDENTITY_OPENID_CONFIG_URL: "__AUTHENTIK_URL__/application/o/minio/.well-known/openid-configuration"
     # MINIO_IDENTITY_OPENID_CLIENT_ID / _CLIENT_SECRET set via Tiltfile/terraform (.env)
     MINIO_IDENTITY_OPENID_CLAIM_NAME: "policy"
     MINIO_IDENTITY_OPENID_SCOPES: "openid,profile,email,policy"
-    MINIO_IDENTITY_OPENID_REDIRECT_URI: "https://__TS_HOST__:8445/oauth_callback"
+    MINIO_IDENTITY_OPENID_REDIRECT_URI: "__CONSOLE_URL__/oauth_callback"
     MINIO_IDENTITY_OPENID_DISPLAY_NAME: "Authentik"
 
   ingress:

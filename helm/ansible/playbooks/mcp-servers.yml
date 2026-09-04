@@ -1,0 +1,50 @@
+# mcp-servers auth: push access tokens from .env (via the ansible-secrets
+# Secret) into each MCP server Deployment's env, triggering a rollout.
+#
+# Same job terraform's set_sensitive blocks do on a full apply — this is the
+# fast rotation path: edit .env, `tofu apply -target=kubernetes_secret.ansible_secrets`,
+# then `scripts/ansible-run.sh mcp-servers`.
+#
+# Empty token => that env var is skipped (server keeps whatever it has).
+- name: mcp-servers authentication
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    mcp_ns: mcp-servers
+    # flat list: one strategic-merge patch per (deployment, env var).
+    patches:
+      - { deploy: mcp-servers-grafana,   container: grafana,   env: GRAFANA_SERVICE_ACCOUNT_TOKEN, key: grafana_mcp_token }
+      - { deploy: mcp-servers-sonarqube, container: sonarqube, env: SONARQUBE_TOKEN,                key: sonarqube_mcp_token }
+      - { deploy: mcp-servers-gitlab,    container: gitlab,    env: GITLAB_PERSONAL_ACCESS_TOKEN,  key: gitlab_mcp_token }
+      - { deploy: mcp-servers-gitlab,    container: gitlab,    env: STREAMABLE_HTTP_AUTH_TOKEN,    key: gitlab_mcp_auth_token }
+  tasks:
+    - name: Patch auth env into each MCP server
+      # ponytail: state=patched is a strategic-merge patch — env entries merge
+      # by name, and changing a value rolls the Deployment on its own.
+      kubernetes.core.k8s:
+        state: patched
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ mcp_ns }}"
+        name: "{{ item.deploy }}"
+        definition:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: "{{ item.container }}"
+                    env:
+                      - name: "{{ item.env }}"
+                        value: "{{ lookup('env', item.key) }}"
+      loop: "{{ patches }}"
+      loop_control:
+        label: "{{ item.deploy }} / {{ item.env }}"
+      when: lookup('env', item.key) | default('', true) | length > 0
+      no_log: true
+      register: patched
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "patched: {{ patched.results | rejectattr('skipped', 'defined') | map(attribute='item.env') | list }}
+              | skipped (no token in .env): {{ patched.results | selectattr('skipped', 'defined') | map(attribute='item.env') | list }}"

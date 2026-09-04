@@ -15,7 +15,7 @@ dependencies:
     version: "6.2.0"
     repository: "https://grafana.github.io/helm-charts"
   - name: alloy
-    version: "1.12.0"
+    version: "1.12.1"
     repository: "https://grafana.github.io/helm-charts"
   - name: prometheus
     version: "29.27.0"

@@ -13,8 +13,8 @@ resource "kubernetes_secret" "sonarqube_oidc" {
     "secret.properties" = join("\n", [
       "sonar.auth.oidc.clientId.secured=${var.sonarqube_oidc_client_id}",
       "sonar.auth.oidc.clientSecret.secured=${var.sonarqube_oidc_client_secret}",
-      "sonar.core.serverBaseURL=https://${var.ts_host}:8448",
-      "sonar.auth.oidc.issuerUri=https://${var.ts_host}:8443/application/o/sonarqube/",
+      "sonar.core.serverBaseURL=${local.app_url["sonarqube"]}",
+      "sonar.auth.oidc.issuerUri=${local.authentik_url}/application/o/sonarqube/",
     ])
   }
   depends_on = [kubernetes_namespace.sonarqube]
@@ -29,10 +29,17 @@ resource "helm_release" "sonarqube" {
   timeout           = 900
   dependency_update = true
 
-  values = [replace(file("${path.module}/../helm/sonarqube/values.yaml"), "__TS_HOST__", var.ts_host)]
+  values = [
+    replace(replace(replace(
+      file("${path.module}/../helm/sonarqube/values.yaml"),
+      "__TS_HOST__", var.ts_host),
+      "__AUTHENTIK_URL__", local.authentik_url),
+    "__APP_URL__", local.app_url["sonarqube"]),
+  ]
 
+  # ponytail: this wrapper chart's own plain postgres:16 StatefulSet (not bitnami)
   set_sensitive {
-    name  = "postgresql.auth.password"
+    name  = "postgres.password"
     value = var.sonarqube_db_password
   }
 

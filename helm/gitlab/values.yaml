@@ -9,6 +9,23 @@ gitlab:
         name: gitlab.local
     initialRootPassword:
       secret: ""  # set via terraform
+
+    # ponytail: external DB + cache — this wrapper chart's own plain postgres:16
+    # / redis:7-alpine StatefulSets (templates/), not the bundled bitnami
+    # subcharts. Password secret is rendered by templates/postgres.yaml from
+    # .Values.postgres.password.
+    psql:
+      host: gitlab-postgres
+      port: 5432
+      database: gitlabhq_production
+      username: gitlab
+      password:
+        secret: gitlab-postgres-secret
+        key: password
+    redis:
+      host: gitlab-redis
+      auth:
+        enabled: false
     ingress:
       enabled: true
       # ponytail: helm template has no live cluster to auto-detect API
@@ -178,44 +195,34 @@ gitlab:
       minReplicas: 1
       maxReplicas: 1
 
+  # ponytail: bundled bitnami postgresql + redis subcharts off — replaced by this
+  # wrapper chart's own plain StatefulSets (templates/postgres.yaml,
+  # templates/redis.yaml). GitLab officially supports external psql/redis via
+  # global.psql / global.redis above. bitnami sunset the free images.
   postgresql:
-    install: true
-    # ponytail: bitnami moved old image tags to bitnamilegacy on docker.io.
-    # Chart 9.11 = PostgreSQL 16 (was 14) — a MAJOR bump. The old PG 14 data
-    # dir will NOT start under PG 16: wipe the gitlab-postgresql PVC before
-    # deploying (dev data is throwaway; back up first if it isn't).
-    image:
-      repository: bitnamilegacy/postgresql
-    metrics:
-      image:
-        repository: bitnamilegacy/postgres-exporter
-    # ponytail: volume-permissions init image — also moved to bitnamilegacy.
-    volumePermissions:
-      image:
-        repository: bitnamilegacy/os-shell
-    primary:
-      resources:
-        requests:
-          cpu: 50m
-          memory: 256Mi
-        limits:
-          memory: 512Mi
-
+    install: false
   redis:
-    install: true
-    # ponytail: bitnami moved tags to bitnamilegacy; match chart 9.11's pinned
-    # redis 7.2.4 (chart config is written for redis 7 — a 6.x image mismatches).
-    image:
-      repository: bitnamilegacy/redis
-      tag: 7.2.4-debian-12-r9
-    metrics:
-      image:
-        repository: bitnamilegacy/redis-exporter
-        tag: 1.58.0-debian-12-r4
-    master:
-      resources:
-        requests:
-          cpu: 25m
-          memory: 64Mi
-        limits:
-          memory: 128Mi
+    install: false
+
+# ponytail: consumed by templates/{postgres,redis}.yaml (this wrapper chart's own
+# templates). postgres.password must match global.psql above; it's also written
+# into the gitlab-postgres-secret the template renders.
+postgres:
+  image: postgres:16
+  password: ""   # set via terraform / Tiltfile
+  storageSize: 8Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+
+redis:
+  image: redis:7-alpine
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
