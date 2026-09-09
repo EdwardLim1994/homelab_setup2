@@ -80,13 +80,14 @@ RUN mkdir -p /root/.omp/agent/skills /opt/src \
     && printf '%s\n' \
       'providers:' \
       '  ollama:' \
-      '    baseUrl: http://host.docker.internal:11434/v1' \
+      '    baseUrl: http://host.docker.internal:11434' \
       '    api: openai-completions' \
+      '    auth: none' \
       '    discovery:' \
       '      type: ollama' \
       > /root/.omp/agent/models.yml \
     && printf '%s\n' \
-      'model: ollama/qwen3-coder-next' \
+      'model: ollama/qwen3.8:27b' \
       'smol: ollama/qwen3:1.7b' \
       'tools:' \
       '  approvalMode: yolo' \

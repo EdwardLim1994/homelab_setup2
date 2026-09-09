@@ -8,8 +8,8 @@
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "webhook-F-12-uat-security-complete",
-      "name": "Webhook: F-12-uat-security-complete trigger",
+      "id": "wh-F-12-uat-security-complete",
+      "name": "Webhook: security-scan-start",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,17 +19,12 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'security-engineer', task: 'uat-stage-2', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "echo '{\"role\":\"security-engineer\",\"task\":\"uat-stage-2\"}' > /tmp/F-12-uat-security-complete.json && omp run --mode json --role smol @/tmp/F-12-uat-security-complete.json"
       },
       "id": "spawn-F-12-uat-security-complete",
       "name": "Spawn security-engineer: uat-stage-2",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         480,
         300
@@ -50,7 +45,7 @@
           ]
         }
       },
-      "id": "check-F-12-uat-security-complete",
+      "id": "pass-F-12-uat-security-complete",
       "name": "Passed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -61,7 +56,7 @@
     },
     {
       "parameters": {
-        "command": "glab issue update {{ $json.body.release_ticket_id }} --label-add 'security:cleared' && glab issue comment {{ $json.body.release_ticket_id }} --message 'security:cleared applied'"
+        "command": "glab issue update {{ $json.body.release_ticket_id }} --label-add 'security:cleared'"
       },
       "id": "label-F-12-uat-security-complete",
       "name": "Apply security:cleared on release ticket",
@@ -83,10 +78,6 @@
               "value": "={{ $json.body.version }}"
             },
             {
-              "name": "project",
-              "value": "={{ $json.body.project }}"
-            },
-            {
               "name": "release_ticket_id",
               "value": "={{ $json.body.release_ticket_id }}"
             }
@@ -104,20 +95,62 @@
     },
     {
       "parameters": {
-        "command": "glab issue create --title '[bugfix] security-engineer finding during uat-stage-2' --label 'type:bugfix,role:security-engineer' --milestone '{{ $json.body.version }}' --description 'Found during UAT uat-stage-2. Environment: UAT cluster.'"
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":shield: *UAT Security* sign-off. Moving to next stage.",
+        "otherOptions": {}
+      },
+      "id": "slack-pass2-F-12-uat-security-complete",
+      "name": "Mattermost: UAT Security sign-off",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        200
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "glab issue create --title '[bugfix] security-engineer finding in uat-stage-2' --label 'type:bugfix,role:security-engineer' --milestone '{{ $json.body.version }}' --description 'Found during UAT.'"
       },
       "id": "bug-F-12-uat-security-complete",
-      "name": "Create bug ticket (type:bug-uat)",
+      "name": "Create bug ticket",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
         960,
         440
       ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":warning: *UAT Security finding* — bug ticket created. Fix and re-run UAT.",
+        "otherOptions": {}
+      },
+      "id": "slack-bug-F-12-uat-security-complete",
+      "name": "Mattermost: UAT Security bug",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        440
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: F-12-uat-security-complete trigger": {
+    "Webhook: security-scan-start": {
       "main": [
         [
           {
@@ -150,7 +183,7 @@
         ],
         [
           {
-            "node": "Create bug ticket (type:bug-uat)",
+            "node": "Create bug ticket",
             "type": "main",
             "index": 0
           }
@@ -162,6 +195,28 @@
         [
           {
             "node": "Trigger next stage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create bug ticket": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: UAT Security bug",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger next stage": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: UAT Security sign-off",
             "type": "main",
             "index": 0
           }
@@ -179,6 +234,9 @@
     },
     {
       "name": "phase-3"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

@@ -41,13 +41,26 @@ if not sm_minio_created:
 
 print('minio policy mapping ready, created=', sm_minio_created)
 
-owui_expr = 'if request.user.email == "' + admin_email + '":\n    return {"roles": "admin"}\nreturn {"roles": "user"}'
-sm_owui, sm_owui_created = ScopeMapping.objects.get_or_create(name='OpenWebUI roles claim', defaults=dict(scope_name='openwebui_roles', expression=owui_expr))
-if not sm_owui_created:
-    sm_owui.expression = owui_expr
-    sm_owui.save()
+# Mattermost logs in via its GitLab-format OAuth and reads the user from
+# Authentik's userinfo endpoint. It needs a numeric `id` (Mattermost's GitLab
+# driver types it as int64) plus username/login/email/name. Mattermost sends no
+# scope param, so Authentik grants every mapping bound to the provider — this
+# one included.
+mm_expr = '\n'.join([
+    'return {',
+    '    "id": request.user.pk,',
+    '    "username": request.user.username,',
+    '    "login": request.user.username,',
+    '    "email": request.user.email,',
+    '    "name": request.user.name or request.user.username,',
+    '}',
+])
+sm_mm, sm_mm_created = ScopeMapping.objects.get_or_create(name='Mattermost profile claim', defaults=dict(scope_name='mattermost', expression=mm_expr))
+if not sm_mm_created:
+    sm_mm.expression = mm_expr
+    sm_mm.save()
 
-print('openwebui roles mapping ready, created=', sm_owui_created)
+print('mattermost profile mapping ready, created=', sm_mm_created)
 
 llm_expr = 'if request.user.email == "' + admin_email + '":\n    return {"litellm_role": "proxy_admin"}\nreturn {"litellm_role": "proxy_viewer"}'
 sm_llm, sm_llm_created = ScopeMapping.objects.get_or_create(name='LiteLLM role claim', defaults=dict(scope_name='litellm_role', expression=llm_expr))
@@ -57,7 +70,7 @@ if not sm_llm_created:
 
 print('litellm role mapping ready, created=', sm_llm_created)
 
-scope_map = {'policy': sm_minio, 'openwebui_roles': sm_owui, 'litellm_role': sm_llm}
+scope_map = {'policy': sm_minio, 'mattermost': sm_mm, 'litellm_role': sm_llm}
 
 apps = [
     dict(name='GitLab', slug='gitlab',
@@ -81,9 +94,11 @@ apps = [
     dict(name='Grafana', slug='grafana',
          client_id=os.environ['GRAFANA_OIDC_CLIENT_ID'], client_secret=os.environ['GRAFANA_OIDC_CLIENT_SECRET'],
          redirect_uris=[app_url('grafana') + '/login/generic_oauth']),
-    dict(name='OpenWebUI', slug='openwebui',
-         client_id=os.environ['OPENWEBUI_OIDC_CLIENT_ID'], client_secret=os.environ['OPENWEBUI_OIDC_CLIENT_SECRET'],
-         redirect_uris=[app_url('openwebui') + '/oauth/oidc/callback'], extra_scopes=['openwebui_roles']),
+    dict(name='Mattermost', slug='mattermost',
+         client_id=os.environ['MATTERMOST_OIDC_CLIENT_ID'], client_secret=os.environ['MATTERMOST_OIDC_CLIENT_SECRET'],
+         redirect_uris=[app_url('mattermost') + '/signup/gitlab/complete',
+                        app_url('mattermost') + '/login/gitlab/complete'],
+         extra_scopes=['mattermost']),
     dict(name='LiteLLM', slug='litellm',
          client_id=os.environ['LITELLM_OIDC_CLIENT_ID'], client_secret=os.environ['LITELLM_OIDC_CLIENT_SECRET'],
          redirect_uris=[app_url('litellm') + '/sso/callback'],

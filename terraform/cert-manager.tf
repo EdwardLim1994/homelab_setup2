@@ -57,7 +57,7 @@ resource "kubectl_manifest" "homelab_ca" {
 
 # ponytail: kubectl_manifest returns as soon as the Certificate object is
 # applied, not when cert-manager has issued it — so on a clean deploy the
-# openwebui `data.kubernetes_secret.homelab_ca` read races ahead of the secret
+# mattermost `data.kubernetes_secret.homelab_ca` read races ahead of the secret
 # existing ("secret not found", whole apply fails). Block on the cert going
 # Ready. Needs kubectl on PATH (same as the other local-exec provisioners).
 resource "null_resource" "homelab_ca_ready" {

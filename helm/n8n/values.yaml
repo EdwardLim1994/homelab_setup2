@@ -67,6 +67,13 @@ n8n:
       # ponytail: flows call sibling flows by webhook (…/spawn-role, …/dod-check).
       # In-cluster self-call over localhost — no proxy round-trip, no tailnet.
       N8N_WEBHOOK_BASE: "http://localhost:5678/webhook"
+      # F-28 mm-chat: LiteLLM base + key so the chat flow can POST
+      # /v1/chat/completions against the `omp` model (always-on omp pod via
+      # omp-adapter). LITELLM_MASTER_KEY injected by terraform set_sensitive.
+      LITELLM_BASE: "http://litellm.litellm.svc.cluster.local:4000"
+      # the SDLC flows + F-28 read config from $env in expressions; n8n blocks
+      # that by default.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       EXTERNAL_HOOK_FILES: "/hooks/hooks.js"
       N8N_ADDITIONAL_NON_UI_ROUTES: "auth"
       EXTERNAL_FRONTEND_HOOKS_URLS: "/assets/oidc-frontend-hook.js"

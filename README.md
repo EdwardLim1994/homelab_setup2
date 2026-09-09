@@ -1,7 +1,7 @@
 # homelab_setup2
 
 Self-hosted homelab on a local k3d cluster: Authentik SSO, GitLab, MinIO,
-n8n, SonarQube, Nextcloud, ArgoCD, an LGTM observability stack, OpenWebUI,
+n8n, SonarQube, Nextcloud, ArgoCD, an LGTM observability stack, Mattermost,
 LiteLLM, and a set of MCP servers for in-cluster coding agents.
 Every app gets SSO via Authentik and is reachable remotely over Tailscale.
 
@@ -98,7 +98,7 @@ or the underlying Python script change.
 
 Passwords, DB passwords, encryption/salt keys, and every OIDC
 `client_id` / `client_secret` pair (gitlab, minio, n8n, sonarqube, nextcloud,
-argocd, grafana, openwebui, litellm). Authentik trusts whatever value it's
+argocd, grafana, mattermost, litellm). Authentik trusts whatever value it's
 given, so a placeholder is exactly as real as a generated one. The whole
 cluster comes up with the shipped defaults untouched.
 

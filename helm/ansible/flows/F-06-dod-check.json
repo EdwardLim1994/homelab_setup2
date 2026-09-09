@@ -8,8 +8,8 @@
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "webhook-dod",
-      "name": "Webhook: DoD check trigger",
+      "id": "wh-06",
+      "name": "Webhook: dod-check",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,17 +19,12 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'tech-lead', task: 'dod-check', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"tech-lead\",\"task\":\"dod-check\",\"story_id\":\"{{ $json.body.story_id }}\"}' > /tmp/dod.json && omp run --mode json --role slow @/tmp/dod.json"
       },
       "id": "spawn-tl-dod",
-      "name": "Spawn TL Pod: DoD check (smart model)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "name": "Spawn TL Pod: DoD check",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         480,
         300
@@ -68,15 +63,11 @@
             {
               "name": "story_id",
               "value": "={{ $json.body.story_id }}"
-            },
-            {
-              "name": "flow",
-              "value": "F-06-trigger-F-07"
             }
           ]
         }
       },
-      "id": "trigger-f07",
+      "id": "trig-f07",
       "name": "Trigger F-07: open story MR",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -87,57 +78,73 @@
     },
     {
       "parameters": {
-        "jsCode": "const dag = $workflow.staticData.dagState || {};\nconst retries = dag.dodRetries || {};\nconst storyId = $json.body.story_id;\nretries[storyId] = (retries[storyId] || 0) + 1;\ndag.dodRetries = retries;\n$workflow.staticData.dagState = dag;\nreturn [{ json: { escalate: retries[storyId] >= 3, retryCount: retries[storyId], storyId } }];"
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":white_check_mark: DoD passed for `{{ $json.body.story_id }}`. Opening story MR...",
+        "otherOptions": {}
       },
-      "id": "dod-fail-counter",
-      "name": "DoD fail: feedback developer + re-trigger F-04",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "slack-dod-pass",
+      "name": "Mattermost: DoD passed",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
         960,
-        400
-      ]
+        200
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/gitlab-mr-opened",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "story_id",
-              "value": "={{ $json.storyId }}"
-            },
-            {
-              "name": "reason",
-              "value": "DoD failed — re-triggers F-04 review cycle"
-            }
-          ]
-        }
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":x: DoD *failed* for `{{ $json.body.story_id }}`. Feedback sent to developer. Fix cycle restarting...",
+        "otherOptions": {}
       },
-      "id": "retrigger-f04",
-      "name": "Re-trigger F-04: CI + TL review cycle",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-dod-fail",
+      "name": "Mattermost: DoD failed",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        960,
+        440
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dag=$workflow.staticData.dagState||{};\nconst sid=$json.body.story_id;\ndag.dodRetries=dag.dodRetries||{};\ndag.dodRetries[sid]=(dag.dodRetries[sid]||0)+1;\n$workflow.staticData.dagState=dag;\nreturn [{json:{retries:dag.dodRetries[sid],storyId:sid}}];"
+      },
+      "id": "dod-retry",
+      "name": "DoD fail: feedback + re-trigger F-04",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1200,
-        400
+        440
       ]
     }
   ],
   "connections": {
-    "Webhook: DoD check trigger": {
+    "Webhook: dod-check": {
       "main": [
         [
           {
-            "node": "Spawn TL Pod: DoD check (smart model)",
+            "node": "Spawn TL Pod: DoD check",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn TL Pod: DoD check (smart model)": {
+    "Spawn TL Pod: DoD check": {
       "main": [
         [
           {
@@ -152,25 +159,36 @@
       "main": [
         [
           {
-            "node": "Trigger F-07: open story MR",
+            "node": "Mattermost: DoD passed",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "DoD fail: feedback developer + re-trigger F-04",
+            "node": "Mattermost: DoD failed",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "DoD fail: feedback developer + re-trigger F-04": {
+    "Mattermost: DoD passed": {
       "main": [
         [
           {
-            "node": "Re-trigger F-04: CI + TL review cycle",
+            "node": "Trigger F-07: open story MR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mattermost: DoD failed": {
+      "main": [
+        [
+          {
+            "node": "DoD fail: feedback + re-trigger F-04",
             "type": "main",
             "index": 0
           }
@@ -188,6 +206,9 @@
     },
     {
       "name": "phase-2"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

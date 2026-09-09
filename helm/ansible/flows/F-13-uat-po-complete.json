@@ -8,8 +8,8 @@
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "webhook-F-13-uat-po-complete",
-      "name": "Webhook: F-13-uat-po-complete trigger",
+      "id": "wh-F-13-uat-po-complete",
+      "name": "Webhook: po-validation-start",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,17 +19,12 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'product-owner', task: 'uat-stage-3', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "echo '{\"role\":\"product-owner\",\"task\":\"uat-stage-3\"}' > /tmp/F-13-uat-po-complete.json && omp run --mode json --role smol @/tmp/F-13-uat-po-complete.json"
       },
       "id": "spawn-F-13-uat-po-complete",
       "name": "Spawn product-owner: uat-stage-3",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         480,
         300
@@ -50,7 +45,7 @@
           ]
         }
       },
-      "id": "check-F-13-uat-po-complete",
+      "id": "pass-F-13-uat-po-complete",
       "name": "Passed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -61,7 +56,7 @@
     },
     {
       "parameters": {
-        "command": "glab issue update {{ $json.body.release_ticket_id }} --label-add 'po:uat-approved' && glab issue comment {{ $json.body.release_ticket_id }} --message 'po:uat-approved applied'"
+        "command": "glab issue update {{ $json.body.release_ticket_id }} --label-add 'po:uat-approved'"
       },
       "id": "label-F-13-uat-po-complete",
       "name": "Apply po:uat-approved on release ticket",
@@ -74,50 +69,83 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f13-all-signoffs",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "version",
-              "value": "={{ $json.body.version }}"
-            },
-            {
-              "name": "project",
-              "value": "={{ $json.body.project }}"
-            },
-            {
-              "name": "release_ticket_id",
-              "value": "={{ $json.body.release_ticket_id }}"
-            }
-          ]
-        }
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": "🏁 *UAT PO sign-off* complete — `po:uat-approved` applied.\n\nAll 3 UAT stages done. Run `/release-staging` when ready.",
+        "otherOptions": {}
       },
-      "id": "next-F-13-uat-po-complete",
-      "name": "Trigger next stage",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-pass-F-13-uat-po-complete",
+      "name": "Mattermost: UAT PO complete",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
-        1200,
+        1440,
         200
-      ]
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     },
     {
       "parameters": {
-        "command": "glab issue create --title '[bugfix] product-owner finding during uat-stage-3' --label 'type:bugfix,role:product-owner' --milestone '{{ $json.body.version }}' --description 'Found during UAT uat-stage-3. Environment: UAT cluster.'"
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":tada: *All 3 UAT stages complete*!\nRun `/release-staging` to begin staging phase.",
+        "otherOptions": {}
+      },
+      "id": "slack-final-F-13-uat-po-complete",
+      "name": "Mattermost: all UAT done",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        200
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "glab issue create --title '[bugfix] product-owner finding in uat-stage-3' --label 'type:bugfix,role:product-owner' --milestone '{{ $json.body.version }}' --description 'Found during UAT.'"
       },
       "id": "bug-F-13-uat-po-complete",
-      "name": "Create bug ticket (type:bug-uat)",
+      "name": "Create bug ticket",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
         960,
         440
       ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":warning: *UAT PO finding* — bug ticket created. Fix and re-run UAT.",
+        "otherOptions": {}
+      },
+      "id": "slack-bug-F-13-uat-po-complete",
+      "name": "Mattermost: UAT PO bug",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        440
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: F-13-uat-po-complete trigger": {
+    "Webhook: po-validation-start": {
       "main": [
         [
           {
@@ -150,7 +178,7 @@
         ],
         [
           {
-            "node": "Create bug ticket (type:bug-uat)",
+            "node": "Create bug ticket",
             "type": "main",
             "index": 0
           }
@@ -161,7 +189,18 @@
       "main": [
         [
           {
-            "node": "Trigger next stage",
+            "node": "Mattermost: UAT PO complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create bug ticket": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: UAT PO bug",
             "type": "main",
             "index": 0
           }
@@ -179,6 +218,9 @@
     },
     {
       "name": "phase-3"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

@@ -28,7 +28,7 @@ apps=(
   "nextcloud:nextcloud:nextcloud.local"
   "argocd:argocd:argocd.local"
   "grafana:grafana:grafana.local"
-  "openwebui:openwebui:openwebui.local"
+  "mattermost:mattermost:mattermost.local"
   "litellm:litellm::/ui"
 )
 

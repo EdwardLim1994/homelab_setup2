@@ -1,3 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: {{ .Release.Name }}
+  ports:
+    - port: 8065
+      targetPort: 8065
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,18 +25,18 @@ spec:
       labels:
         app: {{ .Release.Name }}
     spec:
+      securityContext:
+        # mattermost image runs as uid 2000; make the PVC writable for it
+        fsGroup: 2000
       initContainers:
         - name: combine-certs
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           command:
-            - python3
+            - sh
             - -c
             - |
-              import certifi, os
-              with open('/combined/ca.crt', 'wb') as out:
-                  with open(certifi.where(), 'rb') as f: out.write(f.read())
-                  if os.path.exists('/homelab-ca/ca.crt'):
-                      with open('/homelab-ca/ca.crt', 'rb') as f: out.write(f.read())
+              cat /etc/ssl/certs/ca-certificates.crt /homelab-ca/ca.crt > /combined/ca.crt 2>/dev/null \
+                || cp /etc/ssl/certs/ca-certificates.crt /combined/ca.crt
           volumeMounts:
             - name: homelab-ca
               mountPath: /homelab-ca
@@ -32,10 +44,10 @@ spec:
             - name: combined-ca
               mountPath: /combined
       containers:
-        - name: openwebui
+        - name: mattermost
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           ports:
-            - containerPort: 8080
+            - containerPort: 8065
           env:
             {{- range $key, $value := .Values.env }}
             - name: {{ $key }}
@@ -43,7 +55,15 @@ spec:
             {{- end }}
           volumeMounts:
             - name: data
-              mountPath: /app/backend/data
+              mountPath: /mattermost/data
+            - name: config
+              mountPath: /mattermost/config
+            - name: logs
+              mountPath: /mattermost/logs
+            - name: plugins
+              mountPath: /mattermost/plugins
+            - name: client-plugins
+              mountPath: /mattermost/client/plugins
             - name: combined-ca
               mountPath: /certs
               readOnly: true
@@ -53,6 +73,14 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: {{ .Release.Name }}-data
+        - name: config
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+        - name: plugins
+          emptyDir: {}
+        - name: client-plugins
+          emptyDir: {}
         - name: homelab-ca
           secret:
             secretName: homelab-ca

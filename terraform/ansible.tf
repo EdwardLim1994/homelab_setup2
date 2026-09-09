@@ -103,62 +103,35 @@ resource "kubernetes_role_binding" "ansible_omp_patch" {
   }
 }
 
-# ponytail: litellm.yml writes the minted OpenWebUI virtual key into a Secret
-# in the litellm namespace.
-resource "kubernetes_role" "ansible_litellm_secrets" {
+# ponytail: mattermost.yml runs `mmctl --local` inside the mattermost pod via
+# kubernetes.core.k8s_exec — needs pod read + exec in that one namespace.
+resource "kubernetes_role" "ansible_mattermost_exec" {
   metadata {
-    name      = "ansible-litellm-secrets"
-    namespace = "litellm"
+    name      = "ansible-mattermost-exec"
+    namespace = "mattermost"
   }
   rule {
     api_groups = [""]
-    resources  = ["secrets"]
-    verbs      = ["get", "list", "create", "patch", "update"]
-  }
-  depends_on = [kubernetes_namespace.litellm]
-}
-
-resource "kubernetes_role_binding" "ansible_litellm_secrets" {
-  metadata {
-    name      = "ansible-litellm-secrets"
-    namespace = "litellm"
-  }
-  role_ref {
-    api_group = "rbac.authorization.k8s.io"
-    kind      = "Role"
-    name      = kubernetes_role.ansible_litellm_secrets.metadata[0].name
-  }
-  subject {
-    kind      = "ServiceAccount"
-    name      = "ansible-runner"
-    namespace = kubernetes_namespace.ansible.metadata[0].name
-  }
-}
-
-# ponytail: litellm.yml patches the minted virtual key into openwebui's env
-# (OPENAI_API_KEY) so it stops using the raw master key.
-resource "kubernetes_role" "ansible_openwebui_patch" {
-  metadata {
-    name      = "ansible-openwebui-patch"
-    namespace = "openwebui"
+    resources  = ["pods"]
+    verbs      = ["get", "list"]
   }
   rule {
-    api_groups = ["apps"]
-    resources  = ["deployments"]
-    verbs      = ["get", "list", "patch"]
+    api_groups = [""]
+    resources  = ["pods/exec"]
+    verbs      = ["get", "create"]
   }
-  depends_on = [kubernetes_namespace.openwebui]
+  depends_on = [kubernetes_namespace.mattermost]
 }
 
-resource "kubernetes_role_binding" "ansible_openwebui_patch" {
+resource "kubernetes_role_binding" "ansible_mattermost_exec" {
   metadata {
-    name      = "ansible-openwebui-patch"
-    namespace = "openwebui"
+    name      = "ansible-mattermost-exec"
+    namespace = "mattermost"
   }
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "Role"
-    name      = kubernetes_role.ansible_openwebui_patch.metadata[0].name
+    name      = kubernetes_role.ansible_mattermost_exec.metadata[0].name
   }
   subject {
     kind      = "ServiceAccount"

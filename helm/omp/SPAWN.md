@@ -65,7 +65,7 @@ patch) and forwards the request. Model name `omp-<role>` → deployment
 `helm/litellm/templates/config.yaml` registers one model per `ompRoles` entry
 (`model: openai/omp-<role>`, `api_base:
 http://omp-adapter.omp.svc:8000/v1`) plus `omp` and the two Ollama host
-models. So LiteLLM's `/v1/models` — and OpenWebUI's picker — list them, and
+models. So LiteLLM's `/v1/models` lists them, and
 n8n can `POST litellm/v1/chat/completions {model: "omp-tech-lead"}`.
 
 The pod's `omp --mode rpc` session is **not** non-streaming per se, but

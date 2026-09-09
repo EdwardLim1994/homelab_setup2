@@ -46,6 +46,11 @@ resource "helm_release" "n8n" {
   }
 
   set_sensitive {
+    name  = "n8n.main.extraEnvVars.LITELLM_MASTER_KEY"
+    value = var.litellm_master_key
+  }
+
+  set_sensitive {
     name  = "n8n.externalPostgresql.password"
     value = var.n8n_db_password
   }

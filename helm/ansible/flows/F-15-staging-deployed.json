@@ -1,5 +1,5 @@
 {
-  "name": "F-15 Staging Deployed (CI Webhook)",
+  "name": "F-15 Staging Deployed",
   "nodes": [
     {
       "parameters": {
@@ -9,7 +9,7 @@
         "options": {}
       },
       "id": "wh-15",
-      "name": "Webhook: CI staging deployed",
+      "name": "Webhook: ci-staging-deployed",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,10 +19,10 @@
     },
     {
       "parameters": {
-        "command": "glab issue comment {{ $json.body.release_ticket_id }} --message 'Staging deployed: {{ $json.body.version }} at {{ new Date().toISOString() }}'"
+        "command": "=glab issue comment {{ $json.body.release_ticket_id }} --message 'Staging deployed: {{ $json.body.version }}'"
       },
-      "id": "update-ticket-15",
-      "name": "Update release ticket: staging deployment log",
+      "id": "upd-rt",
+      "name": "Update release ticket",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
@@ -32,17 +32,12 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'qa-engineer', task: 'staging-performance', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"qa-engineer\",\"task\":\"staging-performance\"}' > /tmp/qa-stg.json && omp run --mode json --role smol @/tmp/qa-stg.json"
       },
-      "id": "spawn-qa-15",
-      "name": "Spawn QA Pod: k6 performance + stress tests",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "qa-stg",
+      "name": "Spawn QA: k6 performance tests",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         720,
         200
@@ -50,17 +45,12 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'security-engineer', task: 'staging-zap-confirmation', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"security-engineer\",\"task\":\"staging-zap\"}' > /tmp/sec-stg.json && omp run --mode json --role smol @/tmp/sec-stg.json"
       },
-      "id": "spawn-sec-15",
-      "name": "Spawn Security Pod: ZAP full scan confirmation",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "sec-stg",
+      "name": "Spawn Security: ZAP full scan",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         720,
         400
@@ -68,67 +58,94 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'release-manager', task: 'go-nogo-assessment', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"release-manager\",\"task\":\"go-nogo\",\"version\":\"{{ $json.body.version }}\",\"release_ticket_id\":\"{{ $json.body.release_ticket_id }}\"}' > /tmp/rm-gng.json && omp run --mode json --role default @/tmp/rm-gng.json"
       },
-      "id": "spawn-rm-15",
-      "name": "Spawn RM Pod: go/no-go assessment (F-16)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "rm-gng",
+      "name": "Spawn RM: go/no-go assessment",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         960,
         300
       ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":rocket: *Staging deployed* — `{{ $json.body.version }}`\nQA k6 + Security ZAP running in parallel · RM go/no-go assessment in progress.\n\nYou'll be notified with the decision.",
+        "otherOptions": {}
+      },
+      "id": "slack-15",
+      "name": "Mattermost: staging deployed",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        300
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: CI staging deployed": {
+    "Webhook: ci-staging-deployed": {
       "main": [
         [
           {
-            "node": "Update release ticket: staging deployment log",
+            "node": "Update release ticket",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Update release ticket: staging deployment log": {
+    "Update release ticket": {
       "main": [
         [
           {
-            "node": "Spawn QA Pod: k6 performance + stress tests",
+            "node": "Spawn QA: k6 performance tests",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn Security Pod: ZAP full scan confirmation",
+            "node": "Spawn Security: ZAP full scan",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn QA Pod: k6 performance + stress tests": {
+    "Spawn QA: k6 performance tests": {
       "main": [
         [
           {
-            "node": "Spawn RM Pod: go/no-go assessment (F-16)",
+            "node": "Spawn RM: go/no-go assessment",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn Security Pod: ZAP full scan confirmation": {
+    "Spawn Security: ZAP full scan": {
       "main": [
         [
           {
-            "node": "Spawn RM Pod: go/no-go assessment (F-16)",
+            "node": "Spawn RM: go/no-go assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn RM: go/no-go assessment": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: staging deployed",
             "type": "main",
             "index": 0
           }
@@ -146,6 +163,9 @@
     },
     {
       "name": "phase-4"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

@@ -8,7 +8,7 @@ include('./nextcloud/Tiltfile')
 include('./argocd/Tiltfile')
 include('./observability/Tiltfile')  # whole stack: grafana + loki + tempo + mimir + prometheus + alloy
 include('./litellm/Tiltfile')
-include('./openwebui/Tiltfile')
+include('./mattermost/Tiltfile')
 include('./mcp-servers/Tiltfile')
 include('./omp/Tiltfile')
 include('./ansible/Tiltfile')

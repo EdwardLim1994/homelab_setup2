@@ -4,12 +4,12 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "rollback-story",
-        "responseMode": "lastNode",
+        "path": "mm-rollback_story",
+        "responseMode": "responseNode",
         "options": {}
       },
-      "id": "wh-22",
-      "name": "Webhook: /rollback-story command",
+      "id": "slack-trigger",
+      "name": "Mattermost: trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,7 +19,42 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project_id }}/issues/{{ $json.body.story_id }}",
+        "respondWith": "json",
+        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/rollback_story`...\"}"
+      },
+      "id": "mm-ack-slack-trigger",
+      "name": "Mattermost: ack command",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :hourglass: *Story rollback* for `{{ $json.text }}`\nChecking dependency graph...",
+        "otherOptions": {}
+      },
+      "id": "ack-22",
+      "name": "Mattermost: rollback-story started",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $('Slack: trigger').item.json.text }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -30,25 +65,25 @@
           ]
         }
       },
-      "id": "verify-merged-22",
-      "name": "Verify story is merged to release branch",
+      "id": "verify-merged",
+      "name": "Verify story is merged",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        480,
+        720,
         300
       ]
     },
     {
       "parameters": {
-        "jsCode": "const labels = $json.labels || [];\nconst isMerged = labels.includes('merged-to-release');\nconst hasDependents = false; // TODO: check dependency graph in DAG state\nreturn [{ json: { isMerged, hasDependents, storyId: $json.iid } }];"
+        "jsCode": "const labels=$json.labels||[];\nconst isMerged=labels.includes('merged-to-release');\nreturn [{json:{isMerged,hasDependents:false,storyId:$json.iid}}];"
       },
-      "id": "check-deps-22",
-      "name": "Check dependency graph for cascade",
+      "id": "dep-check",
+      "name": "Check dependency graph",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        720,
+        960,
         300
       ]
     },
@@ -67,62 +102,57 @@
           ]
         }
       },
-      "id": "dep-check-22",
+      "id": "dep-gate",
       "name": "Dependent stories?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        960,
+        1200,
         300
       ]
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f22-cascade-warn",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "Cascade warning: other stories depend on GL-{{ $json.body.story_id }}. Confirm scope."
-            },
-            {
-              "name": "story_id",
-              "value": "={{ $json.body.story_id }}"
-            }
-          ]
-        }
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :warning: *Cascade warning* — other stories depend on GL-`{{ $json.storyId }}`.\nConfirm scope before proceeding. Reply to confirm.",
+        "otherOptions": {}
       },
-      "id": "cascade-warn-22",
-      "name": "Notify Edward: cascade warning, await confirmation",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "cascade-warn",
+      "name": "Mattermost: cascade warning",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
-        1200,
+        1440,
         160
-      ]
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     },
     {
       "parameters": {
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project_id }}/merge_requests",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/merge_requests",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
               "name": "source_branch",
-              "value": "={{ 'revert-GL-' + $json.body.story_id + '/' + $json.body.version }}"
+              "value": "={{ 'revert-GL-' + $('Slack: trigger').item.json.text + '/' + $env.RELEASE_VERSION }}"
             },
             {
               "name": "target_branch",
-              "value": "={{ 'release/' + $json.body.version }}"
+              "value": "={{ 'release/' + $env.RELEASE_VERSION }}"
             },
             {
               "name": "title",
-              "value": "={{ '[revert] GL-' + $json.body.story_id + ' from ' + $json.body.version }}"
+              "value": "={{ '[revert] GL-' + $('Slack: trigger').item.json.text + ' from ' + $env.RELEASE_VERSION }}"
             },
             {
               "name": "description",
-              "value": "Reverts story GL-{{ $json.body.story_id }} from release {{ $json.body.version }}."
+              "value": "Story rollback revert MR."
             }
           ]
         },
@@ -136,88 +166,90 @@
           ]
         }
       },
-      "id": "create-revert-mr-22",
+      "id": "create-revert-mr",
       "name": "Create revert MR on release branch",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        1200,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'tech-lead', task: 'review-revert-mr', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
-      },
-      "id": "tl-review-revert-22",
-      "name": "TL Pod: review revert MR",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
         1440,
-        400
+        440
       ]
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f22-notify-revert-ready",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "Revert MR ready for your review and merge"
-            },
-            {
-              "name": "story_id",
-              "value": "={{ $json.body.story_id }}"
-            },
-            {
-              "name": "mr_url",
-              "value": "={{ $json.web_url }}"
-            }
-          ]
-        }
+        "command": "=echo '{\"role\":\"tech-lead\",\"task\":\"review-revert-mr\",\"story_id\":\"{{ $('Slack: trigger').item.json.text }}\"}' > /tmp/tl-rv.json && omp run --mode json --role slow @/tmp/tl-rv.json"
       },
-      "id": "notify-revert-22",
-      "name": "Notify Edward: revert MR ready → F-23",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "tl-review",
+      "name": "TL Pod: review revert MR",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         1680,
-        400
+        440
       ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :eyes: *Revert MR ready* — GL-`{{ $('Slack: trigger').item.json.text }}`\nTL reviewed. Merge the revert MR to defer this story.\n<{{ $json.web_url }}|View revert MR>",
+        "otherOptions": {}
+      },
+      "id": "slack-revert-ready",
+      "name": "Mattermost: revert MR ready for review",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        440
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: /rollback-story command": {
+    "Mattermost: trigger": {
       "main": [
         [
           {
-            "node": "Verify story is merged to release branch",
+            "node": "Mattermost: rollback-story started",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mattermost: ack command",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Verify story is merged to release branch": {
+    "Mattermost: rollback-story started": {
       "main": [
         [
           {
-            "node": "Check dependency graph for cascade",
+            "node": "Verify story is merged",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Check dependency graph for cascade": {
+    "Verify story is merged": {
+      "main": [
+        [
+          {
+            "node": "Check dependency graph",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check dependency graph": {
       "main": [
         [
           {
@@ -232,7 +264,7 @@
       "main": [
         [
           {
-            "node": "Notify Edward: cascade warning, await confirmation",
+            "node": "Mattermost: cascade warning",
             "type": "main",
             "index": 0
           }
@@ -261,7 +293,7 @@
       "main": [
         [
           {
-            "node": "Notify Edward: revert MR ready → F-23",
+            "node": "Mattermost: revert MR ready for review",
             "type": "main",
             "index": 0
           }
@@ -279,6 +311,9 @@
     },
     {
       "name": "phase-5"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

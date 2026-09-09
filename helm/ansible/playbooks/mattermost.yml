@@ -1,0 +1,306 @@
+# mattermost post-deploy: create the SDLC bot + the F-28 outgoing webhook via
+# `mmctl --local` (root socket, no auth — works around OIDC-only login), then
+# register the bot token as an n8n credential and bind the seeded flows to it.
+#
+#   scripts/ansible-run.sh mattermost
+#   scripts/ansible-run.sh mattermost --syntax-check
+#
+# Idempotent: user/channel creation tolerates "already exists"; the webhook and
+# token are deleted + recreated so the callback URL and credential stay current.
+# Run AFTER n8n.yml (needs the flows seeded).
+#
+# ponytail: `mmctl --local bot create` is blocked in local mode, so a normal
+# service user carries the token. Chat is trigger-word based (`omp <question>`)
+# because mmctl's create-outgoing requires --trigger-word.
+- name: mattermost post-deploy
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    mm_ns: mattermost
+    n8n_url: "{{ lookup('env', 'N8N_URL') }}"
+    owner_email: "{{ lookup('env', 'n8n_owner_email') }}"
+    owner_password: "{{ lookup('env', 'n8n_owner_password') }}"
+    # in-cluster URLs — the n8n pod reaches Mattermost by Service DNS, and
+    # Mattermost reaches n8n the same way (the webhook callback).
+    mm_base_url: "http://mattermost.mattermost.svc.cluster.local:8065"
+    mm_callback: "http://n8n.n8n.svc.cluster.local:5678/webhook/mm-chat"
+    # blank => use the instance's first existing team (don't make an orphan one).
+    team_name: "{{ lookup('env', 'mattermost_team') | default('', true) }}"
+    channel_name: ai
+    # ponytail: `mmctl --local bot create` is blocked in local mode, so the
+    # webhook + n8n both run as a normal service user. Its personal access token
+    # needs MM_SERVICESETTINGS_ENABLEPERSONALACCESSTOKENS=true (set in the chart).
+    svc_username: sdlc-svc
+    svc_email: sdlc-svc@localhost
+    svc_password: "Homelab-omp-chat-svc-2026"
+    trigger_word: omp
+    webhook_name: omp-chat
+    token_desc: omp-chat
+    cred_name: "Mattermost SDLC Bot"
+  tasks:
+    - name: Find the running mattermost pod
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ mm_ns }}"
+        label_selectors: ["app=mattermost"]
+        field_selectors: ["status.phase=Running"]
+      register: mmpods
+      until: mmpods.resources | length > 0
+      retries: 30
+      delay: 5
+
+    - ansible.builtin.set_fact:
+        mm_pod: "{{ mmpods.resources[0].metadata.name }}"
+
+    # ponytail: no socket wait — LOCALMODE is set in the chart and the pod is
+    # already Running by the time this playbook runs. If the socket really
+    # isn't up, the first mmctl call fails with a clear error, which beats a
+    # silent 30-retry hang.
+    - name: Probe mmctl
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: /mattermost/bin/mmctl --local team list
+      register: probe
+      retries: 12
+      delay: 5
+      until: probe is not failed
+
+    # --- resolve the team ---
+    - name: List teams
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: /mattermost/bin/mmctl --local --json team list
+      register: team_list
+      changed_when: false
+
+    - name: Pick the team
+      ansible.builtin.set_fact:
+        team: "{{ team_name if team_name else (team_list.stdout | from_json | map(attribute='name') | first) }}"
+
+    - name: Show team
+      ansible.builtin.debug:
+        msg: "using team '{{ team }}'"
+
+    # --- channel / bot (idempotent; mmctl exits non-zero if it exists) ---
+    # ponytail: mmctl exits non-zero when the object exists; that's fine here.
+    # A real failure surfaces at "Generate bot token" (needs the bot).
+    - name: Ensure channel
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: >-
+          /mattermost/bin/mmctl --local channel create --team {{ team }}
+          --name {{ channel_name }} --display-name {{ channel_name | upper }}
+      register: r
+      changed_when: "'created' in (r.stdout | default('') | lower)"
+      failed_when: false
+
+    - name: Resolve channel id
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: /mattermost/bin/mmctl --local --json channel search {{ channel_name }} --team {{ team }}
+      register: ch
+      changed_when: false
+
+    - ansible.builtin.set_fact:
+        channel_id: "{{ (ch.stdout | from_json).id | default((ch.stdout | from_json | first).id) }}"
+
+    - name: Ensure service user
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: >-
+          /mattermost/bin/mmctl --local user create --email {{ svc_email }}
+          --username {{ svc_username }} --password {{ svc_password }}
+      register: r
+      changed_when: "'created' in (r.stdout | default('') | lower)"
+      failed_when: false
+
+    - name: Add service user to team
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: /mattermost/bin/mmctl --local team users add {{ team }} {{ svc_username }}
+      failed_when: false
+
+    - name: Add service user to channel
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: /mattermost/bin/mmctl --local channel users add {{ team }}:{{ channel_name }} {{ svc_username }}
+      failed_when: false
+
+    # --- add every human (non-bot, non-@localhost) to the channel so they see it ---
+    - name: List users
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: /mattermost/bin/mmctl --local --json user list --all
+      register: user_list
+      changed_when: false
+
+    - name: Add humans to team + channel
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: >-
+          /bin/sh -c "/mattermost/bin/mmctl --local team users add {{ team }} {{ item }};
+          /mattermost/bin/mmctl --local channel users add {{ team }}:{{ channel_name }} {{ item }}"
+      loop: >-
+        {{ ((user_list.stdout | default('[]', true) | from_json) or [])
+           | rejectattr('email', 'search', '@localhost$')
+           | map(attribute='username') | list }}
+      loop_control:
+        label: "{{ item }}"
+      failed_when: false
+
+    # --- token: revoke old ones with our description, mint a fresh one ---
+    - name: List service-user tokens
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: /mattermost/bin/mmctl --local --json token list {{ svc_username }}
+      register: tok_list
+      changed_when: false
+      failed_when: false
+
+    - name: Revoke stale tokens
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: /mattermost/bin/mmctl --local token revoke {{ item.id }}
+      loop: >-
+        {{ ((tok_list.stdout | default('[]', true) | from_json) or [])
+           | selectattr('description', 'equalto', token_desc) | list }}
+      loop_control:
+        label: "{{ item.id }}"
+      failed_when: false
+
+    - name: Generate token
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: /mattermost/bin/mmctl --local --json token generate {{ svc_username }} {{ token_desc }}
+      register: tok_gen
+
+    # ponytail: `token generate --json` prints a one-element array.
+    - name: Extract token
+      ansible.builtin.set_fact:
+        bot_token: "{{ (tok_gen.stdout | from_json | first).token }}"
+      no_log: true
+
+    # --- outgoing webhook: delete any with our display-name, recreate ---
+    - name: List outgoing webhooks
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: /mattermost/bin/mmctl --local --json webhook list {{ team }}
+      register: wh_list
+      changed_when: false
+      failed_when: false
+
+    - name: Delete stale outgoing webhooks
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: /mattermost/bin/mmctl --local webhook delete {{ item.id }}
+      loop: >-
+        {{ ((wh_list.stdout | default('[]', true) | from_json) or [])
+           | selectattr('display_name', 'equalto', webhook_name) | list }}
+      loop_control:
+        label: "{{ item.id }}"
+      failed_when: false
+
+    - name: Create outgoing webhook to F-28
+      kubernetes.core.k8s_exec:
+        namespace: "{{ mm_ns }}"
+        pod: "{{ mm_pod }}"
+        command: >-
+          /mattermost/bin/mmctl --local webhook create-outgoing --team {{ team }}
+          --channel {{ channel_id }} --user {{ svc_username }}
+          --display-name {{ webhook_name }}
+          --trigger-word {{ trigger_word }} --trigger-when start
+          --content-type application/x-www-form-urlencoded
+          --url {{ mm_callback }}
+      register: wh_create
+      changed_when: true
+
+    # --- n8n: mint API key, create the credential, bind flows ---
+    - name: Log in to n8n
+      ansible.builtin.uri:
+        url: "{{ n8n_url }}/rest/login"
+        method: POST
+        body_format: json
+        body:
+          emailOrLdapLoginId: "{{ owner_email }}"
+          password: "{{ owner_password }}"
+        status_code: 200
+      register: login_resp
+      no_log: true
+
+    - name: Get API-key scopes
+      ansible.builtin.uri:
+        url: "{{ n8n_url }}/rest/api-keys/scopes"
+        headers:
+          Cookie: "n8n-auth={{ login_resp.cookies['n8n-auth'] }}"
+        status_code: [200, 404]
+      register: scopes_resp
+
+    - name: Mint an API key
+      ansible.builtin.uri:
+        url: "{{ n8n_url }}/rest/api-keys"
+        method: POST
+        headers:
+          Cookie: "n8n-auth={{ login_resp.cookies['n8n-auth'] }}"
+        body_format: json
+        body:
+          label: "mattermost-{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+          expiresAt: null
+          scopes: "{{ scopes_resp.json.data | default(scopes_resp.json, true) | default([], true) }}"
+        status_code: [200, 201]
+      register: keyresp
+      no_log: true
+
+    - ansible.builtin.set_fact:
+        n8n_api_key: "{{ keyresp.json.data.rawApiKey | default(keyresp.json.data.apiKey) }}"
+      no_log: true
+
+    - name: Create the Mattermost credential in n8n
+      ansible.builtin.uri:
+        url: "{{ n8n_url }}/api/v1/credentials"
+        method: POST
+        headers:
+          X-N8N-API-KEY: "{{ n8n_api_key }}"
+        body_format: json
+        body:
+          name: "{{ cred_name }}"
+          type: mattermostApi
+          data:
+            baseUrl: "{{ mm_base_url }}"
+            accessToken: "{{ bot_token }}"
+            allowUnauthorizedCerts: true
+        status_code: [200, 201]
+      register: cred_resp
+      no_log: true
+
+    - name: Bind seeded flows to the credential
+      ansible.builtin.command: python3 /flows/bind-mm-cred.py
+      environment:
+        N8N_URL: "{{ n8n_url }}"
+        N8N_API_KEY: "{{ n8n_api_key }}"
+        MM_CRED_ID: "{{ cred_resp.json.data.id | default(cred_resp.json.id) }}"
+        MM_CRED_NAME: "{{ cred_name }}"
+      register: bind
+      changed_when: "'bound:' in bind.stdout"
+
+    - name: Report
+      ansible.builtin.debug:
+        msg:
+          - "team '{{ team }}', channel '{{ channel_name }}', trigger word '{{ trigger_word }}'"
+          - "webhook -> {{ mm_callback }}"
+          - "{{ bind.stdout_lines }}"
+          - "In the '{{ channel_name }}' channel, type: {{ trigger_word }} <your question>"

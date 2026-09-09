@@ -4,12 +4,12 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "develop",
-        "responseMode": "lastNode",
+        "path": "mm-develop",
+        "responseMode": "responseNode",
         "options": {}
       },
-      "id": "webhook-develop",
-      "name": "Webhook: /develop",
+      "id": "slack-trigger",
+      "name": "Mattermost: trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,30 +19,47 @@
     },
     {
       "parameters": {
-        "jsCode": "$workflow.staticData.dagState = { version: $json.body.version, project: $json.body.project, stories: {}, retryCounters: {} };\nreturn [{ json: { status: 'dag-activated', version: $json.body.version } }];"
+        "respondWith": "json",
+        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/develop`...\"}"
+      },
+      "id": "mm-ack-slack-trigger",
+      "name": "Mattermost: ack command",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :hourglass_flowing_sand: *Development started* for `={{ $('Slack: trigger').item.json.text }}`\nActivating sprint DAG · spawning DevOps gate A...",
+        "otherOptions": {}
+      },
+      "id": "ack-03",
+      "name": "Mattermost: develop started",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "$workflow.staticData.dagState={version:$('Slack: trigger').item.json.text,project:$('Slack: trigger').item.json.user_name,stories:{},retryCounters:{}};\nreturn [{json:{status:'dag-activated'}}];"
       },
       "id": "activate-dag",
       "name": "Activate sprint DAG",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        480,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'devops-engineer', task: 'gate-A-infra-check', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
-      },
-      "id": "spawn-devops-gate-a",
-      "name": "Spawn DevOps Pod (gate A)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
       "position": [
         720,
         300
@@ -50,23 +67,12 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "conditions": [
-            {
-              "leftValue": "={{ $json.exitCode }}",
-              "rightValue": 0,
-              "operator": {
-                "type": "number",
-                "operation": "equals"
-              }
-            }
-          ]
-        }
+        "command": "=echo '{\"role\":\"devops\",\"task\":\"gate-A-infra-check\"}' > /tmp/gA.json && omp run --mode json --role default @/tmp/gA.json"
       },
-      "id": "gate-a-check",
-      "name": "Gate A: infra ready?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
+      "id": "spawn-do-a",
+      "name": "Spawn DevOps Pod (gate A)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         960,
         300
@@ -74,20 +80,81 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'data-engineer', task: 'gate-B-contracts', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exitCode }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
       },
-      "id": "spawn-de-gate-b",
-      "name": "Spawn Data Engineer Pod (gate B)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "gate-a",
+      "name": "Gate A: infra ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
       "position": [
         1200,
-        220
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :white_check_mark: Gate A (DevOps infra) ready. Spawning Data Engineer (gate B)...",
+        "otherOptions": {}
+      },
+      "id": "slack-gA-ok",
+      "name": "Mattermost: gate A ready",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        200
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :x: Gate A *failed* — DevOps infra not ready. Check DevOps pod logs.",
+        "otherOptions": {}
+      },
+      "id": "slack-gA-fail",
+      "name": "Mattermost: gate A failed",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        440
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=echo '{\"role\":\"data-engineer\",\"task\":\"gate-B-contracts\"}' > /tmp/gB.json && omp run --mode json --role slow @/tmp/gB.json"
+      },
+      "id": "spawn-de-b",
+      "name": "Spawn Data Engineer Pod (gate B)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        200
       ]
     },
     {
@@ -105,31 +172,47 @@
           ]
         }
       },
-      "id": "gate-b-check",
+      "id": "gate-b",
       "name": "Gate B: types ready?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1440,
-        220
+        1920,
+        200
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'tech-lead', task: 'gate-C-pseudocode', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :white_check_mark: Gate B (types + contracts) ready. Spawning TL pseudocode (gate C)...",
+        "otherOptions": {}
       },
-      "id": "spawn-tl-pseudocode",
-      "name": "Spawn TL Pod (gate C): pseudocode authoring",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-gB-ok",
+      "name": "Mattermost: gate B ready",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
-        1680,
-        220
+        2160,
+        120
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=echo '{\"role\":\"tech-lead\",\"task\":\"gate-C-pseudocode\"}' > /tmp/gC.json && omp run --mode json --role slow @/tmp/gC.json"
+      },
+      "id": "spawn-tl-c",
+      "name": "Spawn TL Pod (gate C): pseudocode",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        120
       ]
     },
     {
@@ -147,112 +230,107 @@
           ]
         }
       },
-      "id": "gate-c-check",
-      "name": "Gate C: all openspec:ready?",
+      "id": "gate-c",
+      "name": "Gate C: openspec:ready?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1920,
-        220
+        2640,
+        120
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'backend-developer', task: 'implement', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :rocket: All gates complete. Developer pods now running in parallel:\n• Backend (smol+hashline)\n• Frontend (smol+hashline)\n• QA + Security (smol)\n• DevOps (smol)\n\nMR opened events will drive F-04 review cycles.",
+        "otherOptions": {}
       },
-      "id": "spawn-backend-pods",
-      "name": "Spawn Backend Developer Pods (smol)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-gC-ok",
+      "name": "Mattermost: all pods unblocked",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
-        2160,
-        100
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'frontend-developer', task: 'implement', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
-      },
-      "id": "spawn-frontend-pods",
-      "name": "Spawn Frontend Developer Pods (smol)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        2160,
-        240
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'qa-engineer', task: 'write-tests', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
-      },
-      "id": "spawn-qa-pods",
-      "name": "Spawn QA Pods (smol)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        2160,
-        380
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'devops-engineer', task: 'pipeline-config', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
-      },
-      "id": "spawn-devops-pods",
-      "name": "Spawn DevOps Pods (smol)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        2160,
-        520
-      ]
-    },
-    {
-      "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f03-infra-fail",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "Gate A failed: DevOps infra not ready"
-            }
-          ]
+        2880,
+        120
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
         }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=echo '{\"role\":\"backend-developer\",\"task\":\"implement\"}' > /tmp/be.json && omp run --mode json --role smol @/tmp/be.json"
       },
-      "id": "infra-fail-notify",
-      "name": "Notify: infra gate A failed",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "spawn-be",
+      "name": "Spawn Backend Pods",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
-        1200,
-        440
+        3120,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=echo '{\"role\":\"frontend-developer\",\"task\":\"implement\"}' > /tmp/fe.json && omp run --mode json --role smol @/tmp/fe.json"
+      },
+      "id": "spawn-fe",
+      "name": "Spawn Frontend Pods",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        3120,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=echo '{\"role\":\"qa-engineer\",\"task\":\"write-tests\"}' > /tmp/qa.json && omp run --mode json --role smol @/tmp/qa.json"
+      },
+      "id": "spawn-qa",
+      "name": "Spawn QA Pods",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        3120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=echo '{\"role\":\"devops-engineer\",\"task\":\"pipeline-config\"}' > /tmp/dv.json && omp run --mode json --role smol @/tmp/dv.json"
+      },
+      "id": "spawn-dv",
+      "name": "Spawn DevOps Pods",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        3120,
+        420
       ]
     }
   ],
   "connections": {
-    "Webhook: /develop": {
+    "Mattermost: trigger": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: develop started",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mattermost: ack command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mattermost: develop started": {
       "main": [
         [
           {
@@ -289,14 +367,25 @@
       "main": [
         [
           {
-            "node": "Spawn Data Engineer Pod (gate B)",
+            "node": "Mattermost: gate A ready",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Notify: infra gate A failed",
+            "node": "Mattermost: gate A failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mattermost: gate A ready": {
+      "main": [
+        [
+          {
+            "node": "Spawn Data Engineer Pod (gate B)",
             "type": "main",
             "index": 0
           }
@@ -318,58 +407,66 @@
       "main": [
         [
           {
-            "node": "Spawn TL Pod (gate C): pseudocode authoring",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Notify: infra gate A failed",
+            "node": "Mattermost: gate B ready",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn TL Pod (gate C): pseudocode authoring": {
+    "Mattermost: gate B ready": {
       "main": [
         [
           {
-            "node": "Gate C: all openspec:ready?",
+            "node": "Spawn TL Pod (gate C): pseudocode",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Gate C: all openspec:ready?": {
+    "Spawn TL Pod (gate C): pseudocode": {
       "main": [
         [
           {
-            "node": "Spawn Backend Developer Pods (smol)",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Spawn Frontend Developer Pods (smol)",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Spawn QA Pods (smol)",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Spawn DevOps Pods (smol)",
+            "node": "Gate C: openspec:ready?",
             "type": "main",
             "index": 0
           }
-        ],
+        ]
+      ]
+    },
+    "Gate C: openspec:ready?": {
+      "main": [
         [
           {
-            "node": "Notify: infra gate A failed",
+            "node": "Mattermost: all pods unblocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mattermost: all pods unblocked": {
+      "main": [
+        [
+          {
+            "node": "Spawn Backend Pods",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn Frontend Pods",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn QA Pods",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn DevOps Pods",
             "type": "main",
             "index": 0
           }
@@ -387,6 +484,9 @@
     },
     {
       "name": "phase-2"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

@@ -8,8 +8,8 @@
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "webhook-story-mr",
-      "name": "Webhook: story MR open trigger",
+      "id": "wh-07",
+      "name": "Webhook: story-mr-open",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,10 +19,10 @@
     },
     {
       "parameters": {
-        "command": "=echo '{\"role\":\"tech-lead\",\"task\":\"open-story-mr\",\"story_id\":\"{{ $json.body.story_id }}\",\"version\":\"{{ $json.body.version }}\",\"project\":\"{{ $json.body.project }}\"}' > /tmp/story-mr.json && omp -p \"$(cat /tmp/story-mr.json)\""
+        "command": "=echo '{\"role\":\"tech-lead\",\"task\":\"open-story-mr\",\"story_id\":\"{{ $json.body.story_id }}\"}' > /tmp/smr.json && opencode run --print \"$(cat /tmp/smr.json)\""
       },
-      "id": "tl-opens-story-mr",
-      "name": "TL opens [story] MR per repo (omp+glab)",
+      "id": "tl-story-mr",
+      "name": "TL opens story MR (opencode+glab)",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
@@ -32,10 +32,10 @@
     },
     {
       "parameters": {
-        "command": "=echo 'CI fires on story MR - builds rc images and deploys to QA cluster' && sleep 30"
+        "command": "=sleep 30 && echo 'QA cluster deployment complete'"
       },
       "id": "wait-qa-deploy",
-      "name": "Wait: CI deploys rc images to QA cluster",
+      "name": "Wait: CI deploys rc to QA cluster",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
@@ -45,82 +45,78 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'qa-engineer', task: 'story-testing', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"qa-engineer\",\"task\":\"story-testing\",\"story_id\":\"{{ $json.body.story_id }}\"}' > /tmp/qa-s.json && omp run --mode json --role smol @/tmp/qa-s.json"
       },
-      "id": "spawn-qa-story",
+      "id": "spawn-qa",
       "name": "Spawn QA Pod: story-level testing",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         960,
-        200
+        300
       ]
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f07-notify-edward",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "Story MR ready for your review"
-            },
-            {
-              "name": "story_id",
-              "value": "={{ $json.body.story_id }}"
-            }
-          ]
-        }
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":eyes: *Story MR ready for your review* — `{{ $json.body.story_id }}`\nQA story-level tests running on QA cluster.\n\n*Your action:* review + approve + merge the story MR.",
+        "otherOptions": {}
       },
-      "id": "notify-edward-story-mr",
-      "name": "Notify Edward: story MR ready for review",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-07",
+      "name": "Mattermost: story MR ready for review",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
-        960,
-        400
-      ]
+        1200,
+        300
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: story MR open trigger": {
+    "Webhook: story-mr-open": {
       "main": [
         [
           {
-            "node": "TL opens [story] MR per repo (omp+glab)",
+            "node": "TL opens story MR (opencode+glab)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "TL opens [story] MR per repo (omp+glab)": {
+    "TL opens story MR (opencode+glab)": {
       "main": [
         [
           {
-            "node": "Wait: CI deploys rc images to QA cluster",
+            "node": "Wait: CI deploys rc to QA cluster",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Wait: CI deploys rc images to QA cluster": {
+    "Wait: CI deploys rc to QA cluster": {
       "main": [
         [
           {
             "node": "Spawn QA Pod: story-level testing",
             "type": "main",
             "index": 0
-          },
+          }
+        ]
+      ]
+    },
+    "Spawn QA Pod: story-level testing": {
+      "main": [
+        [
           {
-            "node": "Notify Edward: story MR ready for review",
+            "node": "Mattermost: story MR ready for review",
             "type": "main",
             "index": 0
           }
@@ -138,6 +134,9 @@
     },
     {
       "name": "phase-2"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

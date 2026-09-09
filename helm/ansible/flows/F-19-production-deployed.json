@@ -1,5 +1,5 @@
 {
-  "name": "F-19 Production Deployed (CI Webhook)",
+  "name": "F-19 Production Deployed",
   "nodes": [
     {
       "parameters": {
@@ -9,7 +9,7 @@
         "options": {}
       },
       "id": "wh-19",
-      "name": "Webhook: CI production deployed",
+      "name": "Webhook: ci-production-deployed",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,10 +19,10 @@
     },
     {
       "parameters": {
-        "command": "glab issue comment {{ $json.body.release_ticket_id }} --message 'Production deployed: {{ $json.body.version }} at {{ new Date().toISOString() }}'"
+        "command": "=glab issue comment {{ $json.body.release_ticket_id }} --message 'Production deployed: {{ $json.body.version }} at {{ new Date().toISOString() }}'"
       },
-      "id": "update-ticket-19",
-      "name": "Update release ticket: deployed + timestamp",
+      "id": "upd-rt",
+      "name": "Update release ticket: prod deployed",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
@@ -32,17 +32,12 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'qa-engineer', task: 'smoke-tests', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"qa-engineer\",\"task\":\"smoke-tests\",\"version\":\"{{ $json.body.version }}\",\"base_url\":\"https://production.{{ $json.body.project }}\"}' > /tmp/smoke.json && omp run --mode json --role smol @/tmp/smoke.json"
       },
-      "id": "run-smoke-19",
+      "id": "smoke",
       "name": "Run smoke tests from QA smoke plan ticket",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         720,
         300
@@ -63,7 +58,7 @@
           ]
         }
       },
-      "id": "smoke-pass-19",
+      "id": "smoke-pass",
       "name": "Smoke tests pass?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -74,47 +69,33 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f19-smoke-fail",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "Smoke tests FAILED"
-            },
-            {
-              "name": "failed_test",
-              "value": "={{ $json.stdout }}"
-            },
-            {
-              "name": "version",
-              "value": "={{ $json.body.version }}"
-            }
-          ]
-        }
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":rotating_light: *Production smoke tests FAILED* — `{{ $json.body.version }}`\n{{ $json.stdout }}\n\nImmediate action required. Consider `/rollback {{ $json.body.version }}`.",
+        "otherOptions": {}
       },
-      "id": "smoke-fail-notify-19",
-      "name": "Smoke fail: report + suggestion + escalate to Edward",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-smoke-fail",
+      "name": "Mattermost: smoke tests FAILED",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
         1200,
         440
-      ]
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'release-manager', task: 'production-monitoring', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"release-manager\",\"task\":\"production-monitoring\",\"version\":\"{{ $json.body.version }}\",\"release_ticket_id\":\"{{ $json.body.release_ticket_id }}\"}' > /tmp/rm-mon.json && omp run --mode json --role default @/tmp/rm-mon.json"
       },
-      "id": "spawn-rm-monitor-19",
-      "name": "Spawn RM Pod: production monitoring window (F-20)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "spawn-rm",
+      "name": "Spawn RM: production monitoring window",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         1200,
         200
@@ -122,31 +103,52 @@
     },
     {
       "parameters": {
-        "command": "glab release create {{ $json.body.version }} --title 'Release {{ $json.body.version }}' --notes 'See wiki for full release notes.' && echo 'Branch cleanup scheduled for 30 days.'"
+        "command": "=glab release create {{ $json.body.version }} --title 'Release {{ $json.body.version }}' --notes 'See wiki for release notes.'"
       },
-      "id": "release-artifacts-19",
-      "name": "n8n: create GitLab release object + schedule cleanup",
+      "id": "git-release",
+      "name": "Create GitLab release object + schedule cleanup",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
         1200,
         320
       ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":white_check_mark: *Production deployed* — `{{ $json.body.version }}`\nSmoke tests passed. RM monitoring window active.\n\nYou'll be notified when the monitoring window completes.",
+        "otherOptions": {}
+      },
+      "id": "slack-prod-up",
+      "name": "Mattermost: production healthy — monitoring",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        260
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: CI production deployed": {
+    "Webhook: ci-production-deployed": {
       "main": [
         [
           {
-            "node": "Update release ticket: deployed + timestamp",
+            "node": "Update release ticket: prod deployed",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Update release ticket: deployed + timestamp": {
+    "Update release ticket: prod deployed": {
       "main": [
         [
           {
@@ -172,19 +174,41 @@
       "main": [
         [
           {
-            "node": "Spawn RM Pod: production monitoring window (F-20)",
+            "node": "Spawn RM: production monitoring window",
             "type": "main",
             "index": 0
           },
           {
-            "node": "n8n: create GitLab release object + schedule cleanup",
+            "node": "Create GitLab release object + schedule cleanup",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Smoke fail: report + suggestion + escalate to Edward",
+            "node": "Mattermost: smoke tests FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn RM: production monitoring window": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: production healthy — monitoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create GitLab release object + schedule cleanup": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: production healthy — monitoring",
             "type": "main",
             "index": 0
           }
@@ -202,6 +226,9 @@
     },
     {
       "name": "phase-5"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

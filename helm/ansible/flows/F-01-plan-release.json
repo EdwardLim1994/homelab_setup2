@@ -4,12 +4,12 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "plan-release",
-        "responseMode": "lastNode",
+        "path": "mm-plan_release",
+        "responseMode": "responseNode",
         "options": {}
       },
-      "id": "webhook-plan-release",
-      "name": "Webhook: /plan-release",
+      "id": "slack-trigger",
+      "name": "Mattermost: trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,17 +19,13 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'solution-architect', task: 'gate-A-planning', version: $json.body.version, project: $json.body.project, openspec_path: 'openspec/architecture.md' }) }}",
-        "options": {}
+        "respondWith": "json",
+        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/plan_release`...\"}"
       },
-      "id": "spawn-architect-pod",
-      "name": "Spawn Architect Pod (gate A)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "mm-ack-slack-trigger",
+      "name": "Mattermost: ack command",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
       "position": [
         480,
         200
@@ -37,113 +33,134 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'data-engineer', task: 'gate-A-planning', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :hourglass: *Plan-release started* for `{{ $json.text }}`\nGate A: Architect + Data Engineer pods spawning...",
+        "otherOptions": {}
       },
-      "id": "spawn-de-pod",
-      "name": "Spawn Data Engineer Pod (gate A)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "ack-01",
+      "name": "Mattermost: ack received",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
         480,
+        300
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=echo '{\"role\":\"architect\",\"task\":\"gate-A-planning\",\"version\":\"{{ $json.text }}\"}' > /tmp/arch.json && omp run --mode json --role slow @/tmp/arch.json"
+      },
+      "id": "spawn-arch",
+      "name": "Spawn Architect Pod (gate A)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        720,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=echo '{\"role\":\"data-engineer\",\"task\":\"gate-A-planning\",\"version\":\"{{ $json.text }}\"}' > /tmp/de.json && omp run --mode json --role slow @/tmp/de.json"
+      },
+      "id": "spawn-de",
+      "name": "Spawn Data Engineer Pod (gate A)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        720,
         400
       ]
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ $node['Spawn Architect Pod (gate A)'].json.exitCode }}",
-              "rightValue": 0,
-              "operator": {
-                "type": "number",
-                "operation": "equals"
-              }
-            }
-          ]
-        }
+        "jsCode": "const a=$node['Spawn Architect Pod (gate A)'].json.exitCode;\nconst d=$node['Spawn Data Engineer Pod (gate A)'].json.exitCode;\nreturn [{json:{ok:a===0&&d===0}}];"
       },
-      "id": "check-gate-a",
-      "name": "Gate A: both complete?",
-      "type": "n8n-nodes-base.if",
+      "id": "gate-a-check",
+      "name": "Gate A complete?",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        720,
+        960,
         300
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'qa-engineer', task: 'gate-B-challenge', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :white_check_mark: Gate A done. Spawning QA · Security · UX pods (gate B)...",
+        "otherOptions": {}
       },
-      "id": "spawn-qa-pod",
-      "name": "Spawn QA Pod (gate B)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "ack-gate-a",
+      "name": "Mattermost: gate A complete",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
-        960,
+        1200,
+        300
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=echo '{\"role\":\"qa\",\"task\":\"gate-B-challenge\",\"version\":\"{{ $('Slack: trigger').item.json.text }}\"}' > /tmp/qa.json && omp run --mode json --role default @/tmp/qa.json"
+      },
+      "id": "spawn-qa",
+      "name": "Spawn QA Pod (gate B)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1440,
         160
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'security-engineer', task: 'gate-B-threat-model', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"security\",\"task\":\"gate-B-threat-model\",\"version\":\"{{ $('Slack: trigger').item.json.text }}\"}' > /tmp/sec.json && omp run --mode json --role default @/tmp/sec.json"
       },
-      "id": "spawn-sec-pod",
+      "id": "spawn-sec",
       "name": "Spawn Security Pod (gate B)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
-        960,
+        1440,
         300
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'uiux-designer', task: 'gate-B-ux-spec', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"ui-ux\",\"task\":\"gate-B-ux-spec\",\"version\":\"{{ $('Slack: trigger').item.json.text }}\"}' > /tmp/ux.json && omp run --mode json --role default @/tmp/ux.json"
       },
-      "id": "spawn-ux-pod",
+      "id": "spawn-ux",
       "name": "Spawn UX Pod (gate B)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
-        960,
+        1440,
         440
       ]
     },
     {
       "parameters": {
-        "jsCode": "const revisionCount = $workflow.staticData.revisionCount || 0;\nif (revisionCount >= 3) {\n  return [{ json: { escalate: true, reason: 'Max arch revisions reached', revisions: revisionCount } }];\n}\n$workflow.staticData.revisionCount = revisionCount + 1;\nreturn [{ json: { escalate: false, revisionCount: revisionCount + 1 } }];"
+        "jsCode": "const dag=$workflow.staticData;\ndag.revisions=(dag.revisions||0)+1;\nif(dag.revisions>=3) return [{json:{escalate:true,count:dag.revisions}}];\nreturn [{json:{escalate:false,count:dag.revisions}}];"
       },
-      "id": "check-arch-revision",
-      "name": "Check: arch revision needed? (max 3)",
+      "id": "revision-check",
+      "name": "Arch revision check (max 3)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1200,
+        1680,
         300
       ]
     },
@@ -162,84 +179,89 @@
           ]
         }
       },
-      "id": "escalate-check",
-      "name": "Escalate or re-arch?",
+      "id": "escalate-if",
+      "name": "Escalate?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1440,
+        1920,
         300
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'project-manager', task: 'prd-and-task-breakdown', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"pm\",\"task\":\"prd-scoring\",\"version\":\"{{ $('Slack: trigger').item.json.text }}\"}' > /tmp/pm.json && omp run --mode json --role slow @/tmp/pm.json"
       },
-      "id": "spawn-pm-pod",
-      "name": "Spawn PM Pod (gate C – PRD + scoring)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "spawn-pm",
+      "name": "Spawn PM Pod (gate C)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
-        1680,
+        2160,
         200
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'security-engineer', task: 'priority-scoring', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :rocket: *Sprint plan ready* for `{{ $('Slack: trigger').item.json.text }}`\nPRD + task breakdown complete. Review and run `/kickoff` when ready.",
+        "otherOptions": {}
       },
-      "id": "spawn-scoring-pod",
-      "name": "Spawn Security Scoring Pod (gate C)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "notify-done-01",
+      "name": "Mattermost: plan-release complete",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
-        1680,
-        400
-      ]
+        2400,
+        200
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f01-notify-edward",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "Sprint plan ready for /kickoff"
-            },
-            {
-              "name": "version",
-              "value": "={{ $json.body.version }}"
-            },
-            {
-              "name": "project",
-              "value": "={{ $json.body.project }}"
-            }
-          ]
-        }
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :warning: *Architecture revision limit reached* (3 rounds)\nManual review required before continuing. Check release ticket for details.",
+        "otherOptions": {}
       },
-      "id": "notify-edward",
-      "name": "Notify Edward: sprint plan ready",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "notify-escalate-01",
+      "name": "Mattermost: escalation",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
-        1920,
-        300
-      ]
+        2160,
+        440
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: /plan-release": {
+    "Mattermost: trigger": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: ack received",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mattermost: ack command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mattermost: ack received": {
       "main": [
         [
           {
@@ -259,7 +281,7 @@
       "main": [
         [
           {
-            "node": "Gate A: both complete?",
+            "node": "Gate A complete?",
             "type": "main",
             "index": 0
           }
@@ -270,14 +292,25 @@
       "main": [
         [
           {
-            "node": "Gate A: both complete?",
+            "node": "Gate A complete?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Gate A: both complete?": {
+    "Gate A complete?": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: gate A complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mattermost: gate A complete": {
       "main": [
         [
           {
@@ -295,13 +328,6 @@
             "type": "main",
             "index": 0
           }
-        ],
-        [
-          {
-            "node": "Notify Edward: sprint plan ready",
-            "type": "main",
-            "index": 0
-          }
         ]
       ]
     },
@@ -309,7 +335,7 @@
       "main": [
         [
           {
-            "node": "Check: arch revision needed? (max 3)",
+            "node": "Arch revision check (max 3)",
             "type": "main",
             "index": 0
           }
@@ -320,7 +346,7 @@
       "main": [
         [
           {
-            "node": "Check: arch revision needed? (max 3)",
+            "node": "Arch revision check (max 3)",
             "type": "main",
             "index": 0
           }
@@ -331,63 +357,47 @@
       "main": [
         [
           {
-            "node": "Check: arch revision needed? (max 3)",
+            "node": "Arch revision check (max 3)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Check: arch revision needed? (max 3)": {
+    "Arch revision check (max 3)": {
       "main": [
         [
           {
-            "node": "Escalate or re-arch?",
+            "node": "Escalate?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Escalate or re-arch?": {
+    "Escalate?": {
       "main": [
         [
           {
-            "node": "Notify Edward: sprint plan ready",
+            "node": "Spawn PM Pod (gate C)",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Spawn PM Pod (gate C – PRD + scoring)",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Spawn Security Scoring Pod (gate C)",
+            "node": "Mattermost: escalation",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn PM Pod (gate C – PRD + scoring)": {
+    "Spawn PM Pod (gate C)": {
       "main": [
         [
           {
-            "node": "Notify Edward: sprint plan ready",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Spawn Security Scoring Pod (gate C)": {
-      "main": [
-        [
-          {
-            "node": "Notify Edward: sprint plan ready",
+            "node": "Mattermost: plan-release complete",
             "type": "main",
             "index": 0
           }
@@ -405,6 +415,9 @@
     },
     {
       "name": "phase-0"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

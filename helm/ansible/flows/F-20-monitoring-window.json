@@ -9,7 +9,7 @@
         "options": {}
       },
       "id": "wh-20",
-      "name": "Webhook: RM monitoring window signal",
+      "name": "Webhook: monitoring-complete",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -32,7 +32,7 @@
           ]
         }
       },
-      "id": "incident-check-20",
+      "id": "incident-check",
       "name": "Incident detected?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -43,70 +43,49 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f20-incident",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "PRODUCTION INCIDENT"
-            },
-            {
-              "name": "metric",
-              "value": "={{ $json.body.metric }}"
-            },
-            {
-              "name": "value",
-              "value": "={{ $json.body.value }}"
-            },
-            {
-              "name": "trend",
-              "value": "={{ $json.body.trend }}"
-            },
-            {
-              "name": "recommended_action",
-              "value": "={{ $json.body.recommended_action }}"
-            },
-            {
-              "name": "version",
-              "value": "={{ $json.body.version }}"
-            }
-          ]
-        }
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":rotating_light: *PRODUCTION INCIDENT* — `{{ $json.body.version }}`\n*Metric:* {{ $json.body.metric }} = {{ $json.body.value }} (threshold breached)\n*Trend:* {{ $json.body.trend }}\n\n*RM recommendation:*\n{{ $json.body.recommended_action }}\n\nReply with your decision.",
+        "otherOptions": {}
       },
-      "id": "escalate-incident-20",
-      "name": "RM creates incident report + escalates to Edward",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-incident",
+      "name": "Mattermost: PRODUCTION INCIDENT",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
         720,
         160
-      ]
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     },
     {
       "parameters": {
-        "command": "glab issue update {{ $json.body.release_ticket_id }} --label-add 'monitoring:passed' && glab issue comment {{ $json.body.release_ticket_id }} --message 'Monitoring window complete. No incidents. Release confirmed stable.'"
+        "command": "=glab issue update {{ $json.body.release_ticket_id }} --label-add 'monitoring:passed' && glab issue close {{ $json.body.release_ticket_id }}"
       },
-      "id": "confirm-release-20",
-      "name": "Update release ticket: monitoring passed",
+      "id": "close-rt",
+      "name": "Update release ticket: monitoring passed + close",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
         720,
-        400
+        440
       ]
     },
     {
       "parameters": {
-        "command": "echo '{\"role\":\"pm\",\"task\":\"release-communication\",\"version\":\"{{ $json.body.version }}\"}' > /tmp/pm-comms.json && omp -p \"$(cat /tmp/pm-comms.json)\""
+        "command": "=echo '{\"role\":\"pm\",\"task\":\"release-communication\",\"version\":\"{{ $json.body.version }}\"}' > /tmp/pm-comm.json && opencode run --print \"$(cat /tmp/pm-comm.json)\""
       },
-      "id": "pm-comms-20",
-      "name": "Spawn PM Pod: write release communication",
+      "id": "pm-comms",
+      "name": "Spawn PM: release communication",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
         960,
-        400
+        440
       ]
     },
     {
@@ -122,44 +101,39 @@
           ]
         }
       },
-      "id": "sleep-staging-20",
-      "name": "Sleep staging cluster (F-27)",
+      "id": "sleep-stg",
+      "name": "Sleep staging cluster",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
         1200,
-        400
+        440
       ]
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f20-notify-confirmed",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "v{{ $json.body.version }} successfully shipped. Release confirmed."
-            },
-            {
-              "name": "version",
-              "value": "={{ $json.body.version }}"
-            }
-          ]
-        }
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":tada: *Release `{{ $json.body.version }}` confirmed stable!*\nMonitoring window complete · no incidents · release ticket closed.\nRelease notes posted. Staging cluster sleeping.\n\nRun `/retro {{ $json.body.version }}` to complete the sprint.",
+        "otherOptions": {}
       },
-      "id": "notify-shipped-20",
-      "name": "Notify Edward: release confirmed",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-confirmed",
+      "name": "Mattermost: release confirmed",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
         1440,
-        400
-      ]
+        440
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: RM monitoring window signal": {
+    "Webhook: monitoring-complete": {
       "main": [
         [
           {
@@ -174,47 +148,47 @@
       "main": [
         [
           {
-            "node": "RM creates incident report + escalates to Edward",
+            "node": "Mattermost: PRODUCTION INCIDENT",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Update release ticket: monitoring passed",
+            "node": "Update release ticket: monitoring passed + close",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Update release ticket: monitoring passed": {
+    "Update release ticket: monitoring passed + close": {
       "main": [
         [
           {
-            "node": "Spawn PM Pod: write release communication",
+            "node": "Spawn PM: release communication",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn PM Pod: write release communication": {
+    "Spawn PM: release communication": {
       "main": [
         [
           {
-            "node": "Sleep staging cluster (F-27)",
+            "node": "Sleep staging cluster",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Sleep staging cluster (F-27)": {
+    "Sleep staging cluster": {
       "main": [
         [
           {
-            "node": "Notify Edward: release confirmed",
+            "node": "Mattermost: release confirmed",
             "type": "main",
             "index": 0
           }
@@ -232,6 +206,9 @@
     },
     {
       "name": "phase-5"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

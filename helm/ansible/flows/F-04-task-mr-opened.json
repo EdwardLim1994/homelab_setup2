@@ -8,8 +8,8 @@
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "webhook-mr-open",
-      "name": "Webhook: GitLab MR opened",
+      "id": "wh-04",
+      "name": "Webhook: gitlab-mr-opened",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -22,18 +22,18 @@
         "conditions": {
           "conditions": [
             {
-              "leftValue": "={{ $json.body.object_attributes.source_branch }}",
-              "rightValue": "task/",
+              "leftValue": "={{ ['task/','api/','qa/','security/','devops/','bugfix/'].some(p=>$json.body.object_attributes.source_branch.startsWith(p)) }}",
+              "rightValue": true,
               "operator": {
-                "type": "string",
-                "operation": "startsWith"
+                "type": "number",
+                "operation": "equals"
               }
             }
           ]
         }
       },
-      "id": "filter-task-mr",
-      "name": "Is task MR?",
+      "id": "is-task",
+      "name": "Is task/api/qa/security/devops MR?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
@@ -43,30 +43,25 @@
     },
     {
       "parameters": {
-        "jsCode": "const mrId = $json.body.object_attributes.iid;\nconst branch = $json.body.object_attributes.source_branch;\nconst dag = $workflow.staticData.dagState || {};\nif (!dag.retryCounters) dag.retryCounters = {};\ndag.retryCounters[mrId] = 0;\ndag.openMRs = dag.openMRs || {};\ndag.openMRs[mrId] = { branch, status: 'open', ciStatus: null, tlStatus: null };\n$workflow.staticData.dagState = dag;\nreturn [{ json: { mrId, branch, retryCount: 0 } }];"
+        "jsCode": "const dag=$workflow.staticData.dagState||{};\nconst mrId=$json.body.object_attributes.iid;\ndag.retryCounters=dag.retryCounters||{};\ndag.retryCounters[mrId]=0;\ndag.openMRs=dag.openMRs||{};\ndag.openMRs[mrId]={branch:$json.body.object_attributes.source_branch,status:'open'};\n$workflow.staticData.dagState=dag;\nreturn [{json:{mrId,retryCount:0,branch:$json.body.object_attributes.source_branch,mrUrl:$json.body.object_attributes.url}}];"
       },
-      "id": "register-mr-dag",
-      "name": "Register MR in DAG + init retry counter",
+      "id": "reg-dag",
+      "name": "Register MR + init retry counter",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         720,
-        220
+        200
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'tech-lead', task: 'mr-review', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"tech-lead\",\"task\":\"mr-review\",\"mr_id\":\"{{ $json.body.object_attributes.iid }}\",\"mr_url\":\"{{ $json.body.object_attributes.url }}\"}' > /tmp/tl-rev.json && omp run --mode json --role slow @/tmp/tl-rev.json"
       },
       "id": "spawn-tl-review",
-      "name": "Spawn TL Pod: MR review (parallel with CI)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "name": "Spawn TL Pod: MR review (omp slow+LSP+advisor)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         960,
         160
@@ -75,19 +70,17 @@
     {
       "parameters": {
         "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project.id }}/merge_requests/{{ $json.body.object_attributes.iid }}/pipelines",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "gitlabApi",
-        "sendHeaders": true,
-        "headerParameters": {
+        "sendBody": true,
+        "bodyParameters": {
           "parameters": [
             {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
+              "name": "per_page",
+              "value": "1"
             }
           ]
         }
       },
-      "id": "poll-ci-status",
+      "id": "poll-ci",
       "name": "Poll CI pipeline status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -98,30 +91,11 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "conditions": [
-            {
-              "leftValue": "={{ $node['Spawn TL Pod: MR review (parallel with CI)'].json.exitCode }}",
-              "rightValue": 0,
-              "operator": {
-                "type": "number",
-                "operation": "equals"
-              }
-            },
-            {
-              "leftValue": "={{ $node['Poll CI pipeline status'].json[0].status }}",
-              "rightValue": "success",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
-          ]
-        }
+        "jsCode": "const tl=$node['Spawn TL Pod: MR review (omp slow+LSP+advisor)'].json.exitCode;\nconst ci=$node['Poll CI pipeline status'].json[0]?.status;\nreturn [{json:{ok:tl===0&&ci==='success',tl,ci,mrUrl:$('Webhook: gitlab-mr-opened').item.json.body.object_attributes.url}}];"
       },
-      "id": "both-pass-check",
-      "name": "Both CI green AND TL approved?",
-      "type": "n8n-nodes-base.if",
+      "id": "both-pass",
+      "name": "Both CI + TL passed?",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         1200,
@@ -130,15 +104,73 @@
     },
     {
       "parameters": {
-        "jsCode": "const mrId = $json.body.object_attributes.iid;\nconst dag = $workflow.staticData.dagState || {};\nconst count = (dag.retryCounters[mrId] || 0) + 1;\ndag.retryCounters[mrId] = count;\n$workflow.staticData.dagState = dag;\nif (count >= 3) {\n  return [{ json: { escalate: true, mrId, retryCount: count, reason: 'Max fix attempts reached' } }];\n}\nreturn [{ json: { escalate: false, mrId, retryCount: count } }];"
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
       },
-      "id": "increment-retry",
+      "id": "pass-check",
+      "name": "Both pass?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=glab mr merge {{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.iid }} --auto-merge"
+      },
+      "id": "merge-mr",
+      "name": "Tech Lead merges task MR via glab",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":merged: *Task MR merged* — `{{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.source_branch }}`\nCI :white_check_mark: · TL review :white_check_mark:\n<{{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.url }}|View MR>",
+        "otherOptions": {}
+      },
+      "id": "slack-merged",
+      "name": "Mattermost: task MR merged",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        160
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dag=$workflow.staticData.dagState||{};\nconst mrId=$('Webhook: gitlab-mr-opened').item.json.body.object_attributes.iid;\nconst count=(dag.retryCounters[mrId]||0)+1;\ndag.retryCounters[mrId]=count;\n$workflow.staticData.dagState=dag;\nreturn [{json:{escalate:count>=3,count,mrId}}];"
+      },
+      "id": "retry-counter",
       "name": "Increment retry counter",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1440,
-        400
+        1680,
+        380
       ]
     },
     {
@@ -149,133 +181,93 @@
               "leftValue": "={{ $json.escalate }}",
               "rightValue": true,
               "operator": {
-                "type": "boolean",
+                "type": "number",
                 "operation": "equals"
               }
             }
           ]
         }
       },
-      "id": "escalate-or-feedback",
-      "name": "Escalate or feedback to developer?",
+      "id": "escalate-chk",
+      "name": "Escalate?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1680,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/escalate",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "flow",
-              "value": "F-04"
-            },
-            {
-              "name": "reason",
-              "value": "Max retries on MR"
-            },
-            {
-              "name": "mr_id",
-              "value": "={{ $json.mrId }}"
-            }
-          ]
-        }
-      },
-      "id": "escalate-edward",
-      "name": "Escalate to Edward (/escalate F-25)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
         1920,
-        340
+        380
       ]
     },
     {
       "parameters": {
-        "command": "=echo 'Developer fix required — reads CI log or TL inline comments, fixes code, pushes to branch' && glab mr comment {{ $json.body.object_attributes.iid }} --message 'Fix required: CI or TL review needs attention. Please review comments and push a fix.'"
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":warning: *Fix required* on `{{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.source_branch }}`\nCI or TL review needs attention. Developer: check inline comments and push a fix.\n<{{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.url }}|View MR>",
+        "otherOptions": {}
       },
-      "id": "feedback-developer",
-      "name": "Feedback to developer: fix + push",
-      "type": "n8n-nodes-base.executeCommand",
+      "id": "slack-fix",
+      "name": "Mattermost: fix required",
+      "type": "n8n-nodes-base.mattermost",
       "typeVersion": 1,
       "position": [
-        1920,
-        480
-      ]
+        2160,
+        440
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     },
     {
       "parameters": {
-        "command": "=glab mr merge {{ $json.body.object_attributes.iid }} --auto-merge --squash-message '[task] GL-{{ $json.body.object_attributes.iid }} merged by Tech Lead' && glab mr comment {{ $json.body.object_attributes.iid }} --message 'Merged by Tech Lead. CI green + TL approved.'"
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":rotating_light: *Escalation* — MR `{{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.source_branch }}` has failed 3 fix attempts.\nManual review required.\n<{{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.url }}|View MR>",
+        "otherOptions": {}
       },
-      "id": "tl-merges-mr",
-      "name": "Tech Lead merges task MR",
-      "type": "n8n-nodes-base.executeCommand",
+      "id": "slack-escalate-04",
+      "name": "Mattermost: MR escalation",
+      "type": "n8n-nodes-base.mattermost",
       "typeVersion": 1,
       "position": [
-        1440,
-        160
-      ]
-    },
-    {
-      "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/gitlab-mr-merged",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "mr_id",
-              "value": "={{ $json.body.object_attributes.iid }}"
-            },
-            {
-              "name": "flow",
-              "value": "F-04-trigger-F-05"
-            }
-          ]
+        2160,
+        300
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
         }
-      },
-      "id": "trigger-f05",
-      "name": "Trigger F-05: MR merged",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        1680,
-        160
-      ]
+      }
     }
   ],
   "connections": {
-    "Webhook: GitLab MR opened": {
+    "Webhook: gitlab-mr-opened": {
       "main": [
         [
           {
-            "node": "Is task MR?",
+            "node": "Is task/api/qa/security/devops MR?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Is task MR?": {
+    "Is task/api/qa/security/devops MR?": {
       "main": [
         [
           {
-            "node": "Register MR in DAG + init retry counter",
+            "node": "Register MR + init retry counter",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Register MR in DAG + init retry counter": {
+    "Register MR + init retry counter": {
       "main": [
         [
           {
-            "node": "Spawn TL Pod: MR review (parallel with CI)",
+            "node": "Spawn TL Pod: MR review (omp slow+LSP+advisor)",
             "type": "main",
             "index": 0
           },
@@ -287,11 +279,11 @@
         ]
       ]
     },
-    "Spawn TL Pod: MR review (parallel with CI)": {
+    "Spawn TL Pod: MR review (omp slow+LSP+advisor)": {
       "main": [
         [
           {
-            "node": "Both CI green AND TL approved?",
+            "node": "Both CI + TL passed?",
             "type": "main",
             "index": 0
           }
@@ -302,18 +294,29 @@
       "main": [
         [
           {
-            "node": "Both CI green AND TL approved?",
+            "node": "Both CI + TL passed?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Both CI green AND TL approved?": {
+    "Both CI + TL passed?": {
       "main": [
         [
           {
-            "node": "Tech Lead merges task MR",
+            "node": "Both pass?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Both pass?": {
+      "main": [
+        [
+          {
+            "node": "Tech Lead merges task MR via glab",
             "type": "main",
             "index": 0
           }
@@ -327,11 +330,11 @@
         ]
       ]
     },
-    "Tech Lead merges task MR": {
+    "Tech Lead merges task MR via glab": {
       "main": [
         [
           {
-            "node": "Trigger F-05: MR merged",
+            "node": "Mattermost: task MR merged",
             "type": "main",
             "index": 0
           }
@@ -342,25 +345,25 @@
       "main": [
         [
           {
-            "node": "Escalate or feedback to developer?",
+            "node": "Escalate?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Escalate or feedback to developer?": {
+    "Escalate?": {
       "main": [
         [
           {
-            "node": "Escalate to Edward (/escalate F-25)",
+            "node": "Mattermost: MR escalation",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Feedback to developer: fix + push",
+            "node": "Mattermost: fix required",
             "type": "main",
             "index": 0
           }
@@ -378,6 +381,9 @@
     },
     {
       "name": "phase-2"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

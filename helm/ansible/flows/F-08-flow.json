@@ -1,22 +1,244 @@
 {
   "name": "F-08 Story MR Merged",
   "nodes": [
-    { "parameters": { "httpMethod": "POST", "path": "story-mr-merged", "responseMode": "lastNode", "options": {} }, "id": "webhook-story-merged", "name": "Webhook: story MR merged by Edward", "type": "n8n-nodes-base.webhook", "typeVersion": 1, "position": [240, 300] },
-    { "parameters": { "command": "=glab issue update {{ $json.body.story_id }} --label-add 'merged-to-release' && glab issue close {{ $json.body.story_id }} --message 'Merged by Edward on {{ new Date().toISOString() }}. Story complete.'" }, "id": "close-story-ticket", "name": "Close story ticket + label merged-to-release", "type": "n8n-nodes-base.executeCommand", "typeVersion": 1, "position": [480, 160] },
-    { "parameters": { "command": "=echo 'Close all child task tickets for story {{ $json.body.story_id }}' && glab issue list --label 'type:task' --milestone '{{ $json.body.version }}' | grep 'GL-{{ $json.body.story_id }}' | awk '{print $1}' | xargs -I{} glab issue close {} --label-add released" }, "id": "close-child-tasks", "name": "Close all child task tickets", "type": "n8n-nodes-base.executeCommand", "typeVersion": 1, "position": [480, 280] },
-    { "parameters": { "command": "=glab issue comment {{ $json.body.release_ticket_id }} --message 'Story GL-{{ $json.body.story_id }} merged to release. Deployment log entry: {{ new Date().toISOString() }}'" }, "id": "update-release-ticket", "name": "Update release ticket: deployment log", "type": "n8n-nodes-base.executeCommand", "typeVersion": 1, "position": [480, 400] },
-    { "parameters": { "url": "={{ $env.N8N_WEBHOOK_BASE }}/cluster-sleep", "sendBody": true, "bodyParameters": { "parameters": [{ "name": "cluster", "value": "qa" }, { "name": "story_id", "value": "={{ $json.body.story_id }}" }] } }, "id": "sleep-qa-cluster", "name": "Sleep QA cluster for this story (F-27)", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4, "position": [480, 520] },
-    { "parameters": { "jsCode": "const dag = $workflow.staticData.dagState || {};\nconst version = $json.body.version;\ndag.mergedStories = dag.mergedStories || [];\ndag.mergedStories.push($json.body.story_id);\n$workflow.staticData.dagState = dag;\nconst allStories = dag.totalStories || 0;\nconst merged = dag.mergedStories.length;\nreturn [{ json: { allMerged: merged >= allStories, merged, total: allStories, version } }];" }, "id": "check-all-stories", "name": "All stories merged to release?", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [720, 340] },
-    { "parameters": { "url": "={{ $env.N8N_WEBHOOK_BASE }}/f08-notify-uat-ready", "sendBody": true, "bodyParameters": { "parameters": [{ "name": "message", "value": "All stories merged. Ready for /uat" }, { "name": "version", "value": "={{ $json.version }}" }] } }, "id": "notify-uat-ready", "name": "Notify Edward: all stories merged, ready for /uat", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4, "position": [960, 260] }
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "story-mr-merged",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-08",
+      "name": "Webhook: story-mr-merged",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=glab issue update {{ $json.body.story_id }} --label-add 'merged-to-release' && glab issue close {{ $json.body.story_id }}"
+      },
+      "id": "close-story",
+      "name": "Close story ticket + label merged-to-release",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=echo 'Closing child tasks for {{ $json.body.story_id }}'"
+      },
+      "id": "close-tasks",
+      "name": "Close all child task tickets",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        480,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=glab issue comment {{ $json.body.release_ticket_id }} --message 'Story GL-{{ $json.body.story_id }} merged to release. Time: {{ new Date().toISOString() }}'"
+      },
+      "id": "update-rel",
+      "name": "Update release ticket: deployment log",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        480,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/cluster-sleep",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "cluster",
+              "value": "qa"
+            }
+          ]
+        }
+      },
+      "id": "sleep-qa",
+      "name": "Sleep QA cluster (F-27)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const dag=$workflow.staticData.dagState||{};\ndag.mergedStories=dag.mergedStories||[];\ndag.mergedStories.push($json.body.story_id);\n$workflow.staticData.dagState=dag;\nconst all=(dag.mergedStories.length>=(dag.totalStories||999));\nreturn [{json:{allMerged:all,merged:dag.mergedStories.length,total:dag.totalStories||'?',version:dag.version}}];"
+      },
+      "id": "check-all-stories",
+      "name": "All stories merged?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":tada: *All stories merged* to `release/{{ $json.version }}`!\n\nRun `/uat {{ $json.version }}` when ready to start UAT.",
+        "otherOptions": {}
+      },
+      "id": "slack-all-done",
+      "name": "Mattermost: all stories merged — ready for UAT",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        260
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": "✅ Story `{{ $json.body.story_id }}` merged to release branch. Remaining: {{ (($json.total||0)-($json.merged||0)) }} stories.",
+        "otherOptions": {}
+      },
+      "id": "slack-one-merged",
+      "name": "Mattermost: story merged",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        500
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.allMerged }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "all-merged-f08",
+      "name": "All stories merged? [if check]",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        380
+      ]
+    }
   ],
   "connections": {
-    "Webhook: story MR merged by Edward": { "main": [[{ "node": "Close story ticket + label merged-to-release", "type": "main", "index": 0 }, { "node": "Close all child task tickets", "type": "main", "index": 0 }, { "node": "Update release ticket: deployment log", "type": "main", "index": 0 }, { "node": "Sleep QA cluster for this story (F-27)", "type": "main", "index": 0 }]] },
-    "Close story ticket + label merged-to-release": { "main": [[{ "node": "All stories merged to release?", "type": "main", "index": 0 }]] },
-    "Close all child task tickets": { "main": [[{ "node": "All stories merged to release?", "type": "main", "index": 0 }]] },
-    "Update release ticket: deployment log": { "main": [[{ "node": "All stories merged to release?", "type": "main", "index": 0 }]] },
-    "Sleep QA cluster for this story (F-27)": { "main": [[{ "node": "All stories merged to release?", "type": "main", "index": 0 }]] },
-    "All stories merged to release?": { "main": [[{ "node": "Notify Edward: all stories merged, ready for /uat", "type": "main", "index": 0 }]] }
+    "Webhook: story-mr-merged": {
+      "main": [
+        [
+          {
+            "node": "Close story ticket + label merged-to-release",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Close all child task tickets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update release ticket: deployment log",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Sleep QA cluster (F-27)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Close story ticket + label merged-to-release": {
+      "main": [
+        [
+          {
+            "node": "All stories merged?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All stories merged?": {
+      "main": [
+        [
+          {
+            "node": "All stories merged? [if check]",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All stories merged? [if check]": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: all stories merged — ready for UAT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mattermost: story merged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "active": true, "settings": { "executionOrder": "v1" },
-  "tags": [{ "name": "development" }, { "name": "phase-2" }]
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "development"
+    },
+    {
+      "name": "phase-2"
+    },
+    {
+      "name": "mattermost"
+    }
+  ]
 }

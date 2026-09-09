@@ -27,7 +27,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PORT = int(os.environ.get("PORT", "4096"))
 MODEL_NAME = os.environ.get("OMP_MODEL_NAME", "omp")
-OMP_CMD = os.environ.get("OMP_CMD", "omp --mode rpc").split()
+# ponytail: rpc mode does NOT honour config.yml's `model:` — it picks a default
+# off the catalog (often the wrong one). Pin it explicitly. OMP_MODEL overrides.
+OMP_MODEL = os.environ.get("OMP_MODEL", "ollama/qwen3.8:27b")
+OMP_CMD = os.environ.get(
+    "OMP_CMD", f"omp --mode rpc --model {OMP_MODEL}"
+).split()
 TURN_TIMEOUT = int(os.environ.get("OMP_TURN_TIMEOUT", "900"))
 RESET_AT = int(os.environ.get("OMP_RESET_AT", "2"))
 
@@ -192,6 +197,15 @@ if __name__ == "__main__":
     if os.environ.get("SELFTEST"):
         _selftest()
         raise SystemExit(0)
+    # ponytail: the baked models.db has no entries (the image builds with no
+    # Ollama reachable). omp resolves the config.yml model off this catalog, so
+    # without a refresh the first rpc turn picks no model and returns empty.
+    # One blocking refresh at boot; non-fatal if it can't reach the backend.
+    try:
+        subprocess.run(["omp", "models", "refresh"], timeout=120,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    except Exception:
+        pass
     RPC = Rpc(OMP_CMD)
     print(f"pod-openai on :{PORT} model={MODEL_NAME} cmd={' '.join(OMP_CMD)}", flush=True)
     ThreadingHTTPServer(("0.0.0.0", PORT), H).serve_forever()

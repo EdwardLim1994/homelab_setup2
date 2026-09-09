@@ -4,12 +4,12 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "projects",
-        "responseMode": "lastNode",
+        "path": "mm-projects",
+        "responseMode": "responseNode",
         "options": {}
       },
-      "id": "wh-26",
-      "name": "Webhook: /projects query",
+      "id": "slack-trigger",
+      "name": "Mattermost: trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,10 +19,24 @@
     },
     {
       "parameters": {
-        "jsCode": "const dag = $workflow.staticData.dagState || {};\nconst summary = {\n  version: dag.version,\n  project: dag.project,\n  phase: dag.currentPhase || 'unknown',\n  storiesTotal: dag.totalStories || 0,\n  storiesMerged: (dag.mergedStories || []).length,\n  storiesInProgress: Object.keys(dag.openMRs || {}).length,\n  clusterStates: dag.clusterStates || {},\n  lastActivity: dag.lastActivity || 'unknown',\n  pausedTasks: dag.pausedTasks || []\n};\nreturn [{ json: summary }];"
+        "respondWith": "json",
+        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/projects`...\"}"
       },
-      "id": "read-dag-26",
-      "name": "Read n8n DAG state for all active projects",
+      "id": "mm-ack-slack-trigger",
+      "name": "Mattermost: ack command",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const dag=$workflow.staticData.dagState||{};\nconst summary={\n  version:dag.version||'(none)',\n  phase:dag.currentPhase||'idle',\n  storiesTotal:dag.totalStories||0,\n  storiesMerged:(dag.mergedStories||[]).length,\n  openMRs:Object.keys(dag.openMRs||{}).length,\n  clusterStates:dag.clusterStates||{},\n  pausedTasks:(dag.pausedTasks||[]).length,\n  lastActivity:dag.lastActivity||'—'\n};\nreturn [{json:summary}];"
+      },
+      "id": "read-dag",
+      "name": "Read n8n DAG state",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -32,48 +46,48 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f26-report",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "report",
-              "value": "={{ JSON.stringify($json) }}"
-            },
-            {
-              "name": "timestamp",
-              "value": "={{ new Date().toISOString() }}"
-            }
-          ]
-        }
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :bar_chart: *SDLC Status*\n*Version:* `{{ $json.version }}`\n*Phase:* {{ $json.phase }}\n*Stories:* {{ $json.storiesMerged }}/{{ $json.storiesTotal }} merged\n*Open MRs:* {{ $json.openMRs }}\n*Paused tasks:* {{ $json.pausedTasks }}\n*Clusters:* {{ JSON.stringify($json.clusterStates) }}\n*Last activity:* {{ $json.lastActivity }}",
+        "otherOptions": {}
       },
-      "id": "return-report-26",
-      "name": "Return project status report",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-status",
+      "name": "Mattermost: project status report",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
         720,
         300
-      ]
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: /projects query": {
+    "Mattermost: trigger": {
       "main": [
         [
           {
-            "node": "Read n8n DAG state for all active projects",
+            "node": "Read n8n DAG state",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mattermost: ack command",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Read n8n DAG state for all active projects": {
+    "Read n8n DAG state": {
       "main": [
         [
           {
-            "node": "Return project status report",
+            "node": "Mattermost: project status report",
             "type": "main",
             "index": 0
           }
@@ -88,6 +102,9 @@
   "tags": [
     {
       "name": "cross-cutting"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

@@ -1,0 +1,90 @@
+{
+  "name": "F-28 Mattermost chat with omp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mm-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "chat-trigger",
+      "name": "Mattermost: trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{}"
+      },
+      "id": "chat-ack",
+      "name": "Ack (200 within 5s)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [480, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LITELLM_BASE }}/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.LITELLM_MASTER_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'omp', messages: [ { role: 'user', content: ($json.body.text || '').replace(/^\\s*omp\\s+/i, '') } ] }) }}",
+        "options": { "timeout": 300000 }
+      },
+      "id": "ask-omp",
+      "name": "Ask omp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [480, 380]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "={{ $json.choices[0].message.content }}",
+        "otherOptions": {}
+      },
+      "id": "chat-reply",
+      "name": "Mattermost: reply",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [720, 380],
+      "credentials": {
+        "mattermostApi": { "id": "mm-creds", "name": "Mattermost SDLC Bot" }
+      }
+    }
+  ],
+  "connections": {
+    "Mattermost: trigger": {
+      "main": [
+        [
+          { "node": "Ack (200 within 5s)", "type": "main", "index": 0 },
+          { "node": "Ask omp", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Ask omp": {
+      "main": [
+        [
+          { "node": "Mattermost: reply", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "cross-cutting" },
+    { "name": "mattermost" }
+  ]
+}

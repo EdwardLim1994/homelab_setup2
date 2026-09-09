@@ -1,5 +1,5 @@
 {
-  "name": "F-27 Cluster Lifecycle Management",
+  "name": "F-27 Cluster Lifecycle",
   "nodes": [
     {
       "parameters": {
@@ -8,13 +8,13 @@
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "wh-wake-27",
-      "name": "Webhook: cluster wake",
+      "id": "wh-wake",
+      "name": "Webhook: cluster-wake",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
         240,
-        200
+        300
       ]
     },
     {
@@ -24,13 +24,13 @@
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "wh-sleep-27",
-      "name": "Webhook: cluster sleep",
+      "id": "wh-sleep",
+      "name": "Webhook: cluster-sleep",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
         240,
-        420
+        300
       ]
     },
     {
@@ -42,14 +42,14 @@
               "rightValue": "sit",
               "operator": {
                 "type": "string",
-                "operation": "notEquals"
+                "operation": "equals"
               }
             }
           ]
         }
       },
-      "id": "not-sit-wake-27",
-      "name": "Not SIT? (SIT always on)",
+      "id": "not-sit-wake",
+      "name": "Not SIT? (always on)",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
@@ -59,15 +59,15 @@
     },
     {
       "parameters": {
-        "command": "kubectl scale deployment --all --replicas=1 -n {{ $json.body.cluster }} && kubectl rollout status deployment --all -n {{ $json.body.cluster }} && echo 'Cluster {{ $json.body.cluster }} healthy'"
+        "command": "=kubectl scale deployment --all --replicas=1 -n {{ $json.body.cluster }} && kubectl rollout status deployment --all -n {{ $json.body.cluster }}"
       },
-      "id": "wake-cmd-27",
+      "id": "wake-cmd",
       "name": "kubectl scale up: wake cluster",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
         720,
-        160
+        200
       ]
     },
     {
@@ -79,61 +79,82 @@
               "rightValue": "production",
               "operator": {
                 "type": "string",
-                "operation": "notEquals"
+                "operation": "equals"
               }
             }
           ]
         }
       },
-      "id": "not-prod-sleep-27",
-      "name": "Not production? (production never sleeps)",
+      "id": "not-prod-sleep",
+      "name": "Not production? (never sleeps)",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
         480,
-        420
+        440
       ]
     },
     {
       "parameters": {
-        "command": "kubectl scale deployment --all --replicas=0 -n {{ $json.body.cluster }}-server && kubectl scale deployment --all --replicas=0 -n {{ $json.body.cluster }}-frontend && echo 'Cluster {{ $json.body.cluster }} sleeping. Infra namespace stays warm.'"
+        "command": "=kubectl scale deployment --all --replicas=0 -n {{ $json.body.cluster }}-server && kubectl scale deployment --all --replicas=0 -n {{ $json.body.cluster }}-frontend"
       },
-      "id": "sleep-cmd-27",
-      "name": "kubectl scale down: sleep cluster (infra stays warm)",
+      "id": "sleep-cmd",
+      "name": "kubectl scale down: sleep cluster",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
         720,
-        420
+        440
       ]
     },
     {
       "parameters": {
-        "jsCode": "const dag = $workflow.staticData.dagState || {};\ndag.clusterStates = dag.clusterStates || {};\ndag.clusterStates[$json.body.cluster] = $json.body.cluster ? 'awake' : 'sleeping';\n$workflow.staticData.dagState = dag;\nreturn [{ json: { updated: true } }];"
+        "jsCode": "const dag=$workflow.staticData.dagState||{};\ndag.clusterStates=dag.clusterStates||{};\ndag.clusterStates[$json.body.cluster]=$json.body.cluster?'awake':'sleeping';\ndag.lastActivity=new Date().toISOString();\n$workflow.staticData.dagState=dag;\nreturn [{json:{updated:true,cluster:$json.body.cluster}}];"
       },
-      "id": "update-cluster-state-27",
+      "id": "upd-state",
       "name": "Update cluster state in DAG",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         960,
-        300
+        320
       ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": "={{ $json.body.cluster === 'cluster-wake' ? ':green_circle:' : ':zzz:' }} *Cluster `{{ $json.body.cluster }}`* state updated.",
+        "otherOptions": {}
+      },
+      "id": "slack-cluster",
+      "name": "Mattermost: cluster state updated",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        320
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: cluster wake": {
+    "Webhook: cluster-wake": {
       "main": [
         [
           {
-            "node": "Not SIT? (SIT always on)",
+            "node": "Not SIT? (always on)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Not SIT? (SIT always on)": {
+    "Not SIT? (always on)": {
       "main": [
         [
           {
@@ -155,33 +176,44 @@
         ]
       ]
     },
-    "Webhook: cluster sleep": {
+    "Webhook: cluster-sleep": {
       "main": [
         [
           {
-            "node": "Not production? (production never sleeps)",
+            "node": "Not production? (never sleeps)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Not production? (production never sleeps)": {
+    "Not production? (never sleeps)": {
       "main": [
         [
           {
-            "node": "kubectl scale down: sleep cluster (infra stays warm)",
+            "node": "kubectl scale down: sleep cluster",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "kubectl scale down: sleep cluster (infra stays warm)": {
+    "kubectl scale down: sleep cluster": {
       "main": [
         [
           {
             "node": "Update cluster state in DAG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update cluster state in DAG": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: cluster state updated",
             "type": "main",
             "index": 0
           }
@@ -196,6 +228,9 @@
   "tags": [
     {
       "name": "cross-cutting"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

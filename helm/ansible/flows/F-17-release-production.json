@@ -4,12 +4,12 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "release-production",
-        "responseMode": "lastNode",
+        "path": "mm-release_production",
+        "responseMode": "responseNode",
         "options": {}
       },
-      "id": "wh-17",
-      "name": "Webhook: /release-production",
+      "id": "slack-trigger",
+      "name": "Mattermost: trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,7 +19,42 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project_id }}/issues/{{ $json.body.release_ticket_id }}",
+        "respondWith": "json",
+        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/release_production`...\"}"
+      },
+      "id": "mm-ack-slack-trigger",
+      "name": "Mattermost: ack command",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :hourglass: *Production release* for `={{ $('Slack: trigger').item.json.text }}`\nVerifying rm:go...",
+        "otherOptions": {}
+      },
+      "id": "ack-17",
+      "name": "Mattermost: production release started",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $env.RELEASE_TICKET_ID }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -30,25 +65,25 @@
           ]
         }
       },
-      "id": "check-rmgo-17",
-      "name": "Safeguard: check rm:go label on release ticket",
+      "id": "chk-rmgo",
+      "name": "Check rm:go on release ticket",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        480,
+        720,
         300
       ]
     },
     {
       "parameters": {
-        "jsCode": "const labels = $json.labels || [];\nconst hasGo = labels.includes('rm:go');\nreturn [{ json: { safe: hasGo, labels } }];"
+        "jsCode": "const labels=$json.labels||[];\nreturn [{json:{safe:labels.includes('rm:go')}}];"
       },
-      "id": "validate-rmgo-17",
+      "id": "validate-go",
       "name": "rm:go confirmed?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        720,
+        960,
         300
       ]
     },
@@ -67,46 +102,45 @@
           ]
         }
       },
-      "id": "gate-17",
-      "name": "Staging GO confirmed?",
+      "id": "go-gate",
+      "name": "rm:go present?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        960,
+        1200,
         300
       ]
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f17-feedback",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "Production blocked: rm:go not found on release ticket. Run /release-staging first."
-            }
-          ]
-        }
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :x: *Production blocked* — `rm:go` not found on release ticket.\nRun `/release_staging` first.",
+        "otherOptions": {}
       },
-      "id": "feedback-17",
-      "name": "Feedback to Edward: staging not GO",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-no-go",
+      "name": "Mattermost: production blocked",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
-        1200,
+        1440,
         440
-      ]
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     },
     {
       "parameters": {
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project_id }}/merge_requests",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/merge_requests",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
               "name": "source_branch",
-              "value": "={{ 'promote/' + $json.body.version }}"
+              "value": "={{ 'promote/' + $('Slack: trigger').item.json.text }}"
             },
             {
               "name": "target_branch",
@@ -114,7 +148,7 @@
             },
             {
               "name": "title",
-              "value": "={{ '[release] ' + $json.body.version }}"
+              "value": "={{ '[release] ' + $('Slack: trigger').item.json.text }}"
             },
             {
               "name": "labels",
@@ -122,7 +156,7 @@
             },
             {
               "name": "description",
-              "value": "Release MR for {{ $json.body.version }}. CI validates no rc versions remain and all images in registry."
+              "value": "Release MR for `={{ $('Slack: trigger').item.json.text }}`. CI validates no rc versions."
             }
           ]
         },
@@ -136,55 +170,66 @@
           ]
         }
       },
-      "id": "create-release-mr-17",
-      "name": "Create promote\u2192main MR via GitLab API",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        1200,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f17-notify",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "Release MR created. Review, approve, and merge to deploy to production."
-            },
-            {
-              "name": "mr_url",
-              "value": "={{ $json.web_url }}"
-            }
-          ]
-        }
-      },
-      "id": "notify-17",
-      "name": "Notify Edward: release MR ready for review",
+      "id": "create-mr",
+      "name": "Create promote→main MR via GitLab API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
         1440,
         200
       ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :eyes: *Release MR created* — `{{ $json.web_url }}`\n\n*Your action:* review, approve, and merge to deploy to production.",
+        "otherOptions": {}
+      },
+      "id": "slack-mr-ready",
+      "name": "Mattermost: release MR ready",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        200
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: /release-production": {
+    "Mattermost: trigger": {
       "main": [
         [
           {
-            "node": "Safeguard: check rm:go label on release ticket",
+            "node": "Mattermost: production release started",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mattermost: ack command",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Safeguard: check rm:go label on release ticket": {
+    "Mattermost: production release started": {
+      "main": [
+        [
+          {
+            "node": "Check rm:go on release ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check rm:go on release ticket": {
       "main": [
         [
           {
@@ -199,36 +244,36 @@
       "main": [
         [
           {
-            "node": "Staging GO confirmed?",
+            "node": "rm:go present?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Staging GO confirmed?": {
+    "rm:go present?": {
       "main": [
         [
           {
-            "node": "Create promote\u2192main MR via GitLab API",
+            "node": "Create promote→main MR via GitLab API",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Feedback to Edward: staging not GO",
+            "node": "Mattermost: production blocked",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create promote\u2192main MR via GitLab API": {
+    "Create promote→main MR via GitLab API": {
       "main": [
         [
           {
-            "node": "Notify Edward: release MR ready for review",
+            "node": "Mattermost: release MR ready",
             "type": "main",
             "index": 0
           }
@@ -246,6 +291,9 @@
     },
     {
       "name": "phase-5"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

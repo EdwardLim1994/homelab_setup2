@@ -1,15 +1,15 @@
 {
-  "name": "F-21 /rollback (Production)",
+  "name": "F-21 /rollback",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "rollback",
-        "responseMode": "lastNode",
+        "path": "mm-rollback",
+        "responseMode": "responseNode",
         "options": {}
       },
-      "id": "wh-21",
-      "name": "Webhook: /rollback command",
+      "id": "slack-trigger",
+      "name": "Mattermost: trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,23 +19,45 @@
     },
     {
       "parameters": {
-        "command": "argocd app rollback {{ $json.body.project }}-production --server $ARGOCD_URL && echo 'Rollback initiated for {{ $json.body.project }} production'"
+        "respondWith": "json",
+        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/rollback`...\"}"
       },
-      "id": "rollback-21",
-      "name": "ArgoCD rollback production to previous version",
-      "type": "n8n-nodes-base.executeCommand",
+      "id": "mm-ack-slack-trigger",
+      "name": "Mattermost: ack command",
+      "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
         480,
-        300
+        200
       ]
     },
     {
       "parameters": {
-        "command": "glab issue create --title '[incident] Production rollback {{ $json.body.version }}' --label 'type:incident' --description 'Production rollback executed. Version: {{ $json.body.version }}. Reason: {{ $json.body.reason }}. Time: {{ new Date().toISOString() }}'"
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :rotating_light: *Production rollback initiated* for `{{ $json.text }}`\nArgoCD rolling back now...",
+        "otherOptions": {}
       },
-      "id": "create-incident-21",
-      "name": "Create incident ticket on release ticket",
+      "id": "ack-21",
+      "name": "Mattermost: rollback started",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=argocd app rollback {{ $env.ARGOCD_PROJECT }}-production --server $ARGOCD_URL && echo 'Rollback initiated'"
+      },
+      "id": "rb",
+      "name": "ArgoCD rollback production",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
@@ -45,51 +67,107 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'release-manager', task: 'monitor-rollback', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=glab issue create --title '[incident] Production rollback {{ $('Slack: trigger').item.json.text }}' --label 'type:incident' --description 'Production rollback executed. Time: {{ new Date().toISOString() }}. Reason: manual rollback command.'"
       },
-      "id": "rm-monitor-rollback-21",
-      "name": "RM Pod: monitor rollback health",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "incident-ticket",
+      "name": "Create incident ticket",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         960,
         300
       ]
+    },
+    {
+      "parameters": {
+        "command": "=echo '{\"role\":\"release-manager\",\"task\":\"monitor-rollback\",\"version\":\"{{ $('Slack: trigger').item.json.text }}\"}' > /tmp/rm-rb.json && omp run --mode json --role default @/tmp/rm-rb.json"
+      },
+      "id": "rm-mon",
+      "name": "Spawn RM: monitor rollback health",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :white_check_mark: Rollback initiated · incident ticket created · RM monitoring health.\n\nYou'll be notified when the rollback is confirmed stable.",
+        "otherOptions": {}
+      },
+      "id": "slack-rb-done",
+      "name": "Mattermost: rollback underway",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        300
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: /rollback command": {
+    "Mattermost: trigger": {
       "main": [
         [
           {
-            "node": "ArgoCD rollback production to previous version",
+            "node": "Mattermost: rollback started",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mattermost: ack command",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "ArgoCD rollback production to previous version": {
+    "Mattermost: rollback started": {
       "main": [
         [
           {
-            "node": "Create incident ticket on release ticket",
+            "node": "ArgoCD rollback production",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create incident ticket on release ticket": {
+    "ArgoCD rollback production": {
       "main": [
         [
           {
-            "node": "RM Pod: monitor rollback health",
+            "node": "Create incident ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create incident ticket": {
+      "main": [
+        [
+          {
+            "node": "Spawn RM: monitor rollback health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spawn RM: monitor rollback health": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: rollback underway",
             "type": "main",
             "index": 0
           }
@@ -107,6 +185,9 @@
     },
     {
       "name": "phase-5"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

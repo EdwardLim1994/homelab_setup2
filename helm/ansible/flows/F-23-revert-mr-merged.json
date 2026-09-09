@@ -9,7 +9,7 @@
         "options": {}
       },
       "id": "wh-23",
-      "name": "Webhook: revert MR merged",
+      "name": "Webhook: revert-mr-merged",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,10 +19,10 @@
     },
     {
       "parameters": {
-        "command": "glab issue update {{ $json.body.story_id }} --label-add 'deferred:{{ $json.body.version }}' && glab issue comment {{ $json.body.story_id }} --message 'Deferred from {{ $json.body.version }}. Reason: {{ $json.body.reason }}. Story preserved for future release. Revert MR: {{ $json.body.revert_mr_url }}'"
+        "command": "=glab issue update {{ $json.body.story_id }} --label-add 'deferred:{{ $json.body.version }}' && glab issue comment {{ $json.body.story_id }} --message 'Deferred from {{ $json.body.version }}. Child tasks preserved.'"
       },
-      "id": "update-story-23",
-      "name": "Story ticket: status Deferred + label + reason",
+      "id": "defer-story",
+      "name": "Story ticket: Deferred + label",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
@@ -32,9 +32,9 @@
     },
     {
       "parameters": {
-        "command": "echo 'Update all child task tickets of GL-{{ $json.body.story_id }} with deferred label, keep open'"
+        "command": "=echo 'Labelling child tasks as deferred for GL-{{ $json.body.story_id }}'"
       },
-      "id": "update-tasks-23",
+      "id": "update-tasks",
       "name": "Child tasks: label deferred, stay open",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
@@ -45,10 +45,10 @@
     },
     {
       "parameters": {
-        "command": "glab issue comment {{ $json.body.release_ticket_id }} --message 'GL-{{ $json.body.story_id }} deferred from {{ $json.body.version }}. Scope reduced. Remaining stories: {{ $json.body.remaining_stories }}'"
+        "command": "=glab issue comment {{ $json.body.release_ticket_id }} --message 'GL-{{ $json.body.story_id }} deferred from {{ $json.body.version }}. Reduced scope.'"
       },
-      "id": "update-release-ticket-23",
-      "name": "Release ticket: remove story from scope",
+      "id": "update-rel",
+      "name": "Release ticket: update scope",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
@@ -77,7 +77,7 @@
           ]
         }
       },
-      "id": "retrigger-uat-23",
+      "id": "retrigger-uat",
       "name": "Re-trigger /uat with reduced scope",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -85,14 +85,35 @@
         720,
         340
       ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":arrows_counterclockwise: Story GL-`{{ $json.body.story_id }}` *deferred* from `{{ $json.body.version }}`.\nChild tasks preserved · Release scope reduced · UAT re-triggered with reduced scope.",
+        "otherOptions": {}
+      },
+      "id": "slack-23",
+      "name": "Mattermost: story deferred — /uat re-triggered",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        960,
+        340
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: revert MR merged": {
+    "Webhook: revert-mr-merged": {
       "main": [
         [
           {
-            "node": "Story ticket: status Deferred + label + reason",
+            "node": "Story ticket: Deferred + label",
             "type": "main",
             "index": 0
           },
@@ -102,14 +123,14 @@
             "index": 0
           },
           {
-            "node": "Release ticket: remove story from scope",
+            "node": "Release ticket: update scope",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Story ticket: status Deferred + label + reason": {
+    "Story ticket: Deferred + label": {
       "main": [
         [
           {
@@ -131,11 +152,22 @@
         ]
       ]
     },
-    "Release ticket: remove story from scope": {
+    "Release ticket: update scope": {
       "main": [
         [
           {
             "node": "Re-trigger /uat with reduced scope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-trigger /uat with reduced scope": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: story deferred — /uat re-triggered",
             "type": "main",
             "index": 0
           }
@@ -153,6 +185,9 @@
     },
     {
       "name": "phase-5"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

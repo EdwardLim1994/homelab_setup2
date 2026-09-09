@@ -1,17 +1,162 @@
 {
   "name": "F-05 Task MR Merged",
   "nodes": [
-    { "parameters": { "httpMethod": "POST", "path": "gitlab-mr-merged", "responseMode": "lastNode", "options": {} }, "id": "webhook-mr-merged", "name": "Webhook: GitLab MR merged", "type": "n8n-nodes-base.webhook", "typeVersion": 1, "position": [240, 300] },
-    { "parameters": { "jsCode": "const dag = $workflow.staticData.dagState || {};\nconst mrId = $json.body.mr_id || $json.body.object_attributes?.iid;\nif (dag.openMRs && dag.openMRs[mrId]) {\n  dag.openMRs[mrId].status = 'merged';\n}\n$workflow.staticData.dagState = dag;\nconst storyId = $json.body.story_id;\nconst allTasksMerged = Object.values(dag.openMRs || {}).filter(mr => mr.storyId === storyId).every(mr => mr.status === 'merged');\nreturn [{ json: { mrId, storyId, allTasksMerged, dag } }];" }, "id": "update-dag", "name": "Update DAG: task marked complete", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [480, 300] },
-    { "parameters": { "conditions": { "conditions": [{ "leftValue": "={{ $json.allTasksMerged }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }] } }, "id": "all-tasks-check", "name": "All story tasks merged?", "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [720, 300] },
-    { "parameters": { "url": "={{ $env.N8N_WEBHOOK_BASE }}/dod-check", "sendBody": true, "bodyParameters": { "parameters": [{ "name": "story_id", "value": "={{ $json.storyId }}" }, { "name": "flow", "value": "F-05-trigger-F-06" }] } }, "id": "trigger-f06", "name": "Trigger F-06: DoD check", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4, "position": [960, 200] },
-    { "parameters": { "jsCode": "return [{ json: { status: 'waiting', message: 'Other story tasks still in progress' } }];" }, "id": "wait-other-tasks", "name": "Wait: other tasks still in progress", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [960, 400] }
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gitlab-mr-merged",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh-05",
+      "name": "Webhook: gitlab-mr-merged",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const dag=$workflow.staticData.dagState||{};\nconst mrId=$json.body.mr_id||$json.body.object_attributes?.iid;\nif(dag.openMRs&&dag.openMRs[mrId])dag.openMRs[mrId].status='merged';\nconst storyId=$json.body.story_id;\nconst all=Object.values(dag.openMRs||{}).filter(m=>m.storyId===storyId).every(m=>m.status==='merged');\n$workflow.staticData.dagState=dag;\nreturn [{json:{mrId,storyId,allTasksMerged:all}}];"
+      },
+      "id": "upd-dag",
+      "name": "Update DAG: task merged",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.allTasksMerged }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "all-merged",
+      "name": "All story tasks merged?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/dod-check",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "story_id",
+              "value": "={{ $json.storyId }}"
+            }
+          ]
+        }
+      },
+      "id": "trig-f06",
+      "name": "Trigger F-06: DoD check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        960,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":white_check_mark: All tasks merged for story `{{ $json.storyId }}`. Running DoD check...",
+        "otherOptions": {}
+      },
+      "id": "slack-05",
+      "name": "Mattermost: all tasks merged",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        960,
+        200
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    }
   ],
   "connections": {
-    "Webhook: GitLab MR merged": { "main": [[{ "node": "Update DAG: task marked complete", "type": "main", "index": 0 }]] },
-    "Update DAG: task marked complete": { "main": [[{ "node": "All story tasks merged?", "type": "main", "index": 0 }]] },
-    "All story tasks merged?": { "main": [[{ "node": "Trigger F-06: DoD check", "type": "main", "index": 0 }], [{ "node": "Wait: other tasks still in progress", "type": "main", "index": 0 }]] }
+    "Webhook: gitlab-mr-merged": {
+      "main": [
+        [
+          {
+            "node": "Update DAG: task merged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update DAG: task merged": {
+      "main": [
+        [
+          {
+            "node": "All story tasks merged?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All story tasks merged?": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: all tasks merged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mattermost: all tasks merged": {
+      "main": [
+        [
+          {
+            "node": "Trigger F-06: DoD check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "active": true, "settings": { "executionOrder": "v1" },
-  "tags": [{ "name": "development" }, { "name": "phase-2" }]
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "development"
+    },
+    {
+      "name": "phase-2"
+    },
+    {
+      "name": "mattermost"
+    }
+  ]
 }

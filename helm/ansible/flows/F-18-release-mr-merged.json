@@ -9,7 +9,7 @@
         "options": {}
       },
       "id": "wh-18",
-      "name": "Webhook: release MR merged by Edward",
+      "name": "Webhook: release-mr-merged",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,16 +19,24 @@
     },
     {
       "parameters": {
-        "command": "echo 'Post-merge CI fires on main: git diff, argocd sync production, health gate, git tag applied. No retry on failure.'"
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":merged: *Release MR merged* — production deployment starting.\nPost-merge CI: git diff → argocd sync → health gate → git tag.\n\nYou'll be notified when smoke tests complete.",
+        "otherOptions": {}
       },
-      "id": "wait-post-merge-ci-18",
-      "name": "Wait: post-merge CI deploys production + applies git tag",
-      "type": "n8n-nodes-base.executeCommand",
+      "id": "slack-18",
+      "name": "Mattermost: release MR merged — production deploying",
+      "type": "n8n-nodes-base.mattermost",
       "typeVersion": 1,
       "position": [
         480,
         300
-      ]
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     },
     {
       "parameters": {
@@ -51,8 +59,8 @@
           ]
         }
       },
-      "id": "trigger-f19-18",
-      "name": "CI notifies n8n: production deployed \u2192 F-19",
+      "id": "trig-f19",
+      "name": "CI notifies n8n → F-19 (after post-merge CI)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
@@ -62,22 +70,22 @@
     }
   ],
   "connections": {
-    "Webhook: release MR merged by Edward": {
+    "Webhook: release-mr-merged": {
       "main": [
         [
           {
-            "node": "Wait: post-merge CI deploys production + applies git tag",
+            "node": "Mattermost: release MR merged — production deploying",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Wait: post-merge CI deploys production + applies git tag": {
+    "Mattermost: release MR merged — production deploying": {
       "main": [
         [
           {
-            "node": "CI notifies n8n: production deployed \u2192 F-19",
+            "node": "CI notifies n8n → F-19 (after post-merge CI)",
             "type": "main",
             "index": 0
           }
@@ -95,6 +103,9 @@
     },
     {
       "name": "phase-5"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

@@ -2,10 +2,9 @@
 # (STORE_MODEL_IN_DB=True) merge at startup — this file guarantees a working
 # model list even on a fresh DB.
 #
-#  - <ollama models>  : the host's Ollama (ollamaBaseUrl). Named entries show
-#                       in OpenWebUI's picker; `ollama/*` wildcard routes any
-#                       other tag you pull later. OpenWebUI reaches these ONLY
-#                       through LiteLLM (its OLLAMA_BASE_URL is blank).
+#  - <ollama models>  : the host's Ollama (ollamaBaseUrl). Named entries are
+#                       listed by name; `ollama/*` wildcard routes any other
+#                       tag you pull later.
 #  - omp[-<role>] : omp pods, via omp-adapter (OpenAI shim).
 #                        Role pods are scale-to-zero; the adapter scales them
 #                        up on first request.

@@ -4,12 +4,12 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "retro",
-        "responseMode": "lastNode",
+        "path": "mm-retro",
+        "responseMode": "responseNode",
         "options": {}
       },
-      "id": "wh-24",
-      "name": "Webhook: /retro command",
+      "id": "slack-trigger",
+      "name": "Mattermost: trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,192 +19,218 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'tech-lead', task: 'retro-code-quality', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "respondWith": "json",
+        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/retro`...\"}"
       },
-      "id": "spawn-tl-retro",
-      "name": "Spawn TL Pod: code quality metrics (smart model)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "mm-ack-slack-trigger",
+      "name": "Mattermost: ack command",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
       "position": [
         480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :hourglass: *Retrospective started* for `={{ $('Slack: trigger').item.json.text }}`\n4 pods compiling in parallel (TL · QA · Security · RM)...",
+        "otherOptions": {}
+      },
+      "id": "ack-24",
+      "name": "Mattermost: retro started",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=echo '{\"role\":\"tech-lead\",\"task\":\"retro-code-quality\"}' > /tmp/r-tl.json && omp run --mode json --role slow @/tmp/r-tl.json"
+      },
+      "id": "tl-ret",
+      "name": "Spawn TL: code quality metrics",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        720,
         160
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'qa-engineer', task: 'retro-qa-metrics', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"qa-engineer\",\"task\":\"retro-qa-metrics\"}' > /tmp/r-qa.json && omp run --mode json --role smol @/tmp/r-qa.json"
       },
-      "id": "spawn-qa-retro",
-      "name": "Spawn QA Pod: test metrics",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "qa-ret",
+      "name": "Spawn QA: test metrics",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
-        480,
+        720,
         280
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'security-engineer', task: 'retro-security-metrics', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"security-engineer\",\"task\":\"retro-security-metrics\"}' > /tmp/r-sec.json && omp run --mode json --role smol @/tmp/r-sec.json"
       },
-      "id": "spawn-sec-retro",
-      "name": "Spawn Security Pod: security metrics",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "sec-ret",
+      "name": "Spawn Security: security metrics",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
-        480,
+        720,
         400
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'release-manager', task: 'retro-release-metrics', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "=echo '{\"role\":\"release-manager\",\"task\":\"retro-release-metrics\"}' > /tmp/r-rm.json && omp run --mode json --role smol @/tmp/r-rm.json"
       },
-      "id": "spawn-rm-retro",
-      "name": "Spawn RM Pod: release metrics",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "rm-ret",
+      "name": "Spawn RM: release metrics",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
-        480,
+        720,
         520
       ]
     },
     {
       "parameters": {
-        "command": "echo '{\"role\":\"pm\",\"task\":\"retro-synthesis\",\"version\":\"{{ $json.body.version }}\",\"tl_input\":\"{{ $node['Spawn TL Pod: code quality metrics (smart model)'].json.stdout }}\",\"qa_input\":\"{{ $node['Spawn QA Pod: test metrics'].json.stdout }}\",\"sec_input\":\"{{ $node['Spawn Security Pod: security metrics'].json.stdout }}\",\"rm_input\":\"{{ $node['Spawn RM Pod: release metrics'].json.stdout }}\"}' > /tmp/r-pm.json && omp -p \"$(cat /tmp/r-pm.json)\""
+        "command": "=echo '{\"role\":\"pm\",\"task\":\"retro-synthesis\"}' > /tmp/r-pm.json && opencode run --print \"$(cat /tmp/r-pm.json)\""
       },
-      "id": "spawn-pm-retro",
-      "name": "Spawn PM Pod: synthesise 11-section retro report",
+      "id": "pm-synth",
+      "name": "Spawn PM: synthesise 11-section retro report",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        720,
+        960,
         340
       ]
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f24-notify",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "Retrospective complete. Report published to wiki."
-            },
-            {
-              "name": "version",
-              "value": "={{ $json.body.version }}"
-            }
-          ]
-        }
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :books: *Retrospective complete* for `={{ $('Slack: trigger').item.json.text }}`\n11-section report published to wiki.\nImprovement actions added to backlog.\n\nSprint complete — ready for next `/plan_release`.",
+        "otherOptions": {}
       },
-      "id": "notify-retro-24",
-      "name": "Notify Edward: retrospective complete",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-retro-done",
+      "name": "Mattermost: retrospective complete",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
-        960,
+        1200,
         340
-      ]
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: /retro command": {
+    "Mattermost: trigger": {
       "main": [
         [
           {
-            "node": "Spawn TL Pod: code quality metrics (smart model)",
+            "node": "Mattermost: retro started",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn QA Pod: test metrics",
+            "node": "Mattermost: ack command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mattermost: retro started": {
+      "main": [
+        [
+          {
+            "node": "Spawn TL: code quality metrics",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn Security Pod: security metrics",
+            "node": "Spawn QA: test metrics",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn RM Pod: release metrics",
+            "node": "Spawn Security: security metrics",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spawn RM: release metrics",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn TL Pod: code quality metrics (smart model)": {
+    "Spawn TL: code quality metrics": {
       "main": [
         [
           {
-            "node": "Spawn PM Pod: synthesise 11-section retro report",
+            "node": "Spawn PM: synthesise 11-section retro report",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn QA Pod: test metrics": {
+    "Spawn QA: test metrics": {
       "main": [
         [
           {
-            "node": "Spawn PM Pod: synthesise 11-section retro report",
+            "node": "Spawn PM: synthesise 11-section retro report",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn Security Pod: security metrics": {
+    "Spawn Security: security metrics": {
       "main": [
         [
           {
-            "node": "Spawn PM Pod: synthesise 11-section retro report",
+            "node": "Spawn PM: synthesise 11-section retro report",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn RM Pod: release metrics": {
+    "Spawn RM: release metrics": {
       "main": [
         [
           {
-            "node": "Spawn PM Pod: synthesise 11-section retro report",
+            "node": "Spawn PM: synthesise 11-section retro report",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn PM Pod: synthesise 11-section retro report": {
+    "Spawn PM: synthesise 11-section retro report": {
       "main": [
         [
           {
-            "node": "Notify Edward: retrospective complete",
+            "node": "Mattermost: retrospective complete",
             "type": "main",
             "index": 0
           }
@@ -222,6 +248,9 @@
     },
     {
       "name": "phase-6"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

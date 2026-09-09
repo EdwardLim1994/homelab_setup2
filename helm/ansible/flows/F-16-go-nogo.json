@@ -9,7 +9,7 @@
         "options": {}
       },
       "id": "wh-16",
-      "name": "Webhook: RM go/no-go signal",
+      "name": "Webhook: go-nogo-result",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -32,7 +32,7 @@
           ]
         }
       },
-      "id": "go-check-16",
+      "id": "go-check",
       "name": "GO or NO-GO?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -43,10 +43,10 @@
     },
     {
       "parameters": {
-        "command": "glab issue update {{ $json.body.release_ticket_id }} --label-add 'rm:go' && glab issue comment {{ $json.body.release_ticket_id }} --message 'rm:go applied by Release Manager. Staging validation passed. Ready for /release-production.'"
+        "command": "=glab issue update {{ $json.body.release_ticket_id }} --label-add 'rm:go'"
       },
-      "id": "apply-rmgo-16",
-      "name": "Apply rm:go on release ticket",
+      "id": "apply-go",
+      "name": "Apply rm:go label",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
@@ -56,36 +56,31 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f16-notify-go",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "Staging GO. Ready for /release-production."
-            },
-            {
-              "name": "version",
-              "value": "={{ $json.body.version }}"
-            }
-          ]
-        }
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":green_circle: *Staging GO* — `rm:go` applied.\n\n{{ $json.body.validation_table }}\n\nRun `/release_production {{ $json.body.version }}` to deploy.",
+        "otherOptions": {}
       },
-      "id": "notify-go-16",
-      "name": "Notify Edward: GO, ready for /release-production",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-go",
+      "name": "Mattermost: GO — ready for production",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
         960,
         160
-      ]
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     },
     {
       "parameters": {
-        "command": "glab issue comment {{ $json.body.release_ticket_id }} --message 'NO-GO: {{ $json.body.reason }}\n\nValidation table:\n{{ $json.body.validation_table }}\n\nSuggestions:\nA) {{ $json.body.suggestion_a }}\nB) {{ $json.body.suggestion_b }}\nC) {{ $json.body.suggestion_c }}\n\nAwaiting your decision.'"
+        "command": "=glab issue comment {{ $json.body.release_ticket_id }} --message 'NO-GO: {{ $json.body.reason }}\\n\\nOptions: A) {{ $json.body.suggestion_a }} B) {{ $json.body.suggestion_b }} C) {{ $json.body.suggestion_c }}'"
       },
-      "id": "post-nogo-report-16",
-      "name": "Post no-go report: reason + suggestions A/B/C on release ticket",
+      "id": "post-nogo",
+      "name": "Post NO-GO report on release ticket",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
@@ -95,37 +90,28 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f16-notify-nogo",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "Staging NO-GO. Review release ticket for details."
-            },
-            {
-              "name": "version",
-              "value": "={{ $json.body.version }}"
-            },
-            {
-              "name": "reason",
-              "value": "={{ $json.body.reason }}"
-            }
-          ]
-        }
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":red_circle: *Staging NO-GO* — `{{ $json.body.reason }}`\n\n*Options:*\n• A) {{ $json.body.suggestion_a }}\n• B) {{ $json.body.suggestion_b }}\n• C) {{ $json.body.suggestion_c }}\n\nReview release ticket and reply with your decision.",
+        "otherOptions": {}
       },
-      "id": "notify-nogo-16",
-      "name": "Notify Edward: NO-GO, awaiting decision",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-nogo",
+      "name": "Mattermost: NO-GO — decision required",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
         960,
         440
-      ]
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: RM go/no-go signal": {
+    "Webhook: go-nogo-result": {
       "main": [
         [
           {
@@ -140,36 +126,36 @@
       "main": [
         [
           {
-            "node": "Apply rm:go on release ticket",
+            "node": "Apply rm:go label",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Post no-go report: reason + suggestions A/B/C on release ticket",
+            "node": "Post NO-GO report on release ticket",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Apply rm:go on release ticket": {
+    "Apply rm:go label": {
       "main": [
         [
           {
-            "node": "Notify Edward: GO, ready for /release-production",
+            "node": "Mattermost: GO — ready for production",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Post no-go report: reason + suggestions A/B/C on release ticket": {
+    "Post NO-GO report on release ticket": {
       "main": [
         [
           {
-            "node": "Notify Edward: NO-GO, awaiting decision",
+            "node": "Mattermost: NO-GO — decision required",
             "type": "main",
             "index": 0
           }
@@ -187,6 +173,9 @@
     },
     {
       "name": "phase-4"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

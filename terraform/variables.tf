@@ -243,16 +243,22 @@ variable "grafana_oidc_client_secret" {
   default   = "dev-grafana-oidc-client-secret-not-for-prod-use"
 }
 
-variable "openwebui_oidc_client_id" {
+variable "mattermost_oidc_client_id" {
   type      = string
   sensitive = true
-  default   = "dev-openwebui-oidc-client-id"
+  default   = "dev-mattermost-oidc-client-id"
 }
 
-variable "openwebui_oidc_client_secret" {
+variable "mattermost_oidc_client_secret" {
   type      = string
   sensitive = true
-  default   = "dev-openwebui-oidc-client-secret-not-for-prod-use"
+  default   = "dev-mattermost-oidc-client-secret-not-for-prod-use"
+}
+
+variable "mattermost_db_password" {
+  type      = string
+  sensitive = true
+  default   = "dev-mattermost-db-password"
 }
 
 variable "litellm_oidc_client_id" {

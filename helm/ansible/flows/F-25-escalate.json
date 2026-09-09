@@ -9,7 +9,7 @@
         "options": {}
       },
       "id": "wh-25",
-      "name": "Webhook: /escalate trigger",
+      "name": "Webhook: escalate",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,10 +19,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const dag = $workflow.staticData.dagState || {};\ndag.pausedTasks = dag.pausedTasks || [];\ndag.pausedTasks.push($json.body.context);\n$workflow.staticData.dagState = dag;\nreturn [{ json: { paused: true, context: $json.body.context, reason: $json.body.reason, attempts: $json.body.attempts } }];"
+        "jsCode": "const dag=$workflow.staticData.dagState||{};\ndag.pausedTasks=dag.pausedTasks||[];\ndag.pausedTasks.push($json.body.context);\n$workflow.staticData.dagState=dag;\nreturn [{json:{paused:true,context:$json.body.context,reason:$json.body.reason,flow:$json.body.flow,attempts:$json.body.attempts}}];"
       },
-      "id": "pause-dag-25",
-      "name": "Pause dependent DAG tasks",
+      "id": "pause-dag",
+      "name": "Pause DAG tasks",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -32,64 +32,43 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/f25-notify-edward",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "message",
-              "value": "ESCALATION: {{ $json.body.reason }}"
-            },
-            {
-              "name": "flow",
-              "value": "={{ $json.body.flow }}"
-            },
-            {
-              "name": "attempts",
-              "value": "={{ $json.body.attempts }}"
-            },
-            {
-              "name": "failures",
-              "value": "={{ $json.body.failures }}"
-            },
-            {
-              "name": "recommended_action",
-              "value": "={{ $json.body.recommended_action }}"
-            },
-            {
-              "name": "context",
-              "value": "={{ JSON.stringify($json.body.context) }}"
-            }
-          ]
-        }
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":rotating_light: *ESCALATION* — `{{ $json.flow }}`\n*Reason:* {{ $json.reason }}\n*Attempts:* {{ $json.attempts }}\n*Context:* {{ $json.context }}\n\nDAG paused. Your action required.",
+        "otherOptions": {}
       },
-      "id": "notify-edward-25",
-      "name": "Notify Edward immediately with full context",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "slack-escalate",
+      "name": "Mattermost: ESCALATION",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
       "position": [
         720,
         300
-      ]
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: /escalate trigger": {
+    "Webhook: escalate": {
       "main": [
         [
           {
-            "node": "Pause dependent DAG tasks",
+            "node": "Pause DAG tasks",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Pause dependent DAG tasks": {
+    "Pause DAG tasks": {
       "main": [
         [
           {
-            "node": "Notify Edward immediately with full context",
+            "node": "Mattermost: ESCALATION",
             "type": "main",
             "index": 0
           }
@@ -104,6 +83,9 @@
   "tags": [
     {
       "name": "cross-cutting"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

@@ -1,107 +1,190 @@
 #!/usr/bin/env bash
-# seed.sh — upserts the SDLC n8n flows via the n8n public REST API.
+# seed.sh — seeds all 28 SDLC n8n flows via n8n REST API
+# Flows use Mattermost slash commands for user-invoked phases.
+# GitLab/CI events remain as webhooks.
 #
-# Invoked by the ansible runner (helm/ansible/playbooks/n8n.yml), and by hand:
-#
-#   N8N_URL=http://localhost:5678 N8N_API_KEY=<key> ./seed.sh
-#
-# Needs: curl, jq. Idempotent — matches each flow by name, PUTs if it already
-# exists, POSTs if not, then activates. Re-run any time to push edits.
-# No API key -> logs and exits 0, so a fresh cluster without the key set still
-# deploys cleanly.
+# Usage:
+#   N8N_URL=http://localhost:5678 N8N_API_KEY=your-key ./seed.sh [--force]
 
 set -euo pipefail
 
 N8N_URL="${N8N_URL:-http://localhost:5678}"
-N8N_API_KEY="${N8N_API_KEY:-}"
-FLOW_DIR="${FLOW_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+N8N_API_KEY="${N8N_API_KEY:?N8N_API_KEY is required}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "n8n flow seeder -> $N8N_URL (flows: $FLOW_DIR)"
+cat << 'SETUP'
+================================
+n8n SDLC Flow Seeder — Mattermost edition
+================================
 
-if [ -z "$N8N_API_KEY" ]; then
-  echo "N8N_API_KEY is empty — skipping flow seeding."
-  echo "Set TF_VAR_n8n_api_key in .env (create the key in n8n Settings -> API Keys) and redeploy."
-  exit 0
-fi
+MATTERMOST SETUP (required before flows work):
 
-api() { curl -sf -H "X-N8N-API-KEY: $N8N_API_KEY" "$@"; }
+1. Create a Bot account in Mattermost:
+   System Console → Integrations → Bot Accounts → Add Bot
+   Username: sdlc-bot
+   Copy the Bot Access Token
 
-echo "Waiting for n8n..."
-for i in $(seq 1 30); do
-  if curl -sf "$N8N_URL/healthz" >/dev/null 2>&1; then echo "  ready"; break; fi
-  echo "  attempt $i/30..."; sleep 5
-done
+2. Add n8n credential:
+   n8n → Credentials → New → Mattermost API
+   Name: "Mattermost SDLC Bot"
+   Access Token: (paste Bot Access Token)
+   Base URL: https://mattermost.yourdomain.com
 
-# Fail loud on a bad key — otherwise `set -e` kills the script mid-pipe and the
-# Job just says "backoff limit reached" with no reason.
-probe=$(curl -s -o /dev/null -w '%{http_code}' \
-  -H "X-N8N-API-KEY: $N8N_API_KEY" "$N8N_URL/api/v1/workflows?limit=1")
-if [ "$probe" = 401 ] || [ "$probe" = 403 ]; then
-  echo "ERROR: n8n rejected the API key (HTTP $probe)."
-  echo "The key in TF_VAR_n8n_api_key is gone or invalid (n8n data reset, or key deleted)."
-  echo "Create a fresh one in n8n Settings -> API Keys, update .env, redeploy."
-  exit 1
-fi
-[ "$probe" = 200 ] || { echo "ERROR: GET /api/v1/workflows -> HTTP $probe"; exit 1; }
+3. Register slash commands in Mattermost:
+   Main Menu → Integrations → Slash Commands → Add Slash Command
 
-# name -> id map of what's already there (paginate; API caps limit at 250)
-echo "Fetching existing workflows..."
-EXISTING=$(mktemp)
-cursor=""
-: > "$EXISTING"
-while :; do
-  page=$(api "$N8N_URL/api/v1/workflows?limit=250${cursor:+&cursor=$cursor}")
-  echo "$page" | jq -r '.data[] | [.name, .id] | @tsv' >> "$EXISTING"
-  cursor=$(echo "$page" | jq -r '.nextCursor // empty')
-  [ -z "$cursor" ] && break
-done
-echo "  $(wc -l < "$EXISTING") present"
+   Command        → Request URL
+   /plan_release  → https://n8n.yourdomain.com/webhook/mm-plan_release
+   /kickoff       → https://n8n.yourdomain.com/webhook/mm-kickoff
+   /develop       → https://n8n.yourdomain.com/webhook/mm-develop
+   /uat           → https://n8n.yourdomain.com/webhook/mm-uat
+   /release_staging     → https://n8n.yourdomain.com/webhook/mm-release_staging
+   /release_production  → https://n8n.yourdomain.com/webhook/mm-release_production
+   /rollback      → https://n8n.yourdomain.com/webhook/mm-rollback
+   /rollback_story → https://n8n.yourdomain.com/webhook/mm-rollback_story
+   /retro         → https://n8n.yourdomain.com/webhook/mm-retro
+   /projects      → https://n8n.yourdomain.com/webhook/mm-projects
 
-id_for() { awk -F'\t' -v n="$1" '$1==n{print $2; exit}' "$EXISTING"; }
+   For each command:
+     Request method: POST
+     Response username: sdlc-bot
+     Autocomplete: enabled (add description)
 
-CREATED=0; UPDATED=0; FAILED=0
-for flow_path in "$FLOW_DIR"/F-*.json; do
-  [ -f "$flow_path" ] || continue
-  name=$(jq -r '.name // "unknown"' "$flow_path")
-  # public API rejects unknown top-level props (id, active, tags, pinData, ...)
-  body=$(jq '{name, nodes, connections, settings: (.settings // {})}' "$flow_path")
-  id=$(id_for "$name")
+4. Add bot to your SDLC channel:
+   /invite @sdlc-bot
 
-  resp=$(mktemp)
-  if [ -n "$id" ]; then
-    printf '  update %s ... ' "$name"
-    code=$(curl -s -o "$resp" -w '%{http_code}' \
-      -X PUT "$N8N_URL/api/v1/workflows/$id" \
-      -H "X-N8N-API-KEY: $N8N_API_KEY" -H 'Content-Type: application/json' \
-      --data-binary "$body")
-    ok_codes="200"
-    verb=UPDATED
-  else
-    printf '  create %s ... ' "$name"
-    code=$(curl -s -o "$resp" -w '%{http_code}' \
-      -X POST "$N8N_URL/api/v1/workflows" \
-      -H "X-N8N-API-KEY: $N8N_API_KEY" -H 'Content-Type: application/json' \
-      --data-binary "$body")
-    ok_codes="200 201"
-    verb=CREATED
+5. Set env vars in n8n Settings → Variables:
+   MM_SDLC_CHANNEL = your-channel-id  (find in channel URL or API)
+   MM_BASE_URL     = https://mattermost.yourdomain.com
+   GITLAB_URL, GITLAB_TOKEN, GITLAB_PROJECT_ID
+   N8N_WEBHOOK_BASE, GITLAB_WEBHOOK_SECRET
+   ARGOCD_URL, ARGOCD_PROJECT
+   RELEASE_TICKET_ID, RELEASE_VERSION
+
+6. Chat with omp (flow F-28) — the sdlc-svc user, the 'ai' channel, the
+   outgoing webhook, and the n8n credential are all created by
+   playbooks/mattermost.yml:
+     scripts/ansible-run.sh mattermost
+   Then in the 'ai' channel type:  omp <your question>
+   (trigger word 'omp' — mmctl's create-outgoing needs one). First message
+   after the omp pod idles waits ~30-120s for scale-up + model load.
+
+7. GitLab group webhook (registered automatically by DevOps pod at /kickoff):
+   URL: https://n8n.yourdomain.com/webhook/gitlab-events
+   Events: Merge requests + Pipelines
+   Secret: set GITLAB_WEBHOOK_SECRET to a random token
+
+SETUP
+
+echo ""
+
+# Wait for n8n
+echo "Waiting for n8n to be ready..."
+for i in {1..30}; do
+  if curl -sf "$N8N_URL/healthz" > /dev/null 2>&1; then
+    echo "n8n is ready."
+    break
   fi
+  echo "  attempt $i/30 ..."
+  sleep 5
+done
 
-  if echo "$ok_codes" | grep -qw "$code"; then
-    id=$(jq -r '.id // empty' "$resp")
-    echo "OK (id: ${id:-$id})"
-    [ "$verb" = CREATED ] && CREATED=$((CREATED+1)) || UPDATED=$((UPDATED+1))
-    if [ -n "$id" ]; then
-      api -X POST "$N8N_URL/api/v1/workflows/$id/activate" >/dev/null 2>&1 \
-        && echo "    active" || echo "    activation failed — activate manually in the UI"
+EXISTING=$(curl -sf \
+  -H "X-N8N-API-KEY: $N8N_API_KEY" \
+  "$N8N_URL/api/v1/workflows?limit=1" \
+  | python3 -c "import json,sys; print(json.load(sys.stdin).get('count',0))" 2>/dev/null || echo "0")
+
+if [ "$EXISTING" -gt "0" ]; then
+  echo "WARNING: $EXISTING workflows already exist."
+  if [[ "${1:-}" != "--force" ]]; then
+    echo "Run with --force to override."
+    exit 0
+  fi
+  echo "--force specified. Proceeding..."
+fi
+
+SUCCESS=0
+FAILED=0
+FLOWS=(
+  "F-00-gitlab-router.json"
+  "F-01-plan-release.json"
+  "F-02-kickoff.json"
+  "F-03-develop.json"
+  "F-04-task-mr-opened.json"
+  "F-05-task-mr-merged.json"
+  "F-06-dod-check.json"
+  "F-07-flow.json"
+  "F-08-flow.json"
+  "F-09-flow.json"
+  "F-10-uat.json"
+  "F-11-uat-qa-complete.json"
+  "F-12-uat-security-complete.json"
+  "F-13-uat-po-complete.json"
+  "F-14-release-staging.json"
+  "F-15-staging-deployed.json"
+  "F-16-go-nogo.json"
+  "F-17-release-production.json"
+  "F-18-release-mr-merged.json"
+  "F-19-production-deployed.json"
+  "F-20-monitoring-window.json"
+  "F-21-rollback.json"
+  "F-22-rollback-story.json"
+  "F-23-revert-mr-merged.json"
+  "F-24-retro.json"
+  "F-25-escalate.json"
+  "F-26-projects.json"
+  "F-27-cluster-lifecycle.json"
+  "F-28-chat.json"
+)
+
+for flow_file in "${FLOWS[@]}"; do
+  flow_path="$SCRIPT_DIR/$flow_file"
+  if [ ! -f "$flow_path" ]; then
+    echo "  SKIP: $flow_file (not found)"
+    continue
+  fi
+  flow_name=$(python3 -c "import json; print(json.load(open('$flow_path')).get('name','?'))")
+  echo -n "  Seeding: $flow_name ... "
+  # n8n 2.x public API rejects read-only keys (active, tags, id, ...) on create.
+  # Keep only the writable fields.
+  python3 -c "import json,sys; d=json.load(open('$flow_path')); json.dump({k:d[k] for k in ('name','nodes','connections','settings','staticData') if k in d}, open('/tmp/n8n-seed-body.json','w'))"
+  HTTP_CODE=$(curl -s -o /tmp/n8n-seed-resp.json -w "%{http_code}" \
+    -X POST "$N8N_URL/api/v1/workflows" \
+    -H "X-N8N-API-KEY: $N8N_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d @/tmp/n8n-seed-body.json)
+  if [ "$HTTP_CODE" -eq 200 ] || [ "$HTTP_CODE" -eq 201 ]; then
+    WF_ID=$(python3 -c "import json; print(json.load(open('/tmp/n8n-seed-resp.json')).get('id','?'))" 2>/dev/null || echo "?")
+    echo "OK (id: $WF_ID)"
+    if [ "$WF_ID" != "?" ]; then
+      curl -sf -X POST "$N8N_URL/api/v1/workflows/$WF_ID/activate" \
+        -H "X-N8N-API-KEY: $N8N_API_KEY" > /dev/null 2>&1 \
+        && echo "    → activated" || echo "    → activation failed (activate manually)"
     fi
+    SUCCESS=$((SUCCESS+1))
   else
-    echo "FAILED (HTTP $code)"
-    jq . "$resp" 2>/dev/null || cat "$resp"
-    FAILED=$((FAILED + 1))
+    echo "FAILED (HTTP $HTTP_CODE)"
+    python3 -m json.tool /tmp/n8n-seed-resp.json 2>/dev/null || true
+    FAILED=$((FAILED+1))
   fi
-  rm -f "$resp"
 done
 
-rm -f "$EXISTING"
-echo "Done: $CREATED created, $UPDATED updated, $FAILED failed."
-[ "$FAILED" -eq 0 ]
+echo ""
+echo "================================"
+echo "Seeding complete: $SUCCESS OK  $FAILED failed"
+echo "================================"
+echo ""
+echo "Slash command → webhook path mapping:"
+echo "  /plan_release        → /webhook/mm-plan_release   (F-01)"
+echo "  /kickoff             → /webhook/mm-kickoff        (F-02)"
+echo "  /develop             → /webhook/mm-develop        (F-03)"
+echo "  /uat                 → /webhook/mm-uat            (F-10)"
+echo "  /release_staging     → /webhook/mm-release_staging (F-14)"
+echo "  /release_production  → /webhook/mm-release_production (F-17)"
+echo "  /rollback            → /webhook/mm-rollback       (F-21)"
+echo "  /rollback_story      → /webhook/mm-rollback_story (F-22)"
+echo "  /retro               → /webhook/mm-retro          (F-24)"
+echo "  /projects            → /webhook/mm-projects       (F-26)"
+echo ""
+echo "GitLab single webhook → /webhook/gitlab-events (F-00)"
+echo "(DevOps pod registers this at /kickoff via glab — no manual setup)"

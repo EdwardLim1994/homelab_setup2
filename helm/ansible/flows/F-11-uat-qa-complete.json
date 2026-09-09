@@ -8,8 +8,8 @@
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "webhook-F-11-uat-qa-complete",
-      "name": "Webhook: F-11-uat-qa-complete trigger",
+      "id": "wh-F-11-uat-qa-complete",
+      "name": "Webhook: uat-qa-start",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -19,17 +19,12 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/spawn-role",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ role: 'qa-engineer', task: 'uat-stage-1', version: $json.body.version, project: $json.body.project }) }}",
-        "options": {}
+        "command": "echo '{\"role\":\"qa-engineer\",\"task\":\"uat-stage-1\"}' > /tmp/F-11-uat-qa-complete.json && omp run --mode json --role smol @/tmp/F-11-uat-qa-complete.json"
       },
       "id": "spawn-F-11-uat-qa-complete",
       "name": "Spawn qa-engineer: uat-stage-1",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         480,
         300
@@ -50,7 +45,7 @@
           ]
         }
       },
-      "id": "check-F-11-uat-qa-complete",
+      "id": "pass-F-11-uat-qa-complete",
       "name": "Passed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -61,7 +56,7 @@
     },
     {
       "parameters": {
-        "command": "glab issue update {{ $json.body.release_ticket_id }} --label-add 'qa:uat-approved' && glab issue comment {{ $json.body.release_ticket_id }} --message 'qa:uat-approved applied'"
+        "command": "glab issue update {{ $json.body.release_ticket_id }} --label-add 'qa:uat-approved'"
       },
       "id": "label-F-11-uat-qa-complete",
       "name": "Apply qa:uat-approved on release ticket",
@@ -83,10 +78,6 @@
               "value": "={{ $json.body.version }}"
             },
             {
-              "name": "project",
-              "value": "={{ $json.body.project }}"
-            },
-            {
               "name": "release_ticket_id",
               "value": "={{ $json.body.release_ticket_id }}"
             }
@@ -104,20 +95,62 @@
     },
     {
       "parameters": {
-        "command": "glab issue create --title '[bugfix] qa-engineer finding during uat-stage-1' --label 'type:bugfix,role:qa-engineer' --milestone '{{ $json.body.version }}' --description 'Found during UAT uat-stage-1. Environment: UAT cluster.'"
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":test_tube: *UAT QA* sign-off. Moving to next stage.",
+        "otherOptions": {}
+      },
+      "id": "slack-pass2-F-11-uat-qa-complete",
+      "name": "Mattermost: UAT QA sign-off",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        200
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "glab issue create --title '[bugfix] qa-engineer finding in uat-stage-1' --label 'type:bugfix,role:qa-engineer' --milestone '{{ $json.body.version }}' --description 'Found during UAT.'"
       },
       "id": "bug-F-11-uat-qa-complete",
-      "name": "Create bug ticket (type:bug-uat)",
+      "name": "Create bug ticket",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
         960,
         440
       ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
+        "message": ":warning: *UAT QA finding* — bug ticket created. Fix and re-run UAT.",
+        "otherOptions": {}
+      },
+      "id": "slack-bug-F-11-uat-qa-complete",
+      "name": "Mattermost: UAT QA bug",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        440
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: F-11-uat-qa-complete trigger": {
+    "Webhook: uat-qa-start": {
       "main": [
         [
           {
@@ -150,7 +183,7 @@
         ],
         [
           {
-            "node": "Create bug ticket (type:bug-uat)",
+            "node": "Create bug ticket",
             "type": "main",
             "index": 0
           }
@@ -162,6 +195,28 @@
         [
           {
             "node": "Trigger next stage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create bug ticket": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: UAT QA bug",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger next stage": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: UAT QA sign-off",
             "type": "main",
             "index": 0
           }
@@ -179,6 +234,9 @@
     },
     {
       "name": "phase-3"
+    },
+    {
+      "name": "mattermost"
     }
   ]
 }

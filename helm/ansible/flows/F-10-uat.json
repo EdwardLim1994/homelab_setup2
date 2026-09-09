@@ -1,25 +1,381 @@
 {
   "name": "F-10 /uat",
   "nodes": [
-    { "parameters": { "httpMethod": "POST", "path": "uat", "responseMode": "lastNode", "options": {} }, "id": "webhook-uat", "name": "Webhook: /uat command", "type": "n8n-nodes-base.webhook", "typeVersion": 1, "position": [240, 300] },
-    { "parameters": { "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project_id }}/issues?milestone={{ $json.body.version }}&labels=type:user-story&per_page=100", "authentication": "predefinedCredentialType", "nodeCredentialType": "gitlabApi", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "PRIVATE-TOKEN", "value": "={{ $env.GITLAB_TOKEN }}" }] } }, "id": "query-milestone-stories", "name": "Safeguard: query sprint milestone for all stories", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4, "position": [480, 300] },
-    { "parameters": { "jsCode": "const stories = $json;\nconst unmerged = stories.filter(s => !s.labels.includes('merged-to-release'));\nif (unmerged.length > 0) {\n  return [{ json: { safe: false, unmergedStories: unmerged.map(s => ({ id: s.iid, title: s.title })), count: unmerged.length } }];\n}\nreturn [{ json: { safe: true, totalStories: stories.length } }];" }, "id": "check-all-merged", "name": "Check: all stories have merged-to-release label?", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [720, 300] },
-    { "parameters": { "conditions": { "conditions": [{ "leftValue": "={{ $json.safe }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }] } }, "id": "safeguard-gate", "name": "Safeguard: all stories merged?", "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [960, 300] },
-    { "parameters": { "url": "={{ $env.N8N_WEBHOOK_BASE }}/f10-feedback", "sendBody": true, "bodyParameters": { "parameters": [{ "name": "message", "value": "UAT blocked: unfinished stories" }, { "name": "unmerged", "value": "={{ JSON.stringify($json.unmergedStories) }}" }] } }, "id": "feedback-unfinished", "name": "Feedback to Edward: unfinished stories", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4, "position": [1200, 440] },
-    { "parameters": { "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project_id }}/pipelines", "sendBody": true, "bodyParameters": { "parameters": [{ "name": "ref", "value": "={{ 'release/' + $json.body.version }}" }, { "name": "variables[DEPLOY_ENV]", "value": "uat" }] }, "authentication": "predefinedCredentialType", "nodeCredentialType": "gitlabApi", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "PRIVATE-TOKEN", "value": "={{ $env.GITLAB_TOKEN }}" }] } }, "id": "trigger-manual-pipeline", "name": "Trigger manual CI pipeline on release branch", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4, "position": [1200, 200] },
-    { "parameters": { "url": "={{ $env.N8N_WEBHOOK_BASE }}/cluster-wake", "sendBody": true, "bodyParameters": { "parameters": [{ "name": "cluster", "value": "uat" }, { "name": "version", "value": "={{ $json.body.version }}" }] } }, "id": "wake-uat-cluster", "name": "Wake UAT cluster (F-27)", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4, "position": [1440, 200] },
-    { "parameters": { "command": "=echo 'ArgoCD sync UAT with rc images from pipeline detect-versions output'" }, "id": "argocd-sync-uat", "name": "ArgoCD sync: changed services with rc tags", "type": "n8n-nodes-base.executeCommand", "typeVersion": 1, "position": [1680, 200] },
-    { "parameters": { "url": "={{ $env.N8N_WEBHOOK_BASE }}/uat-qa-start", "sendBody": true, "bodyParameters": { "parameters": [{ "name": "version", "value": "={{ $json.body.version }}" }, { "name": "project", "value": "={{ $json.body.project }}" }] } }, "id": "trigger-f11", "name": "Create QA Pod: UAT stage 1 (F-11)", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4, "position": [1920, 200] }
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mm-uat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "slack-trigger",
+      "name": "Mattermost: trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/uat`...\"}"
+      },
+      "id": "mm-ack-slack-trigger",
+      "name": "Mattermost: ack command",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :hourglass: *UAT started* for `{{ $json.text }}`\nRunning milestone safeguard...",
+        "otherOptions": {}
+      },
+      "id": "ack-10",
+      "name": "Mattermost: UAT started",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues?milestone={{ $('Slack: trigger').item.json.text }}&labels=type:user-story&per_page=100",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "id": "query-stories",
+      "name": "Query sprint milestone stories",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const stories=$json;\nconst unmerged=stories.filter(s=>!s.labels.includes('merged-to-release'));\nreturn [{json:{safe:unmerged.length===0,unmerged:unmerged.map(s=>({id:s.iid,title:s.title})),total:stories.length}}];"
+      },
+      "id": "safeguard",
+      "name": "Check: all stories merged-to-release?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.safe }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "safe-gate",
+      "name": "Safeguard passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :x: *UAT blocked* — stories not yet merged to release. Check release branch.",
+        "otherOptions": {}
+      },
+      "id": "slack-blocked",
+      "name": "Mattermost: UAT blocked",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        440
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/pipelines",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "ref",
+              "value": "={{ 'release/' + $('Slack: trigger').item.json.text }}"
+            },
+            {
+              "name": "variables[DEPLOY_ENV]",
+              "value": "uat"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "id": "trig-ci",
+      "name": "Trigger manual CI on release branch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1440,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/cluster-wake",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "cluster",
+              "value": "uat"
+            }
+          ]
+        }
+      },
+      "id": "wake-uat",
+      "name": "Wake UAT cluster",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1680,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=argocd app sync {{ $env.ARGOCD_PROJECT }}-uat --server $ARGOCD_URL"
+      },
+      "id": "argocd",
+      "name": "ArgoCD sync: rc images to UAT",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/uat-qa-start",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "version",
+              "value": "={{ $('Slack: trigger').item.json.text }}"
+            },
+            {
+              "name": "release_ticket_id",
+              "value": "={{ $env.RELEASE_TICKET_ID }}"
+            }
+          ]
+        }
+      },
+      "id": "trig-f11",
+      "name": "Trigger F-11: QA UAT stage 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2160,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
+        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :white_check_mark: Safeguard passed · UAT cluster deploying · QA stage 1 started.\n\nYou'll be notified when all 3 stages complete.",
+        "otherOptions": {}
+      },
+      "id": "slack-uat-running",
+      "name": "Mattermost: UAT underway",
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        200
+      ],
+      "credentials": {
+        "mattermostApi": {
+          "id": "mm-creds",
+          "name": "Mattermost SDLC Bot"
+        }
+      }
+    }
   ],
   "connections": {
-    "Webhook: /uat command": { "main": [[{ "node": "Safeguard: query sprint milestone for all stories", "type": "main", "index": 0 }]] },
-    "Safeguard: query sprint milestone for all stories": { "main": [[{ "node": "Check: all stories have merged-to-release label?", "type": "main", "index": 0 }]] },
-    "Check: all stories have merged-to-release label?": { "main": [[{ "node": "Safeguard: all stories merged?", "type": "main", "index": 0 }]] },
-    "Safeguard: all stories merged?": { "main": [[{ "node": "Trigger manual CI pipeline on release branch", "type": "main", "index": 0 }], [{ "node": "Feedback to Edward: unfinished stories", "type": "main", "index": 0 }]] },
-    "Trigger manual CI pipeline on release branch": { "main": [[{ "node": "Wake UAT cluster (F-27)", "type": "main", "index": 0 }]] },
-    "Wake UAT cluster (F-27)": { "main": [[{ "node": "ArgoCD sync: changed services with rc tags", "type": "main", "index": 0 }]] },
-    "ArgoCD sync: changed services with rc tags": { "main": [[{ "node": "Create QA Pod: UAT stage 1 (F-11)", "type": "main", "index": 0 }]] }
+    "Mattermost: trigger": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: UAT started",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mattermost: ack command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mattermost: UAT started": {
+      "main": [
+        [
+          {
+            "node": "Query sprint milestone stories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query sprint milestone stories": {
+      "main": [
+        [
+          {
+            "node": "Check: all stories merged-to-release?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check: all stories merged-to-release?": {
+      "main": [
+        [
+          {
+            "node": "Safeguard passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Safeguard passed?": {
+      "main": [
+        [
+          {
+            "node": "Trigger manual CI on release branch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mattermost: UAT blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger manual CI on release branch": {
+      "main": [
+        [
+          {
+            "node": "Wake UAT cluster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wake UAT cluster": {
+      "main": [
+        [
+          {
+            "node": "ArgoCD sync: rc images to UAT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ArgoCD sync: rc images to UAT": {
+      "main": [
+        [
+          {
+            "node": "Trigger F-11: QA UAT stage 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger F-11: QA UAT stage 1": {
+      "main": [
+        [
+          {
+            "node": "Mattermost: UAT underway",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "active": true, "settings": { "executionOrder": "v1" },
-  "tags": [{ "name": "uat" }, { "name": "phase-3" }]
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "uat"
+    },
+    {
+      "name": "phase-3"
+    },
+    {
+      "name": "mattermost"
+    }
+  ]
 }
