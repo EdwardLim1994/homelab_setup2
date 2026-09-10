@@ -27,11 +27,24 @@ else:
 auth_flow = Flow.objects.get(slug='default-provider-authorization-implicit-consent')
 inval_flow = Flow.objects.get(slug='default-provider-invalidation-flow')
 signing_key = CertificateKeyPair.objects.filter(name__icontains='authentik Self-signed Certificate').first()
-mappings = list(PropertyMapping.objects.filter(name__in=[
+# ponytail: after a fresh Authentik DB, the default OAuth blueprints import
+# asynchronously — this null_resource can run before the openid/email/profile
+# mappings exist, leaving every provider with no scope mappings and every OIDC
+# login failing "Insufficient scope". Wait for them.
+import time
+_want = [
     "authentik default OAuth Mapping: OpenID 'openid'",
     "authentik default OAuth Mapping: OpenID 'email'",
     "authentik default OAuth Mapping: OpenID 'profile'",
-]))
+]
+for _ in range(60):
+    mappings = list(PropertyMapping.objects.filter(name__in=_want))
+    if len(mappings) == len(_want):
+        break
+    print('waiting for default OpenID mappings...', len(mappings), '/', len(_want))
+    time.sleep(5)
+else:
+    raise SystemExit('default OpenID property mappings never appeared')
 
 minio_expr = 'if request.user.email == "' + admin_email + '":\n    return {"policy": "consoleAdmin"}\nreturn {"policy": "readwrite"}'
 sm_minio, sm_minio_created = ScopeMapping.objects.get_or_create(name='MinIO policy claim', defaults=dict(scope_name='policy', expression=minio_expr))

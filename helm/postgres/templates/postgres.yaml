@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+stringData:
+  password: {{ .Values.password | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-initdb
+  namespace: {{ .Release.Namespace }}
+data:
+  # ponytail: runs once, on first cluster init, as the bootstrap superuser.
+  # role $2 (defaults to $1) owns database $1. GitLab is the odd one — it
+  # connects as role `gitlab` to database `gitlabhq_production` — so its role
+  # and db names differ; everyone else has role name == db name. GitLab's db
+  # also gets its extensions here so the gitlab role never needs superuser.
+  00-init.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    app_db() {
+      role="${2:-$1}"
+      psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+        -c "CREATE ROLE \"$role\" LOGIN PASSWORD '${APP_DB_PASSWORD}'" \
+        -c "CREATE DATABASE \"$1\" OWNER \"$role\""
+    }
+    {{- range .Values.databases }}
+    app_db {{ . | quote }}
+    {{- end }}
+    app_db {{ .Values.gitlabDatabase | quote }} gitlab
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d {{ .Values.gitlabDatabase | quote }} \
+      -c "CREATE EXTENSION IF NOT EXISTS pg_trgm" \
+      -c "CREATE EXTENSION IF NOT EXISTS btree_gist"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: {{ .Release.Name }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceName: {{ .Release.Name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      securityContext:
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: postgres
+          image: {{ .Values.image | quote }}
+          # ponytail: 512 clears GitLab 18's structure.sql (thousands of
+          # partitioned tables in one txn) with headroom. Harmless for the
+          # other apps.
+          args: ["-c", "max_locks_per_transaction=512"]
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_DB
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}
+                  key: password
+            - name: APP_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}
+                  key: password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "postgres"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          # ponytail: holds liveness off through slow crash recovery on
+          # local-path storage (GitLab's DB was the original reason).
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "postgres"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 60
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: initdb
+          configMap:
+            name: {{ .Release.Name }}-initdb
+            defaultMode: 0755
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.storageSize | quote }}

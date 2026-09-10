@@ -1,6 +1,9 @@
 charts/*.tgz
 .env
-k3d-storage/
+# ignore the PV data but keep the dir itself tracked (.gitkeep) — a live
+# cluster bind-mounts it, and `git clean -fdx` deleting it breaks every PVC.
+/k3d-storage/*
+!/k3d-storage/.gitkeep
 terraform/local.auto.tfvars
 terraform/.authentik-app-providers.sh
 terraform/.nextcloud-promote-admin.sh

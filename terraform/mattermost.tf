@@ -40,9 +40,9 @@ resource "helm_release" "mattermost" {
       "__APP_URL__", local.app_url["mattermost"]),
       "__MATTERMOST_OIDC_CLIENT_ID__", var.mattermost_oidc_client_id),
       "__MATTERMOST_OIDC_CLIENT_SECRET__", var.mattermost_oidc_client_secret),
-      "__MM_DB_PASSWORD__", var.mattermost_db_password),
+      "__SHARED_DB_PASSWORD__", var.shared_db_password),
     "__MINIO_ROOT_PASSWORD__", var.minio_root_password)
   ]
 
-  depends_on = [kubernetes_namespace.mattermost, kubernetes_secret.mattermost_homelab_ca]
+  depends_on = [kubernetes_namespace.mattermost, kubernetes_secret.mattermost_homelab_ca, helm_release.postgres]
 }

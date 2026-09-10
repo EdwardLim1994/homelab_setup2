@@ -37,15 +37,10 @@ resource "helm_release" "sonarqube" {
     "__APP_URL__", local.app_url["sonarqube"]),
   ]
 
-  # ponytail: this wrapper chart's own plain postgres:16 StatefulSet (not bitnami)
-  set_sensitive {
-    name  = "postgres.password"
-    value = var.sonarqube_db_password
-  }
-
+  # shared postgres (helm/postgres)
   set_sensitive {
     name  = "sonarqube.jdbcOverwrite.jdbcPassword"
-    value = var.sonarqube_db_password
+    value = var.shared_db_password
   }
 
   set_sensitive {
@@ -53,5 +48,5 @@ resource "helm_release" "sonarqube" {
     value = var.sonarqube_monitoring_passcode
   }
 
-  depends_on = [kubernetes_namespace.sonarqube, kubernetes_secret.sonarqube_oidc]
+  depends_on = [kubernetes_namespace.sonarqube, kubernetes_secret.sonarqube_oidc, helm_release.postgres]
 }

@@ -5,10 +5,9 @@ image:
 storageSize: 5Gi
 
 env:
-  # DB — plain postgres:16 StatefulSet from templates/postgres.yaml (same
-  # pattern as helm/n8n). Keep creds in sync with the `postgres:` block below.
+  # DB — the shared postgres (helm/postgres), database + role `mattermost`.
   MM_SQLSETTINGS_DRIVERNAME: "postgres"
-  MM_SQLSETTINGS_DATASOURCE: "postgres://mattermost:__MM_DB_PASSWORD__@mattermost-postgres:5432/mattermost?sslmode=disable&connect_timeout=10"
+  MM_SQLSETTINGS_DATASOURCE: "postgres://mattermost:__SHARED_DB_PASSWORD__@postgres.postgres.svc.cluster.local:5432/mattermost?sslmode=disable&connect_timeout=10"
 
   MM_SERVICESETTINGS_SITEURL: "__APP_URL__"
   MM_SERVICESETTINGS_LISTENADDRESS: ":8065"
@@ -74,16 +73,3 @@ resources:
   limits:
     memory: 2Gi
 
-# consumed by templates/postgres.yaml — keep in sync with MM_SQLSETTINGS_DATASOURCE.
-postgres:
-  image: postgres:16
-  database: mattermost
-  username: mattermost
-  password: "__MM_DB_PASSWORD__"  # string-replaced by Tiltfile/terraform
-  storageSize: 5Gi
-  resources:
-    requests:
-      cpu: 50m
-      memory: 128Mi
-    limits:
-      memory: 256Mi

@@ -1,17 +1,22 @@
 #!/usr/bin/env pwsh
-# Trigger a one-shot ansible run in-cluster, stream its logs, let k8s reap it.
+# Trigger one-shot ansible runs in-cluster, stream logs, let k8s reap the pods.
 # PowerShell port of scripts/linux/ansible-run.sh. Needs pwsh 7+, kubectl.
 #
 # ponytail: the "ansible server" is a permanently-suspended CronJob
 # (helm/ansible). This clones a Job from it and applies it; the Job's
 # ttlSecondsAfterFinished deletes the pod when it's done.
 #
-#   scripts/windows/ansible-run.ps1                    # runs playbooks/site.yml
+#   scripts/windows/ansible-run.ps1                    # ALL playbooks, in parallel
 #   scripts/windows/ansible-run.ps1 n8n                # runs playbooks/n8n.yml
 #   scripts/windows/ansible-run.ps1 n8n --syntax-check # parse-only
+#
+# ponytail: no-arg fans out one child process per playbook instead of the
+# serial site.yml. Independent playbooks (own namespace each) run concurrently;
+# mattermost is chained after n8n because it needs the flows seeded. Pass a
+# playbook name explicitly (or `site`) to run just that one.
 [CmdletBinding()]
 param(
-  [string]$Playbook = 'site',
+  [string]$Playbook = '',
   [Parameter(ValueFromRemainingArguments = $true)] [string[]]$AnsibleArgs
 )
 # ponytail: NOT 'Stop' - Windows PowerShell 5.1 turns every native-command
@@ -22,8 +27,38 @@ $ErrorActionPreference = 'Continue'
 
 $ns = if ($env:NS) { $env:NS } else { 'ansible' }
 $cronjob = if ($env:CRONJOB) { $env:CRONJOB } else { 'ansible-runner' }
+
+# --- no arg: run everything, in parallel -----------------------------------
+if (-not $Playbook -or $Playbook -eq 'all') {
+  $parallel = @('omp', 'litellm', 'mcp-servers')
+  $chains = @(@('n8n', 'mattermost'))   # each: serial, stop on first failure
+  # ponytail: re-invoke the *same* shell that's running this (pwsh 7 or Windows
+  # PowerShell 5.1) - `pwsh` isn't always on PATH.
+  $self = (Get-Process -Id $PID).Path
+  $extra = if ($AnsibleArgs) { $AnsibleArgs -join ' ' } else { '' }
+  $rest = if ($AnsibleArgs) { $AnsibleArgs } else { @() }
+  $procs = @()
+
+  foreach ($p in $parallel) {
+    $a = @('-NoProfile', '-File', $PSCommandPath, $p) + $rest
+    $procs += Start-Process $self -PassThru -NoNewWindow -ArgumentList $a
+  }
+  foreach ($c in $chains) {
+    $seq = ($c | ForEach-Object { "& '$PSCommandPath' $_ $extra; if (`$LASTEXITCODE) { exit 1 }" }) -join '; '
+    $procs += Start-Process $self -PassThru -NoNewWindow -ArgumentList @('-NoProfile', '-Command', $seq)
+  }
+
+  $procs = $procs | Where-Object { $_ }
+  $procs | Wait-Process
+  $failed = $procs | Where-Object ExitCode -ne 0
+  if ($failed) { Write-Host "FAILED: $($failed.Count) playbook run(s)"; exit 1 }
+  Write-Host 'All playbooks complete.'
+  exit 0
+}
+
+# --- single playbook ------------------------------------------------------
 $pbArgs = ($AnsibleArgs -join ' ')
-$job = "ansible-$Playbook-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
+$job = "ansible-$Playbook-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())-$(Get-Random -Maximum 99999)"
 
 # ponytail: `kubectl set env --local` rewrites the env in the rendered manifest
 # offline - no jq, no post-create race.
@@ -32,7 +67,7 @@ kubectl -n $ns create job $job --from="cronjob/$cronjob" --dry-run=client -o yam
   kubectl apply -f -
 if ($LASTEXITCODE -ne 0) { throw "failed to create job $job" }
 
-Write-Host "Job $job created - waiting for pod..."
+Write-Host "[$Playbook] Job $job created - waiting for pod..."
 
 # ponytail: poll for the pod instead of `kubectl wait` - wait exits non-zero
 # with "no matching resources found" when the pod hasn't been scheduled yet.
@@ -42,16 +77,43 @@ foreach ($i in 1..60) {
   if ($pod) { break }
   Start-Sleep 2
 }
-if (-not $pod) { Write-Host "pod never appeared - inspect: kubectl -n $ns describe job/$job"; exit 1 }
+if (-not $pod) { Write-Host "[$Playbook] pod never appeared - inspect: kubectl -n $ns describe job/$job"; exit 1 }
 
-kubectl -n $ns wait --for=condition=ready "$pod" --timeout=120s 2>$null
-kubectl -n $ns logs -f "job/$job" 2>$null
+# ponytail: `kubectl logs -f` can block forever (pod stuck ContainerCreating,
+# backoffLimit retry, TTL reap mid-stream). Run it as a killable child and let
+# the status poll below be the authority on "done".
+$podName = ($pod -replace '^pod/', '')
+$self = (Get-Process -Id $PID).Path
+$logProc = Start-Process $self -PassThru -NoNewWindow -ArgumentList @(
+  '-NoProfile', '-Command',
+  "kubectl -n $ns logs -f $podName 2>`$null | ForEach-Object { `"[$Playbook] `$_`" }"
+)
 
-kubectl -n $ns wait --for=condition=complete "job/$job" --timeout=600s 2>$null
-if ($LASTEXITCODE -eq 0) {
-  Write-Host 'Job complete.'
-  kubectl -n $ns delete job $job --ignore-not-found 2>$null | Out-Null
-} else {
-  Write-Host "Job FAILED - inspect with: kubectl -n $ns describe job/$job"
-  exit 1
+# ponytail: poll the job's terminal condition. A job that TTL-reaps after
+# succeeding disappears entirely - treat "gone" as complete, not a hang.
+$rc = 1
+$seen = ''
+foreach ($i in 1..400) {
+  kubectl -n $ns get job $job 2>$null | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    if ($seen -match '\bComplete\b') { Write-Host "[$Playbook] Job complete (reaped)."; $rc = 0 }
+    else { Write-Host "[$Playbook] Job vanished before completing - kubectl -n $ns get events"; $rc = 1 }
+    break
+  }
+  $types = kubectl -n $ns get job $job -o "jsonpath={.status.conditions[*].type}" 2>$null
+  $seen = $types
+  if ($types -match '\bComplete\b') {
+    Write-Host "[$Playbook] Job complete."
+    kubectl -n $ns delete job $job --ignore-not-found 2>$null | Out-Null
+    $rc = 0; break
+  }
+  if ($types -match '\bFailed\b') {
+    Write-Host "[$Playbook] Job FAILED - kubectl -n $ns describe job/$job"
+    $rc = 1; break
+  }
+  if ($i % 40 -eq 0) { Write-Host "[$Playbook] ...still running ($($i * 3)s)" }
+  Start-Sleep 3
 }
+if ($logProc -and -not $logProc.HasExited) { Stop-Process -Id $logProc.Id -Force 2>$null }
+if ($i -ge 400) { Write-Host "[$Playbook] Job timed out after 20m - kubectl -n $ns describe job/$job"; exit 1 }
+exit $rc

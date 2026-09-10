@@ -88,6 +88,19 @@ resource "kubernetes_secret" "gitlab_runner_cache_credentials" {
   depends_on = [kubernetes_namespace.gitlab]
 }
 
+# ponytail: global.psql.password points at this secret; the shared postgres
+# (helm/postgres) creates the `gitlab` role with var.shared_db_password.
+resource "kubernetes_secret" "gitlab_postgres" {
+  metadata {
+    name      = "gitlab-postgres-secret"
+    namespace = kubernetes_namespace.gitlab.metadata[0].name
+  }
+  data = {
+    password = var.shared_db_password
+  }
+  depends_on = [kubernetes_namespace.gitlab]
+}
+
 resource "helm_release" "gitlab" {
   name              = "gitlab"
   chart             = "${path.module}/../helm/gitlab"
@@ -120,13 +133,6 @@ resource "helm_release" "gitlab" {
   set {
     name  = "gitlab.global.hosts.gitlab.https"
     value = "true"
-  }
-
-  # ponytail: this wrapper chart's own plain postgres:16 StatefulSet (not bitnami);
-  # the template also renders gitlab-postgres-secret that global.psql points at.
-  set_sensitive {
-    name  = "postgres.password"
-    value = var.gitlab_db_password
   }
 
   set {
@@ -174,7 +180,7 @@ resource "helm_release" "gitlab" {
     value = var.admin_email
   }
 
-  depends_on = [kubernetes_namespace.gitlab, kubernetes_secret.gitlab_omniauth_authentik, kubernetes_secret.gitlab_object_storage, kubernetes_secret.gitlab_runner_cache_credentials, kubectl_manifest.homelab_ca_issuer]
+  depends_on = [kubernetes_namespace.gitlab, kubernetes_secret.gitlab_omniauth_authentik, kubernetes_secret.gitlab_object_storage, kubernetes_secret.gitlab_runner_cache_credentials, kubernetes_secret.gitlab_postgres, kubectl_manifest.homelab_ca_issuer, helm_release.postgres, helm_release.redis]
 }
 
 # ponytail: mirrors Tiltfile's gitlab-promote-admin — promotes ADMIN_EMAIL to

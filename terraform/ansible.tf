@@ -36,6 +36,8 @@ resource "kubernetes_secret" "ansible_secrets" {
     gitlab_mcp_auth_token = var.gitlab_mcp_auth_token
     omp_gitlab_token = var.omp_gitlab_token
     litellm_master_key    = var.litellm_master_key
+    gitlab_webhook_secret = var.gitlab_webhook_secret
+    gitlab_group_id       = var.gitlab_group_id
   }
 }
 
@@ -132,6 +134,43 @@ resource "kubernetes_role_binding" "ansible_mattermost_exec" {
     api_group = "rbac.authorization.k8s.io"
     kind      = "Role"
     name      = kubernetes_role.ansible_mattermost_exec.metadata[0].name
+  }
+  subject {
+    kind      = "ServiceAccount"
+    name      = "ansible-runner"
+    namespace = kubernetes_namespace.ansible.metadata[0].name
+  }
+}
+
+# ponytail: gitlab-webhook.yml runs `rails runner` inside the webservice pod to
+# mint a fresh PAT (PATs die with the DB) — needs pod read + exec in `gitlab`.
+resource "kubernetes_role" "ansible_gitlab_exec" {
+  metadata {
+    name      = "ansible-gitlab-exec"
+    namespace = "gitlab"
+  }
+  rule {
+    api_groups = [""]
+    resources  = ["pods"]
+    verbs      = ["get", "list"]
+  }
+  rule {
+    api_groups = [""]
+    resources  = ["pods/exec"]
+    verbs      = ["get", "create"]
+  }
+  depends_on = [kubernetes_namespace.gitlab]
+}
+
+resource "kubernetes_role_binding" "ansible_gitlab_exec" {
+  metadata {
+    name      = "ansible-gitlab-exec"
+    namespace = "gitlab"
+  }
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "Role"
+    name      = kubernetes_role.ansible_gitlab_exec.metadata[0].name
   }
   subject {
     kind      = "ServiceAccount"

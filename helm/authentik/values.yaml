@@ -2,20 +2,18 @@ authentik:
   authentik:
     secret_key: ""  # set via terraform variable
     log_level: info
-    # ponytail: point at this wrapper chart's own plain postgres:16 /
-    # redis:7-alpine StatefulSets (templates/), NOT the goauthentik chart's
-    # bundled bitnami subcharts — bitnami sunset the free images. Same pattern
-    # as helm/n8n and helm/litellm.
+    # ponytail: shared postgres (helm/postgres, db+role `authentik`) and shared
+    # redis (helm/redis, logical DB 1 — GitLab keeps DB 0). The goauthentik
+    # chart's bundled bitnami subcharts stay off.
     postgresql:
-      host: "authentik-postgres"
+      host: "postgres.postgres.svc.cluster.local"
       name: "authentik"
       user: "authentik"
-      password: ""  # set via terraform variable
+      password: ""  # set via terraform / Tiltfile (shared_db_password)
     redis:
-      host: "authentik-redis"
+      host: "redis.redis.svc.cluster.local"
+      db: 1
 
-  # ponytail: bundled bitnami subcharts off — replaced by templates/postgres.yaml
-  # + templates/redis.yaml below.
   postgresql:
     enabled: false
   redis:
@@ -50,27 +48,3 @@ authentik:
       limits:
         memory: 1Gi
 
-# ponytail: consumed by templates/postgres.yaml + templates/redis.yaml (this
-# wrapper chart's own templates). Keep db name/user/password in sync with
-# authentik.authentik.postgresql above.
-postgres:
-  image: postgres:16
-  database: authentik
-  username: authentik
-  password: ""  # set via terraform / Tiltfile
-  storageSize: 4Gi
-  resources:
-    requests:
-      cpu: 50m
-      memory: 256Mi
-    limits:
-      memory: 512Mi
-
-redis:
-  image: redis:7-alpine
-  resources:
-    requests:
-      cpu: 25m
-      memory: 32Mi
-    limits:
-      memory: 128Mi

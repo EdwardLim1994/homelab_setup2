@@ -12,7 +12,7 @@ k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: sonarqube'))
 # still works with zero setup. Fixed (not regenerated) — Tilt's helm() is
 # stateless `helm template`, so a randomized password would desync from
 # the already-initialized postgres data dir on every reload.
-sonarqube_db_password = os.getenv('TF_VAR_sonarqube_db_password', 'dev-sonarqube-db-password')
+shared_db_password = os.getenv('TF_VAR_shared_db_password', 'dev-shared-db-password-not-for-prod-use')
 sonarqube_monitoring_passcode = os.getenv('TF_VAR_sonarqube_monitoring_passcode', 'dev-sonarqube-monitoring-passcode')
 sonarqube_oidc_client_id = os.getenv('TF_VAR_sonarqube_oidc_client_id', 'dev-sonarqube-oidc-client-id')
 sonarqube_oidc_client_secret = os.getenv('TF_VAR_sonarqube_oidc_client_secret', 'dev-sonarqube-oidc-client-secret-not-for-prod-use')
@@ -38,8 +38,7 @@ rendered = str(helm(
   name='sonarqube',
   namespace='sonarqube',
   set=[
-    'postgres.password=' + sonarqube_db_password,
-    'sonarqube.jdbcOverwrite.jdbcPassword=' + sonarqube_db_password,
+    'sonarqube.jdbcOverwrite.jdbcPassword=' + shared_db_password,
     'sonarqube.monitoringPasscode=' + sonarqube_monitoring_passcode,
   ],
 ))
@@ -49,7 +48,7 @@ k8s_yaml(blob(rendered))
 k8s_resource(
   'sonarqube-sonarqube',
   port_forwards=['9010:9000'],
-  resource_deps=['sonarqube-helm-deps'],
+  resource_deps=['sonarqube-helm-deps', 'postgres'],
 )
 
 # ponytail: no-op until ADMIN_EMAIL has logged in via SSO at least once

@@ -4,11 +4,15 @@
 # Terraform auto-loads *.auto.tfvars, so no flags needed on terraform apply.
 # Run once after editing .env.
 $ErrorActionPreference = 'Stop'
-Set-Location (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
 
-$lines = Get-Content .env | ForEach-Object {
+# ponytail: absolute paths off $PSScriptRoot — no Set-Location, so the caller's
+# shell stays where it was.
+$repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$envFile = Join-Path $repoRoot '.env'
+$out = Join-Path $repoRoot 'terraform/local.auto.tfvars'
+
+$lines = Get-Content $envFile | ForEach-Object {
   if ($_ -match '^TF_VAR_([^=]+)=(.*)$') { '{0} = "{1}"' -f $matches[1], $matches[2] }
 }
-$out = 'terraform/local.auto.tfvars'
 Set-Content -Path $out -Value $lines -Encoding utf8
 Write-Host "Generated $out ($($lines.Count) vars)"

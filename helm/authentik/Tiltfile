@@ -15,7 +15,7 @@ k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: authentik'))
 # re-randomized db password would no longer match the already-initialized
 # postgres data dir. Fine, throwaway cluster.
 authentik_secret_key = os.getenv('TF_VAR_authentik_secret_key', 'dev-authentik-secret-key-not-for-prod-use')
-authentik_db_password = os.getenv('TF_VAR_authentik_db_password', 'dev-authentik-db-password')
+shared_db_password = os.getenv('TF_VAR_shared_db_password', 'dev-shared-db-password-not-for-prod-use')
 # ponytail: bootstrap token lets Tilt/terraform drive the Authentik API
 # directly (create OAuth2 providers, sources, etc.) without a manual
 # admin-password setup flow. https://docs.goauthentik.io/docs/installation/configuration#bootstrap
@@ -40,8 +40,7 @@ k8s_yaml(helm(
   namespace='authentik',
   set=[
     'authentik.authentik.secret_key=' + authentik_secret_key,
-    'authentik.authentik.postgresql.password=' + authentik_db_password,
-    'postgres.password=' + authentik_db_password,
+    'authentik.authentik.postgresql.password=' + shared_db_password,
     'authentik.global.env[0].name=AUTHENTIK_BOOTSTRAP_TOKEN',
     'authentik.global.env[0].value=' + authentik_bootstrap_token,
     'authentik.global.env[1].name=AUTHENTIK_BOOTSTRAP_PASSWORD',
@@ -58,7 +57,7 @@ k8s_yaml(helm(
 k8s_resource(
   'authentik-server',
   port_forwards=['9000:9000'],
-  resource_deps=['authentik-helm-deps'],
+  resource_deps=['authentik-helm-deps', 'postgres', 'redis'],
 )
 
 # ponytail: idempotent — creates the GitHub source only if it doesn't

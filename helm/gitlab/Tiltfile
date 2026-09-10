@@ -15,7 +15,7 @@ k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: gitlab'))
 # re-randomized db password would no longer match the already-initialized
 # postgres data dir. Fine, throwaway cluster.
 gitlab_root_password = os.getenv('TF_VAR_gitlab_root_password', 'dev-gitlab-root-password')
-gitlab_db_password = os.getenv('TF_VAR_gitlab_db_password', 'dev-gitlab-db-password')
+shared_db_password = os.getenv('TF_VAR_shared_db_password', 'dev-shared-db-password-not-for-prod-use')
 
 k8s_yaml(blob('''apiVersion: v1
 kind: Secret
@@ -24,6 +24,16 @@ metadata:
   namespace: gitlab
 stringData:
   password: ''' + gitlab_root_password))
+
+# ponytail: global.psql.password points here; the shared postgres creates the
+# `gitlab` role with this password.
+k8s_yaml(blob('''apiVersion: v1
+kind: Secret
+metadata:
+  name: gitlab-postgres-secret
+  namespace: gitlab
+stringData:
+  password: ''' + shared_db_password))
 
 # ponytail: dev-fixed client_id/secret matching the Authentik OAuth2 provider
 # created via the API (see homelab-ca-issuer-style one-time setup notes).
@@ -102,7 +112,6 @@ k8s_yaml(helm(
   namespace='gitlab',
   set=[
     'gitlab.global.initialRootPassword.secret=gitlab-initial-root-password',
-    'postgres.password=' + gitlab_db_password,
     # ponytail: GitLab bakes its own external URL into generated links,
     # including the internally-managed "GitLab Web IDE" OAuth app's callback
     # (https://<host>/-/ide/oauth_redirect). The chart has NO non-standard
@@ -127,7 +136,7 @@ k8s_yaml(helm(
 k8s_resource(
   'gitlab-webservice-default',
   port_forwards=['8181:8181'],
-  resource_deps=['gitlab-helm-deps'],
+  resource_deps=['gitlab-helm-deps', 'postgres', 'redis'],
 )
 
 # ponytail: no-op until ADMIN_EMAIL has logged in via SSO at least once

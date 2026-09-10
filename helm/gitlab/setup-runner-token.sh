@@ -9,10 +9,10 @@ cd "$(dirname "$0")"
 # the root admin if the chart never seeded one.
 ROOT_PW=$(kubectl get secret -n gitlab gitlab-initial-root-password -o jsonpath='{.data.password}' | base64 -d)
 
-# ponytail: a fresh `helm upgrade` rolls gitlab-postgresql, which then does crash
-# recovery for ~2-3 min on local-path storage ("the database system is starting
-# up" / "Connection refused"). Retry the whole thing instead of failing the
-# apply — 40 x 15s = 10 min ceiling.
+# ponytail: after a redeploy the shared postgres can still be in crash recovery
+# for ~2-3 min on local-path storage ("the database system is starting up" /
+# "Connection refused"), and GitLab's own migrations take a while. Retry the
+# whole thing instead of failing the apply — 40 x 15s = 10 min ceiling.
 TOKEN=""
 for i in $(seq 1 40); do
   OUT=$(kubectl exec -i -n gitlab deploy/gitlab-webservice-default -c webservice -- \

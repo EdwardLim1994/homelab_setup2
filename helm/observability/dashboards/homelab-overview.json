@@ -258,7 +258,7 @@
       ]
     },
     {
-      "title": "Deployments available",
+      "title": "Workloads available",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -304,7 +304,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(kube_deployment_status_replicas_available{namespace=~\"$namespace\"}) / clamp_min(sum(kube_deployment_spec_replicas{namespace=~\"$namespace\"}), 1)"
+          "expr": "(sum(kube_deployment_status_replicas_available{namespace=~\"$namespace\"}) + sum(kube_statefulset_status_replicas_ready{namespace=~\"$namespace\"})) / clamp_min(sum(kube_deployment_spec_replicas{namespace=~\"$namespace\"}) + sum(kube_statefulset_replicas{namespace=~\"$namespace\"}), 1)"
         }
       ]
     },
@@ -484,13 +484,127 @@
       }
     },
     {
-      "title": "omp agents",
+      "title": "Data stores",
       "type": "row",
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 24
+      }
+    },
+    {
+      "title": "Postgres",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      },
+      "description": "Shared postgres StatefulSet (namespace postgres) backing authentik, gitlab, litellm, mattermost, n8n, sonarqube. No web UI - detail link opens the namespace dashboard.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "DOWN", "color": "red" }
+              }
+            }
+          ],
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "links": [
+            {
+              "title": "Open postgres namespace detail",
+              "url": "/d/homelab-app-detail/homelab-app-detail?var-namespace=postgres&${__url_time_range}",
+              "targetBlank": true
+            }
+          ]
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(kube_pod_status_ready{namespace=\"postgres\", condition=\"true\"}) or vector(0)"
+        }
+      ]
+    },
+    {
+      "title": "Redis",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "description": "Shared redis Deployment (namespace redis) backing gitlab (DB 0) and authentik (DB 1). No web UI - detail link opens the namespace dashboard.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "DOWN", "color": "red" }
+              }
+            }
+          ],
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "links": [
+            {
+              "title": "Open redis namespace detail",
+              "url": "/d/homelab-app-detail/homelab-app-detail?var-namespace=redis&${__url_time_range}",
+              "targetBlank": true
+            }
+          ]
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(kube_pod_status_ready{namespace=\"redis\", condition=\"true\"}) or vector(0)"
+        }
+      ]
+    },
+    {
+      "title": "omp agents",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 30
       }
     },
     {
@@ -504,7 +618,7 @@
         "h": 16,
         "w": 24,
         "x": 0,
-        "y": 25
+        "y": 31
       },
       "description": "Every omp Deployment (role pods, spawn slots, adapter, base). Wake one: kubectl -n omp scale deploy/<name> --replicas=1",
       "targets": [

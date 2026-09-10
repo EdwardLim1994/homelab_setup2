@@ -1,14 +1,11 @@
-# ponytail: plain redis:7-alpine, no auth (cluster-internal) — replaces the
-# gitlab chart's bundled bitnami redis. GitLab uses redis as cache / queues /
-# sessions, not durable storage, so no PVC (appendonly off).
 apiVersion: v1
 kind: Service
 metadata:
-  name: gitlab-redis
+  name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
 spec:
   selector:
-    app: gitlab-redis
+    app: {{ .Release.Name }}
   ports:
     - port: 6379
       targetPort: 6379
@@ -16,21 +13,21 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: gitlab-redis
+  name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: gitlab-redis
+      app: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: gitlab-redis
+        app: {{ .Release.Name }}
     spec:
       containers:
         - name: redis
-          image: "{{ .Values.redis.image }}"
+          image: {{ .Values.image | quote }}
           args: ["--save", "", "--appendonly", "no"]
           ports:
             - containerPort: 6379
@@ -40,4 +37,4 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:
-            {{- toYaml .Values.redis.resources | nindent 12 }}
+            {{- toYaml .Values.resources | nindent 12 }}

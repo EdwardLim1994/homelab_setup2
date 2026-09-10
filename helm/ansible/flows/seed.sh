@@ -69,10 +69,11 @@ MATTERMOST SETUP (required before flows work):
    (trigger word 'omp' — mmctl's create-outgoing needs one). First message
    after the omp pod idles waits ~30-120s for scale-up + model load.
 
-7. GitLab group webhook (registered automatically by DevOps pod at /kickoff):
-   URL: https://n8n.yourdomain.com/webhook/gitlab-events
-   Events: Merge requests + Pipelines
-   Secret: set GITLAB_WEBHOOK_SECRET to a random token
+7. GitLab group webhook -> n8n F-00 router. Registered automatically by the
+   DevOps pod at /kickoff; for bootstrap / disaster recovery run:
+     scripts/ansible-run.sh gitlab-webhook
+   URL: <n8n>/webhook/gitlab-events, events: Merge requests + Pipelines,
+   secret: TF_VAR_gitlab_webhook_secret (same value F-00 verifies against).
 
 SETUP
 

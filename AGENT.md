@@ -59,7 +59,67 @@ terraform/variables.tf All TF_VAR_* inputs + dev defaults
 scripts/linux/*.sh     bash; scripts/windows/*.ps1  PowerShell 7+ (equivalent)
 .env / .env.example    single source of truth for both paths
 k3d-storage/           host-path mount backing the cluster's local-path PVs
+                       (dir tracked via .gitkeep — never `git clean -fdx` it
+                        while the cluster runs, it breaks every PVC mount)
 ```
+
+## Shared Postgres + Redis
+
+One `postgres:16` pod (`helm/postgres`, namespace `postgres`, service
+`postgres.postgres.svc.cluster.local:5432`) backs **authentik, gitlab, litellm,
+mattermost, n8n, sonarqube** — one LOGIN role + owned database per app, all
+sharing `var.shared_db_password`, created by the chart's `initdb` ConfigMap on
+**first init only**. Role name == db name for everyone except GitLab (role
+`gitlab`, db `gitlabhq_production`); initdb also adds `pg_trgm` / `btree_gist`
+there so the gitlab role never needs superuser.
+`args: ["-c", "max_locks_per_transaction=512"]` for GitLab's schema load.
+
+One `redis:7-alpine` pod (`helm/redis`, namespace `redis`, service
+`redis.redis.svc.cluster.local:6379`, no auth, no persistence): **gitlab** on
+logical DB 0 (its components' default), **authentik** on DB 1
+(`AUTHENTIK_REDIS__DB`).
+
+Each consumer's `.tf` has `depends_on = [helm_release.postgres(, .redis)]` and
+its Tiltfile `resource_deps=['postgres'(, 'redis')]`. **nextcloud keeps its own
+MariaDB** (different engine); **argocd keeps its bundled redis** (tightly
+coupled to the argo-cd subchart). Old per-app `<app>-postgres` /
+`<app>-redis` templates are gone — after switching, orphan
+`data-<app>-postgres-0` PVCs must be deleted by hand (StatefulSet PVCs aren't
+pruned).
+
+## Tailscale ingress
+
+`terraform/tailscale.tf` (operator) + `terraform/tailscale-ingress.tf` (one
+`tailscale`-class Ingress per app, plus the `ProxyGroup` CR inline,
+`replicas: 1`). All 11 Ingresses carry
+`tailscale.com/proxy-group: homelab-ingress` and share that **one** ProxyGroup
+node. One tailnet device fronts everything; each app still gets its own
+`<app>.<tailnet>.ts.net` name + Let's Encrypt cert, delivered as a **Tailscale
+Service** (VIPService) the node advertises.
+
+Tailnet policy MUST have (see `tailscale.tf` header for the exact JSON):
+- OAuth client scopes **Devices/Core + Keys/Auth Keys + Services**, all write.
+- `autoApprovers.services` for `tag:k8s` — else Services sit unapproved and the
+  node never advertises them.
+- **Two** grants for `autogroup:member`: `dst: tag:k8s` AND `dst: [svc:…all 11…]`.
+  The `svc:` grant alone puts the service names in the client netmap but not the
+  node backing them — every URL then times out ("unreachable" in `list-urls`).
+
+Was one device *per app* before; the per-app model burned Let's Encrypt's
+"10 new ACME registrations / IP / 3h" on any rebuild and left a pile of stale
+devices. `list-urls.sh` reads the operator-assigned hostname from each
+`ts-<app>` Ingress status, so a `-N` suffix (name still held by a stale device)
+doesn't break it.
+
+**Split-horizon DNS** (`terraform/coredns.tf`): pods can't route to the Tailscale
+Service VIP, so an app doing OIDC discovery server-side against
+`https://authentik.<tailnet>` just times out. A `coredns-custom` rewrite points
+that name at traefik in-cluster + a traefik vhost serves it with a homelab-CA
+cert; the consuming app trusts that CA (minio via the chart's
+`trustedCertsSecret`, mattermost via an init container). Browser traffic is
+untouched. Terraform-only — Tilt has no tailnet ingress. Apps that *can* split
+browser vs backend endpoints (gitlab/grafana/litellm) skip all this and just
+point server-side calls at `authentik-server.authentik.svc`.
 
 ## The coding-agent stack (`omp`)
 
@@ -130,14 +190,28 @@ and activates via `POST /workflows/{id}/activate` (n8n 2.x).
 one-shot Jobs cloned from it by `scripts/{linux,windows}/ansible-run.*`:
 
 ```
-scripts/linux/ansible-run.sh              # playbooks/site.yml (everything)
+scripts/linux/ansible-run.sh              # ALL playbooks, fanned out in parallel
 scripts/linux/ansible-run.sh n8n          # playbooks/n8n.yml
 scripts/linux/ansible-run.sh mattermost --syntax-check
 ```
 
 Playbooks: `n8n.yml`, `mattermost.yml`, `mcp-servers.yml`, `omp.yml`,
-`litellm.yml`, chained by `site.yml`. Runner SA is `ansible-runner`; per-namespace
-Roles for it live in `terraform/ansible.tf`.
+`litellm.yml`. With no argument the script launches one Job per playbook
+concurrently — `omp` / `litellm` / `mcp-servers` in parallel, plus an
+`n8n → mattermost` chain (mattermost needs the flows seeded first). Pass
+`site` to run the old serial `site.yml` in a single Job instead. Runner SA is
+`ansible-runner`; per-namespace Roles for it live in `terraform/ansible.tf`.
+
+`gitlab-webhook.yml` (+ `gitlab-webhook-project.yml`, included per-project) is
+**not** in `site.yml` — bootstrap / disaster-recovery for the n8n SDLC webhook
+that feeds flow F-00. Registers a **project-level** hook on every project in the
+`sdlc` group (group hooks are Premium; this GitLab is CE) — idempotent, creates
+the `sdlc` group if missing. `scripts/ansible-run.{sh,ps1} gitlab-webhook`.
+Needs no PAT in `.env` — mints a fresh `sdlc-webhook` api token via `rails
+runner` in the webservice pod (needs `pods/exec` in `gitlab`, see
+`terraform/ansible.tf`). Uses `gitlab_webhook_secret` from `ansible-secrets`.
+Also flips `allow_local_requests_from_web_hooks_and_services` on (n8n is an
+in-cluster address). The DevOps pod hooks new repos at `/kickoff`.
 
 ## Conventions
 
@@ -155,13 +229,15 @@ Roles for it live in `terraform/ansible.tf`.
 ## Common commands
 
 ```bash
-scripts/linux/create-cluster.sh              # one-time k3d cluster
-scripts/linux/dev-up.sh                       # tilt up (dev path)
+scripts/linux/create-cluster.sh                  # one-time k3d cluster
+scripts/linux/dev-up.sh                           # tilt up (dev path)
 scripts/linux/gen-tfvars.sh && (cd terraform && tofu apply)   # prod path
-scripts/linux/list-urls.sh                     # app URLs + status
-scripts/linux/omp-shell.sh                      # interactive omp pod shell
-scripts/linux/ansible-run.sh <playbook>          # post-deploy playbooks
-kubectl -n omp scale deploy/omp --replicas=1       # wake the agent pod
+scripts/linux/list-urls.sh                        # app URLs + status
+scripts/linux/omp-shell.sh                        # interactive omp pod shell
+scripts/linux/ansible-run.sh                      # every playbook, parallel fan-out
+scripts/linux/ansible-run.sh <playbook>           # just one (n8n / mattermost / omp / …)
+scripts/linux/ansible-run.sh gitlab-webhook       # not in the default set
+kubectl -n omp scale deploy/omp --replicas=1      # wake the agent pod
 ```
 
 ## Current progress
@@ -169,33 +245,37 @@ kubectl -n omp scale deploy/omp --replicas=1       # wake the agent pod
 Working and verified end-to-end:
 
 - Full cluster deploys via both Tilt and Terraform.
-- Authentik SSO for every app; Tailscale + LAN ingress.
+- Authentik SSO for every app; Tailscale + LAN ingress. (The provisioner now
+  waits for Authentik's default OAuth scope mappings before assigning them —
+  without that, a fresh Authentik DB leaves every provider unscoped and every
+  OIDC login fails "Insufficient scope".)
+- **Shared postgres + redis** — one pod each; authentik / gitlab / litellm /
+  mattermost / n8n / sonarqube migrated off their per-app postgres, authentik
+  + gitlab off their per-app redis.
 - **omp agent stack** — `models.yml` fixed for omp 18.x (`baseUrl` without
-  `/v1`, `auth: none`); default model is `ollama/qwen3.8:27b` (the 80B
-  `qwen3-coder-next` OOMs on the host); `pod-openai.py` runs `omp models
-  refresh` at boot and pins `--model`. `n8n → LiteLLM omp → omp-adapter →
-  omp pod → Ollama` returns completions.
-- **29 n8n SDLC flows** seeded and active. Flow JSONs had stale `Slack:`
-  connection refs (renamed to `Mattermost:` in nodes but not connections) —
-  fixed. `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` set so flows' `$env.*`
-  expressions resolve.
-- **Mattermost** — SSO, MinIO S3 file storage, mobile push, and the
-  `mattermost.yml` automation (bot user, `#ai` channel, outgoing webhook,
-  n8n credential, flow binding). `F-28` chat verified: `omp <q>` in `#ai`
-  posts an omp reply.
-- **codegraph index** cleaned (was holding deleted `openwebui` paths).
+  `/v1`, `auth: none`); default model `ollama/qwen3.8:27b` (80B
+  `qwen3-coder-next` OOMs); `pod-openai.py` runs `omp models refresh` at boot
+  and pins `--model`. `n8n → LiteLLM omp → omp-adapter → omp pod → Ollama`
+  returns completions.
+- **29 n8n SDLC flows** seeded and active. `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`
+  so `$env.*` resolves.
+- **Mattermost** — SSO, MinIO S3 file storage, mobile push, `mattermost.yml`
+  automation. `F-28` chat verified (`omp <q>` in `#ai`).
+- **MCP servers** — grafana, sonarqube, gitlab, playwright, **n8n**
+  (`czlonkowski/n8n-mcp`, docs + management once `n8n.yml` injects the key).
+- **GitLab webhook** — `gitlab-webhook.yml` registers a project-level SDLC
+  hook on every project in the `sdlc` group (CE has no group hooks).
 
 Known issues / next steps:
 
 - The omp base Deployment idles at `replicas: 0`; first chat after idle waits
-  ~1–2 min (pod scale-up + 27B model load on CPU). Ollama must be running on
-  the host or nothing LLM-shaped works.
+  ~1–2 min. Ollama must be running on the host or nothing LLM-shaped works.
 - `seed.sh` bails if any workflow exists unless `--force`, and `--force`
-  creates duplicates — not a true upsert despite the comment. Wipe +
-  reseed is the working path.
-- Mattermost files uploaded before the S3 switch sit on the `data` PVC and
+  creates duplicates — not a true upsert. Wipe + reseed is the working path.
+- Mattermost files uploaded before the S3 switch sit on the old `data` PVC and
   404; no migration done.
-- The Agents-plugin bot is not scripted (custom config blob is version-
-  specific) — configure via System Console UI.
-- `openwebui` fully removed (replaced by Mattermost). `opencode` fully
-  removed (replaced by `omp`).
+- Old per-app `data-<app>-postgres-0` / `-postgresql-0` PVCs are orphaned after
+  the shared-DB switch — delete them by hand (StatefulSet PVCs aren't pruned).
+- The Agents-plugin bot is configured via the System Console UI (version-
+  specific config blob, not scripted).
+- `openwebui` / `opencode` fully removed (Mattermost / `omp`).

@@ -1,17 +1,15 @@
 n8n:
   # ponytail: postgres (external) instead of sqlite — sqlite's single-writer
-  # lock stalls under the SDLC flows' concurrent webhook fan-out, and the file
-  # lives on a PVC that gets wiped on encryption-key resets. The server is a
-  # plain postgres:16 StatefulSet from this chart's own templates/postgres.yaml
-  # (see the comment there for why not the bundled bitnami subchart).
+  # lock stalls under the SDLC flows' concurrent webhook fan-out. Connects to
+  # the shared postgres (helm/postgres), database + role `n8n`.
   db:
     type: postgresdb
   externalPostgresql:
-    host: n8n-postgres
+    host: postgres.postgres.svc.cluster.local
     port: 5432
     username: n8n
     database: n8n
-    password: ""  # set via Tiltfile/terraform, matches postgres.password below
+    password: ""  # set via Tiltfile/terraform (shared_db_password)
 
   main:
     persistence:
@@ -74,6 +72,9 @@ n8n:
       # the SDLC flows + F-28 read config from $env in expressions; n8n blocks
       # that by default.
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      # F-00 verifies the GitLab webhook's X-GitLab-Token against this. Must
+      # match what playbooks/gitlab-webhook.yml registers the hook with.
+      # GITLAB_WEBHOOK_SECRET injected by terraform set_sensitive.
       EXTERNAL_HOOK_FILES: "/hooks/hooks.js"
       N8N_ADDITIONAL_NON_UI_ROUTES: "auth"
       EXTERNAL_FRONTEND_HOOKS_URLS: "/assets/oidc-frontend-hook.js"
@@ -90,19 +91,3 @@ n8n:
 # ponytail: flow seeding (and n8n owner setup + API-key minting) moved to the
 # ansible runner — helm/ansible/flows/ + playbooks/n8n.yml. Run it with
 # `scripts/ansible-run.sh n8n`.
-
-# ponytail: consumed by templates/postgres.yaml (this wrapper chart's own
-# template, not the n8n subchart). n8n connects to it via n8n.externalPostgresql
-# above — keep host/user/db/password in sync between the two blocks.
-postgres:
-  image: postgres:16
-  database: n8n
-  username: n8n
-  password: ""  # set via Tiltfile/terraform
-  storageSize: 2Gi
-  resources:
-    requests:
-      cpu: 50m
-      memory: 128Mi
-    limits:
-      memory: 256Mi

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: postgres
+description: >-
+  One shared postgres:16 StatefulSet for the whole homelab. Replaces the
+  per-app postgres pods that authentik / gitlab / litellm / mattermost / n8n /
+  sonarqube each used to run. One pod, one PVC, one role + database per app.
+version: 0.1.0

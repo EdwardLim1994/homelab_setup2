@@ -23,7 +23,7 @@ spec:
           command:
             - sh
             - -c
-            - until nc -z {{ .Release.Name }}-postgres 5432; do sleep 2; done
+            - until nc -z postgres.postgres.svc.cluster.local 5432; do sleep 2; done
       containers:
         - name: litellm
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

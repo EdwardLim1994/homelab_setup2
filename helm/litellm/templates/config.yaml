@@ -70,6 +70,12 @@ data:
         url: "http://mcp-servers-playwright.mcp-servers.svc.cluster.local:8931/mcp"
         transport: "http"
         description: "Playwright browser automation"
+      n8n:
+        url: "http://mcp-servers-n8n.mcp-servers.svc.cluster.local:3000/mcp"
+        transport: "http"
+        description: "n8n workflow docs + management"
+        auth_type: "bearer_token"
+        auth_value: {{ .Values.mcpN8nAuthToken | quote }}
 
     general_settings:
       pass_through_endpoints:

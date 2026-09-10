@@ -1,0 +1,7 @@
+apiVersion: v2
+name: redis
+description: >-
+  One shared redis:7-alpine for the homelab. Replaces the per-app redis pods
+  authentik and gitlab each ran. Cache / broker only, no persistence, no auth
+  (cluster-internal). Consumers use separate logical DB numbers.
+version: 0.1.0

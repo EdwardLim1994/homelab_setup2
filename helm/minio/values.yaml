@@ -16,6 +16,12 @@ minio:
   rootUser: admin
   rootPassword: ""  # set via terraform variable
 
+  # ponytail: MinIO does OIDC discovery server-side against Authentik's tailnet
+  # HTTPS URL; terraform/coredns.tf points that name at traefik in-cluster with
+  # a homelab-CA cert, so MinIO must trust that CA. terraform swaps in the
+  # secret name; Tilt (no tailnet ingress) swaps in "" to skip the mount.
+  trustedCertsSecret: "__MINIO_TRUSTED_CA_SECRET__"
+
   # ponytail: chart's post-install job (`mc mb`) creates these. GitLab's
   # consolidated object storage + the CI runner cache all need their bucket
   # to pre-exist — S3 doesn't auto-create. Names must match the buckets in

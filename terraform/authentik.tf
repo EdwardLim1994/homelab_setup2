@@ -9,6 +9,9 @@ resource "helm_release" "authentik" {
   chart             = "${path.module}/../helm/authentik"
   namespace         = kubernetes_namespace.authentik.metadata[0].name
   dependency_update = true
+  # ponytail: fresh-DB first boot runs migrations + blueprint import, blows past
+  # the 300s helm default. Match the other DB-backed apps.
+  timeout = 900
 
   values = [file("${path.module}/../helm/authentik/values.yaml")]
 
@@ -17,15 +20,10 @@ resource "helm_release" "authentik" {
     value = var.authentik_secret_key
   }
 
+  # shared postgres (helm/postgres)
   set_sensitive {
     name  = "authentik.authentik.postgresql.password"
-    value = var.authentik_db_password
-  }
-
-  # ponytail: this wrapper chart's own plain postgres:16 StatefulSet (not bitnami)
-  set_sensitive {
-    name  = "postgres.password"
-    value = var.authentik_db_password
+    value = var.shared_db_password
   }
 
   set {
@@ -69,7 +67,7 @@ resource "helm_release" "authentik" {
     value = var.github_oauth_client_secret
   }
 
-  depends_on = [kubernetes_namespace.authentik, kubectl_manifest.homelab_ca_issuer]
+  depends_on = [kubernetes_namespace.authentik, kubectl_manifest.homelab_ca_issuer, helm_release.postgres, helm_release.redis]
 }
 
 # ponytail: mirrors Tiltfile's authentik-github-source — chart doesn't

@@ -1,0 +1,158 @@
+# Register (or verify / remove) the n8n SDLC webhook on every project in the
+# `sdlc` GitLab group. Feeds n8n flow F-00 (the event router).
+#
+#   scripts/{linux,windows}/ansible-run.* gitlab-webhook                  # upsert
+#   scripts/{linux,windows}/ansible-run.* gitlab-webhook --tags verify    # read-only
+#   scripts/{linux,windows}/ansible-run.* gitlab-webhook --tags deregister -e deregister_confirmed=true
+#   scripts/{linux,windows}/ansible-run.* gitlab-webhook --syntax-check
+#
+# ponytail: PROJECT-level hooks, not group-level — group webhooks are GitLab
+# Premium and this deploy is CE (helm/gitlab/values.yaml: edition: ce). The
+# DevOps agent pod hooks each new repo at /kickoff; this playbook is bootstrap
+# / disaster recovery for repos that already exist. NOT in site.yml.
+#
+# No GitLab PAT in .env — a fresh `sdlc-webhook` api token is minted via
+# `rails runner` in the webservice pod (PATs don't survive a DB wipe). From
+# `ansible-secrets`: gitlab_webhook_secret (X-GitLab-Token), gitlab_group_id
+# (optional id/path override; default = the `sdlc` group, created if missing).
+# RBAC: pods get/list + pods/exec in `gitlab` (terraform/ansible.tf).
+#
+# Events: merge_requests_events -> F-04/05/08/18/23 ; pipeline_events ->
+# F-09/15/19 ; everything else off (F-00 drops unrecognised events).
+- name: GitLab project webhooks for the n8n SDLC router
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    gitlab_ns: gitlab
+    gitlab_url: >-
+      {{ lookup('env', 'GITLAB_URL')
+         | default('http://gitlab-webservice-default.gitlab.svc.cluster.local:8181', true) }}
+    n8n_webhook_base: >-
+      {{ lookup('env', 'N8N_WEBHOOK_BASE')
+         | default('http://n8n.n8n.svc.cluster.local:5678/webhook', true) }}
+    gitlab_api_base: "{{ gitlab_url }}/api/v4"
+    webhook_secret: "{{ lookup('env', 'gitlab_webhook_secret') }}"
+    group_ref: "{{ lookup('env', 'gitlab_group_id') | default('sdlc', true) }}"
+    webhook_url: "{{ n8n_webhook_base }}/gitlab-events"
+    deregister_confirmed: false
+    # register (default) | verify (read-only) | deregister
+    wh_action: >-
+      {{ 'deregister' if 'deregister' in ansible_run_tags
+         else ('verify' if 'verify' in ansible_run_tags else 'register') }}
+
+  tasks:
+    - name: Validate webhook secret
+      ansible.builtin.assert:
+        that: webhook_secret | length > 0
+        fail_msg: >
+          gitlab_webhook_secret is empty. Set TF_VAR_gitlab_webhook_secret in
+          .env, run gen-tfvars, then:
+            tofu apply -target=kubernetes_secret.ansible_secrets
+
+    - name: Find the gitlab webservice pod
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ gitlab_ns }}"
+        label_selectors: ["app=webservice"]
+        field_selectors: ["status.phase=Running"]
+      register: gl_pods
+      until: gl_pods.resources | length > 0
+      retries: 20
+      delay: 15
+
+    # ponytail: rails boot is slow and occasionally flakes on first exec —
+    # retry until the token line appears.
+    - name: Mint a fresh sdlc-webhook API token via rails
+      kubernetes.core.k8s_exec:
+        namespace: "{{ gitlab_ns }}"
+        pod: "{{ gl_pods.resources[0].metadata.name }}"
+        container: webservice
+        command: >-
+          /bin/sh -c "cd /srv/gitlab && bundle exec rails runner \"
+            u = User.find_by(username: 'root') or abort 'no root user';
+            u.personal_access_tokens.where(name: 'sdlc-webhook').delete_all;
+            t = u.personal_access_tokens.create!(name: 'sdlc-webhook', scopes: [:api], expires_at: 1.year.from_now);
+            puts %(PAT=#{t.token})
+          \""
+      register: pat_out
+      until: "'PAT=' in (pat_out.stdout | default(''))"
+      retries: 4
+      delay: 20
+      no_log: true
+
+    - name: Extract the token
+      ansible.builtin.set_fact:
+        gitlab_token: "{{ pat_out.stdout | regex_search('PAT=(\\S+)', '\\1') | first }}"
+      no_log: true
+
+    # ponytail: GitLab blocks webhook URLs on the local network by default; n8n
+    # is reached by in-cluster Service DNS, so allow it instance-wide.
+    - name: Allow local-network webhook targets
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/application/settings"
+        method: PUT
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body: { allow_local_requests_from_web_hooks_and_services: true }
+        status_code: [200]
+      no_log: true
+
+    # --- resolve / create the group ---
+    - name: Look up the group
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_ref | urlencode }}"
+        method: GET
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        status_code: [200, 404]
+      register: group_get
+      no_log: true
+
+    - name: Create the sdlc group
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups"
+        method: POST
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body: { name: sdlc, path: sdlc, visibility: private }
+        status_code: [201]
+      register: made_group
+      no_log: true
+      when: group_get.status == 404
+
+    - name: Resolve group id
+      ansible.builtin.set_fact:
+        group_id: "{{ made_group.json.id if group_get.status == 404 else group_get.json.id }}"
+
+    # --- projects in the group ---
+    - name: List projects in the group
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_id }}/projects?include_subgroups=true&per_page=100&archived=false"
+        method: GET
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        return_content: true
+        status_code: 200
+      register: projects
+      no_log: true
+
+    - name: Nothing to do yet
+      ansible.builtin.debug:
+        msg: >
+          Group '{{ group_ref }}' (id {{ group_id }}) has no projects. Create
+          repos under it (or let the DevOps pod do it at /kickoff) and re-run.
+      when: projects.json | length == 0
+
+    - name: "{{ wh_action }} the webhook on each project"
+      ansible.builtin.include_tasks: gitlab-webhook-project.yml
+      loop: "{{ projects.json }}"
+      loop_control:
+        loop_var: project
+        label: "{{ project.path_with_namespace }}"
+      when: projects.json | length > 0
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: >
+          {{ projects.json | length }} project(s) in '{{ group_ref }}';
+          webhook -> {{ webhook_url }}

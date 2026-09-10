@@ -50,10 +50,26 @@ function Get-HttpStatus($url) {
   }
 }
 
+# ponytail: the operator appends -1/-2 when the bare name is still held by a
+# stale device, so read the hostname it actually assigned from the ts-<app>
+# Ingress rather than constructing <app>.<domain>. Fall back to constructed.
+$tsHosts = @{}
+try {
+  $jp = '{range .items[?(@.spec.ingressClassName=="tailscale")]}{.metadata.name}{"\t"}{.status.loadBalancer.ingress[0].hostname}{"\n"}{end}'
+  (kubectl get ingress -A -o jsonpath=$jp 2>$null) -split "`n" | ForEach-Object {
+    $n, $h = $_ -split "`t"
+    if ($n -and $h) { $tsHosts[$n] = $h }
+  }
+} catch {}
+function Get-TsHost($app) {
+  $h = $tsHosts["ts-$app"]
+  if ($h) { $h } else { "$app.$domain" }
+}
+
 $fmt = '{0,-18} {1,-45} {2,-14}'
 Write-Host ($fmt -f 'APP', 'TAILSCALE (operator)', 'STATUS')
 foreach ($a in $apps) {
-  $tsUrl = "https://$($a.Host).$domain$($a.Path)"
+  $tsUrl = "https://$(Get-TsHost $a.Host)$($a.Path)"
   Write-Host ($fmt -f $a.Name, $tsUrl, (Get-HttpStatus $tsUrl))
 }
 

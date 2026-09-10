@@ -67,6 +67,22 @@ servers:
       # by the image whenever STREAMABLE_HTTP + a static PAT are combined.
       STREAMABLE_HTTP_AUTH_TOKEN: ""  # set via Tiltfile/terraform
 
+  n8n:
+    # ponytail: czlonkowski/n8n-mcp — node docs + workflow validation always,
+    # plus workflow-management tools when N8N_API_KEY is set. The key is minted
+    # at runtime by playbooks/n8n.yml (this stack never stores one), which
+    # patches it into this Deployment's env — blank here = docs-only until then.
+    image: ghcr.io/czlonkowski/n8n-mcp:latest
+    port: 3000
+    env:
+      MCP_MODE: "http"
+      PORT: "3000"
+      # n8n-mcp refuses to start in http mode without this (per-request bearer).
+      AUTH_TOKEN: ""  # set via Tiltfile/terraform (TF_VAR_n8n_mcp_auth_token)
+      N8N_API_URL: http://n8n.n8n.svc.cluster.local:5678
+      N8N_API_KEY: ""  # patched in by playbooks/n8n.yml after it mints a key
+      LOG_LEVEL: warn
+
   playwright:
     image: mcr.microsoft.com/playwright/mcp:latest
     command: ["node", "/app/cli.js"]

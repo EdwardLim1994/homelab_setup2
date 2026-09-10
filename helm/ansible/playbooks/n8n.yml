@@ -100,8 +100,24 @@
       ansible.builtin.debug:
         var: seed.stdout_lines
 
-    - name: Persist this key for terraform / other tools
-      ansible.builtin.debug:
-        msg: >-
-          API key minted. Put it in .env so `tofu apply` and Tilt reuse it:
-          TF_VAR_n8n_api_key={{ n8n_api_key }}
+    # ponytail: the n8n MCP server (helm/mcp-servers) needs an n8n API key for
+    # its workflow-management tools. This stack never stores one, so push the
+    # freshly minted key into that Deployment's env (RBAC: ansible-mcp-patch).
+    - name: Give the n8n MCP server the API key
+      kubernetes.core.k8s:
+        state: patched
+        api_version: apps/v1
+        kind: Deployment
+        namespace: mcp-servers
+        name: mcp-servers-n8n
+        definition:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: n8n
+                    env:
+                      - name: N8N_API_KEY
+                        value: "{{ n8n_api_key }}"
+      no_log: true
+      failed_when: false

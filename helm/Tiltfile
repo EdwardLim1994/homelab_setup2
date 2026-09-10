@@ -1,4 +1,6 @@
 include('./cert-manager/Tiltfile')
+include('./postgres/Tiltfile')
+include('./redis/Tiltfile')
 include('./authentik/Tiltfile')
 include('./gitlab/Tiltfile')
 include('./minio/Tiltfile')

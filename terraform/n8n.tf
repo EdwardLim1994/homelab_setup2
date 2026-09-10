@@ -51,17 +51,17 @@ resource "helm_release" "n8n" {
   }
 
   set_sensitive {
-    name  = "n8n.externalPostgresql.password"
-    value = var.n8n_db_password
+    name  = "n8n.main.extraEnvVars.GITLAB_WEBHOOK_SECRET"
+    value = var.gitlab_webhook_secret
   }
 
   set_sensitive {
-    name  = "postgres.password"
-    value = var.n8n_db_password
+    name  = "n8n.externalPostgresql.password"
+    value = var.shared_db_password
   }
 
   # ponytail: flow seeding + owner setup + API-key minting all moved to the
   # ansible runner — `scripts/ansible-run.sh n8n`.
 
-  depends_on = [kubernetes_namespace.n8n, kubernetes_config_map.n8n_oidc_hooks]
+  depends_on = [kubernetes_namespace.n8n, kubernetes_config_map.n8n_oidc_hooks, helm_release.postgres]
 }

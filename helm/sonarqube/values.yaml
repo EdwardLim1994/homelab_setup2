@@ -61,14 +61,12 @@ sonarqube:
   # dev-fixed OIDC secrets.
   sonarSecretProperties: sonarqube-oidc-secret
 
-  # ponytail: use this wrapper chart's own plain postgres:16 StatefulSet
-  # (templates/postgres.yaml), not the bitnami subchart the SonarSource chart
-  # would bundle — bitnami sunset the free images.
+  # ponytail: shared postgres (helm/postgres), database + role `sonarqube`.
   postgresql:
     enabled: false
   jdbcOverwrite:
     enabled: true
-    jdbcUrl: "jdbc:postgresql://sonarqube-postgres:5432/sonarqube"
+    jdbcUrl: "jdbc:postgresql://postgres.postgres.svc.cluster.local:5432/sonarqube"
     jdbcUsername: "sonarqube"
 
   ingress:
@@ -83,17 +81,3 @@ sonarqube:
         hosts:
           - sonarqube.local
 
-# ponytail: consumed by templates/postgres.yaml (this wrapper chart's own
-# template). Keep in sync with sonarqube.jdbcOverwrite above.
-postgres:
-  image: postgres:16
-  database: sonarqube
-  username: sonarqube
-  password: ""  # set via terraform / Tiltfile
-  storageSize: 5Gi
-  resources:
-    requests:
-      cpu: 50m
-      memory: 256Mi
-    limits:
-      memory: 512Mi

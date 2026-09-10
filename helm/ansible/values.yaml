@@ -7,7 +7,10 @@ image: alpine/ansible:2.18.1
 schedule: "0 0 31 2 *"
 
 # k8s deletes the finished Job (and its pod) this many seconds after it ends.
-ttlSecondsAfterFinished: 600
+# ponytail: high enough that ansible-run.*'s status poll always sees the
+# terminal condition before k8s GCs the Job. Failed Jobs stick around ~1h for
+# inspection; ansible-run deletes successful ones itself.
+ttlSecondsAfterFinished: 3600
 
 # Default playbook when scripts/ansible-run.sh is called with no argument.
 defaultPlaybook: site.yml

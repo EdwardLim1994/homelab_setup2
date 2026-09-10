@@ -12,7 +12,9 @@ param([string]$ClusterName)
 # PowerShell 5.1 promotes to a terminating error. Gate on $LASTEXITCODE instead.
 $ErrorActionPreference = 'Continue'
 
-# ponytail: default storage path is repo-root-relative - run from anywhere.
+# ponytail: cd to repo root so a relative K3D_STORAGE_PATH (default or from
+# .env) always resolves to ONE place - <repo-root>/k3d-storage - not wherever
+# the caller happened to be. Absolute overrides pass through unchanged.
 Set-Location (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
 
 if (-not $ClusterName) {
@@ -33,6 +35,16 @@ function Get-ClusterServers {
 
 if ((Get-ClusterServers) -gt 0) {
   Write-Host "k3d cluster '$ClusterName' already exists - use 'k3d cluster start $ClusterName' to resume it, or 'k3d cluster delete $ClusterName' first if you really want to recreate it."
+  # ponytail: the running cluster bind-mounts $storagePath. If it's gone or empty
+  # while the cluster is up, something (usually `git clean -fdx`) deleted it and
+  # every PVC mount is now broken - say so instead of looking fine.
+  $sp = if ($env:K3D_STORAGE_PATH) { $env:K3D_STORAGE_PATH } else { './k3d-storage' }
+  $contents = if (Test-Path $sp) { Get-ChildItem $sp -Force | Where-Object Name -ne '.gitkeep' } else { $null }
+  if (-not $contents) {
+    Write-Host "WARNING: '$sp' is missing/empty but the cluster is running -"
+    Write-Host "         PVC data is likely lost and pods will fail on restart. Recreate:"
+    Write-Host "         k3d cluster delete $ClusterName; & '$PSCommandPath' $ClusterName"
+  }
   exit 0
 }
 

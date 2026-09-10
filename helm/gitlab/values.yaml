@@ -10,12 +10,14 @@ gitlab:
     initialRootPassword:
       secret: ""  # set via terraform
 
-    # ponytail: external DB + cache — this wrapper chart's own plain postgres:16
-    # / redis:7-alpine StatefulSets (templates/), not the bundled bitnami
-    # subcharts. Password secret is rendered by templates/postgres.yaml from
-    # .Values.postgres.password.
+    # ponytail: shared postgres + redis (helm/postgres, helm/redis). db + role
+    # `gitlab`/`gitlabhq_production` on the shared postgres (initdb also creates
+    # the pg_trgm / btree_gist extensions GitLab needs). Redis: GitLab keeps its
+    # default logical DB 0 (all its components agree on it); authentik is moved
+    # to DB 1 so the two apps don't share a keyspace.
+    # gitlab-postgres-secret is created in terraform/gitlab.tf.
     psql:
-      host: gitlab-postgres
+      host: postgres.postgres.svc.cluster.local
       port: 5432
       database: gitlabhq_production
       username: gitlab
@@ -23,7 +25,8 @@ gitlab:
         secret: gitlab-postgres-secret
         key: password
     redis:
-      host: gitlab-redis
+      host: redis.redis.svc.cluster.local
+      port: 6379
       auth:
         enabled: false
     ingress:
@@ -195,34 +198,9 @@ gitlab:
       minReplicas: 1
       maxReplicas: 1
 
-  # ponytail: bundled bitnami postgresql + redis subcharts off — replaced by this
-  # wrapper chart's own plain StatefulSets (templates/postgres.yaml,
-  # templates/redis.yaml). GitLab officially supports external psql/redis via
-  # global.psql / global.redis above. bitnami sunset the free images.
+  # ponytail: bundled bitnami postgresql + redis subcharts off — GitLab uses the
+  # shared postgres / redis (global.psql / global.redis above).
   postgresql:
     install: false
   redis:
     install: false
-
-# ponytail: consumed by templates/{postgres,redis}.yaml (this wrapper chart's own
-# templates). postgres.password must match global.psql above; it's also written
-# into the gitlab-postgres-secret the template renders.
-postgres:
-  image: postgres:16
-  password: ""   # set via terraform / Tiltfile
-  storageSize: 8Gi
-  resources:
-    requests:
-      cpu: 100m
-      memory: 512Mi
-    limits:
-      memory: 2Gi
-
-redis:
-  image: redis:7-alpine
-  resources:
-    requests:
-      cpu: 25m
-      memory: 64Mi
-    limits:
-      memory: 256Mi

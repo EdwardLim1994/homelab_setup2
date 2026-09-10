@@ -1,0 +1,30 @@
+# ponytail: one shared postgres:16 for every homelab app that needs Postgres.
+# The initdb script creates a LOGIN role + owned database per entry in
+# `databases` below, all with the same password (`appPassword`) — a homelab
+# doesn't need per-app credential isolation, and one secret is one thing to
+# rotate. nextcloud stays on its own MariaDB (different engine); argocd keeps
+# its bundled redis.
+image: postgres:16
+
+# superuser + every app role share this. Set via terraform (var.shared_db_password).
+password: ""
+
+# One database (== role name) per app. `gitlabhq_production` also gets the
+# pg_trgm / btree_gist extensions GitLab's migrations expect (created here by
+# the bootstrap superuser, so a non-superuser app role never needs to).
+databases:
+  - authentik
+  - litellm
+  - mattermost
+  - n8n
+  - sonarqube
+gitlabDatabase: gitlabhq_production
+
+storageSize: 20Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 2Gi

@@ -4,10 +4,13 @@ variable "authentik_secret_key" {
   default   = "dev-authentik-secret-key-not-for-prod-use"
 }
 
-variable "authentik_db_password" {
+# ponytail: one password for every app role on the shared postgres
+# (helm/postgres). Replaces the old per-app *_db_password vars. nextcloud keeps
+# its own (nextcloud_db_password) — different engine (MariaDB).
+variable "shared_db_password" {
   type      = string
   sensitive = true
-  default   = "dev-authentik-db-password"
+  default   = "dev-shared-db-password-not-for-prod-use"
 }
 
 variable "authentik_bootstrap_token" {
@@ -73,12 +76,6 @@ variable "gitlab_root_password" {
   default   = "dev-gitlab-root-password"
 }
 
-variable "gitlab_db_password" {
-  type      = string
-  sensitive = true
-  default   = "dev-gitlab-db-password"
-}
-
 variable "gitlab_oidc_client_id" {
   type      = string
   sensitive = true
@@ -127,23 +124,11 @@ variable "n8n_oidc_client_secret" {
   default   = "dev-n8n-oidc-client-secret-not-for-prod-use"
 }
 
-variable "n8n_api_key" {
-  type      = string
-  sensitive = true
-  default   = "" # create in n8n Settings -> API Keys; enables flow seeding
-}
-
 variable "n8n_owner_password" {
   type      = string
   sensitive = true
   default   = "Homelab-n8n-Dev-2026" # n8n requires an uppercase letter + digit
   # owner account the ansible n8n.yml playbook creates; email is admin_email
-}
-
-variable "n8n_db_password" {
-  type      = string
-  sensitive = true
-  default   = "dev-n8n-db-password-not-for-prod-use"
 }
 
 variable "omp_gitlab_token" {
@@ -152,10 +137,17 @@ variable "omp_gitlab_token" {
   default   = "" # GitLab token pushed into every omp pod by ansible omp.yml
 }
 
-variable "sonarqube_db_password" {
+variable "gitlab_webhook_secret" {
   type      = string
   sensitive = true
-  default   = "dev-sonarqube-db-password"
+  # X-GitLab-Token shared secret: F-00 (n8n) verifies it, the
+  # gitlab-webhook.yml playbook registers the hook with it. Same value both ends.
+  default   = "dev-gitlab-webhook-secret-not-for-prod-use"
+}
+
+variable "gitlab_group_id" {
+  type    = string
+  default = "" # numeric id or path; blank = gitlab-webhook.yml auto-discovers
 }
 
 variable "sonarqube_monitoring_passcode" {
@@ -255,12 +247,6 @@ variable "mattermost_oidc_client_secret" {
   default   = "dev-mattermost-oidc-client-secret-not-for-prod-use"
 }
 
-variable "mattermost_db_password" {
-  type      = string
-  sensitive = true
-  default   = "dev-mattermost-db-password"
-}
-
 variable "litellm_oidc_client_id" {
   type      = string
   sensitive = true
@@ -285,12 +271,6 @@ variable "litellm_salt_key" {
   default   = "sk-dev-litellm-salt-key-not-for-prod-use"
 }
 
-variable "litellm_db_password" {
-  type      = string
-  sensitive = true
-  default   = "dev-litellm-db-password"
-}
-
 variable "grafana_mcp_token" {
   type      = string
   sensitive = true
@@ -313,6 +293,15 @@ variable "gitlab_mcp_auth_token" {
   type      = string
   sensitive = true
   default   = "dev-gitlab-mcp-auth-token"
+}
+
+# ponytail: per-caller bearer for the n8n MCP server (its AUTH_TOKEN). LiteLLM
+# forwards it. Not a real credential — this repo invents it. n8n-mcp wants >= 32
+# chars in http mode.
+variable "n8n_mcp_auth_token" {
+  type      = string
+  sensitive = true
+  default   = "dev-n8n-mcp-auth-token-not-for-prod-use-000"
 }
 
 # Long-lived Claude Code OAuth token (`claude setup-token`) for the `claude` CLI

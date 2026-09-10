@@ -2,8 +2,12 @@
 
 Self-hosted homelab on a local k3d cluster: Authentik SSO, GitLab, MinIO,
 n8n, SonarQube, Nextcloud, ArgoCD, an LGTM observability stack, Mattermost,
-LiteLLM, and a set of MCP servers for in-cluster coding agents.
+LiteLLM, a set of MCP servers, and an in-cluster coding-agent stack (`omp`).
 Every app gets SSO via Authentik and is reachable remotely over Tailscale.
+
+One shared `postgres` pod backs authentik / gitlab / litellm / mattermost /
+n8n / sonarqube (nextcloud keeps its own MariaDB); one shared `redis` pod
+backs authentik + gitlab.
 
 Two deployment paths exist side by side:
 
@@ -127,7 +131,6 @@ app is up, so the flow is: deploy once → generate → put in `.env` → redepl
 |---|---|---|---|
 | `TF_VAR_github_oauth_client_id`<br>`TF_VAR_github_oauth_client_secret` | [github.com/settings/developers](https://github.com/settings/developers) → **New OAuth App**. Homepage: `https://authentik.<tailnet_domain>`. Authorization callback URL: `https://authentik.<tailnet_domain>/source/oauth/callback/github/` (confirm the exact path in Authentik → Directory → Federation & Social login → GitHub once it's up). Copy the client ID; **Generate a new client secret** and copy that. | No | Authentik admin login via GitHub |
 | `TF_VAR_claude_code_token` | On your own machine with Claude Code installed and logged in (Pro/Max): `claude setup-token` → opens a browser → paste the `sk-ant-oat01-…` line it prints. Long-lived (~1 yr), revocable at [claude.ai](https://claude.ai) → Settings. | No | omp pods can't auth `claude` (they still start; omp-via-Ollama still works) |
-| `TF_VAR_n8n_api_key` | n8n UI → **Settings → API Keys → Create**. Must be created while logged in as the SSO account you normally use, or seeded workflows show "without permissions". | **Yes** — n8n | SDLC flows (`helm/n8n/flows/F-*.json`) aren't auto-seeded / re-seeded |
 | `TF_VAR_grafana_mcp_token` | Grafana → Administration → Users and access → **Service accounts** → add account (role: Editor/Admin) → **Add service account token** → copy. | **Yes** — Grafana | Grafana MCP server boots, every tool call 401s |
 | `TF_VAR_sonarqube_mcp_token` | SonarQube → **My Account → Security → Generate Token** (type: User Token) → copy (shown once). | **Yes** — SonarQube | SonarQube MCP server boots, every tool call 401s |
 | `TF_VAR_gitlab_mcp_token` | GitLab → **Edit profile → Access Tokens** → new token, scope `api`, expiry as you like → copy. | **Yes** — GitLab | GitLab MCP server **hard-refuses to start** |
@@ -157,16 +160,26 @@ Tiltfiles read `.env` on load).
 
 Every app is reachable two ways: `https://<app>.<tailnet_domain>` from any
 device on your tailnet — provisioned by the **Tailscale Kubernetes operator**
-(`terraform/tailscale.tf`, `terraform/tailscale-ingress.tf`), one MagicDNS host
-+ Let's Encrypt cert per app, no host-side port-forward — or `https://<app>.local`
-on the LAN (needs a `/etc/hosts` entry — or Windows
-`C:\Windows\System32\drivers\etc\hosts` — plus trusting the homelab's
-self-signed CA, `terraform/cert-manager.tf`'s `homelab-ca-issuer`).
+(`terraform/tailscale.tf`, `terraform/tailscale-ingress.tf`). All 11 app
+Ingresses share **one** ProxyGroup proxy node (`homelab-ingress`), so the whole
+homelab is one tailnet device; each app still gets its own MagicDNS host +
+Let's Encrypt cert. Or `https://<app>.local` on the LAN (needs a `/etc/hosts`
+entry — or Windows `C:\Windows\System32\drivers\etc\hosts` — plus trusting the
+homelab's self-signed CA, `terraform/cert-manager.tf`'s `homelab-ca-issuer`).
 
-**One-time operator setup** (see the header comment in `terraform/tailscale.tf`):
-add `tag:k8s-operator` / `tag:k8s` tagOwners to the tailnet ACL, generate an
-OAuth client (Devices/Core + Keys/Auth Keys, write), and put its id/secret in
-`.env` as `TF_VAR_tailscale_oauth_client_id` / `_secret`.
+**One-time operator setup** (full detail in the header comment of
+`terraform/tailscale.tf`):
+
+1. `tag:k8s-operator` / `tag:k8s` tagOwners in the tailnet policy.
+2. **Two** grants for `autogroup:member` — `dst: ["tag:k8s"]` (reach the proxy
+   node) **and** `dst: ["svc:authentik", …all 11…]` (reach the Services). The
+   `svc:` grant alone leaves every `<app>.<tailnet>.ts.net` timing out.
+3. `autoApprovers.services` so the ProxyGroup node can advertise Services
+   unattended.
+4. OAuth client with **Devices/Core + Keys/Auth Keys + Services**, all write,
+   tagged `tag:k8s-operator` → id/secret into `.env` as
+   `TF_VAR_tailscale_oauth_client_id` / `_secret`.
+5. Tailnet HTTPS certificates + MagicDNS enabled.
 
 `scripts/{linux,windows}/port-forward-terraform-apps.*` is the pre-operator
 fallback — deprecated, kept for ad-hoc single-app debugging.
@@ -175,11 +188,29 @@ fallback — deprecated, kept for ad-hoc single-app debugging.
 meant to be called from *inside* the cluster (a coding agent pod), not
 browsed to.
 
+## Post-deploy automation (ansible)
+
+Some setup can't be expressed as a `helm_release` — n8n owner + API key + the
+29 SDLC flows, the Mattermost bot + `#ai` channel + webhook, MCP-server tokens,
+GitLab webhooks. Those live as ansible playbooks (`helm/ansible/playbooks/`)
+run as one-shot in-cluster Jobs:
+
+```bash
+./scripts/linux/ansible-run.sh            # every playbook, fanned out in parallel
+./scripts/linux/ansible-run.sh n8n        # just playbooks/n8n.yml
+./scripts/linux/ansible-run.sh gitlab-webhook   # not in the default set — bootstrap only
+```
+
+`terraform apply` covers the same ground on a full run; `ansible-run.sh` is the
+fast path for re-seeding after a change. `scripts/windows/ansible-run.ps1` is
+the equivalent.
+
 ## Repo layout
 
 ```
-helm/<app>/          Helm chart + Tiltfile for each app (dev path)
-terraform/<app>.tf   Matching Terraform resource for each app (prod path)
-scripts/             Cluster bootstrap, dev wrapper, URL/port-forward helpers
-.env / .env.example  Single source of truth for both Tilt and Terraform
+helm/<app>/           Helm chart + Tiltfile for each app (dev path)
+helm/ansible/         one suspended CronJob; playbooks/ run as cloned Jobs
+terraform/<app>.tf    Matching Terraform resource for each app (prod path)
+scripts/{linux,windows}/  cluster bootstrap, dev-up, gen-tfvars, ansible-run, list-urls
+.env / .env.example   Single source of truth for both Tilt and Terraform
 ```

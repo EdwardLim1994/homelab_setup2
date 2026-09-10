@@ -56,14 +56,26 @@ nextcloud:
         until $OCC status 2>/dev/null | grep -q 'installed: true'; do
           i=$((i+1)); [ $i -ge 240 ] && exit 0; sleep 2
         done
-        $OCC app:install sociallogin 2>/dev/null || $OCC app:enable sociallogin || true
-        $OCC config:system:set allow_local_remote_servers --type=boolean --value=true
-        $OCC config:app:set sociallogin custom_providers --value='{"custom_oidc":[{"name":"authentik","title":"Authentik","authorizeUrl":"__AUTHENTIK_URL__/application/o/authorize/","tokenUrl":"http://authentik-server.authentik.svc.cluster.local/application/o/token/","userInfoUrl":"http://authentik-server.authentik.svc.cluster.local/application/o/userinfo/","logoutUrl":"","clientId":"__NEXTCLOUD_OIDC_CLIENT_ID__","clientSecret":"__NEXTCLOUD_OIDC_CLIENT_SECRET__","scope":"openid profile email","groupsClaim":"groups","displayNameClaim":"name","style":"","defaultGroup":""}]}'
-        $OCC config:app:set sociallogin update_profile_on_login --value=1
-        $OCC config:app:set sociallogin disable_registration --value=0
-        # ponytail: auto-redirect login page straight to Authentik. Reach the
-        # local login form at /login?noredir=1 if you ever need it.
-        $OCC config:system:set social_login_auto_redirect --type=boolean --value=true
+        # ponytail: the k3d node's egress to apps.nextcloud.com is flaky (same
+        # i/o timeouts that hit ACME) — a single app:install often stalls
+        # mid-download. Retry, and only wire up SSO once the app is actually
+        # enabled, so a failed download leaves nextcloud usable (local login)
+        # instead of half-configured. Runs every boot; no-ops once installed.
+        n=0
+        until $OCC app:list --output=json 2>/dev/null | grep -q '"sociallogin"'; do
+          n=$((n+1)); [ $n -ge 15 ] && break
+          $OCC app:install sociallogin 2>/dev/null || $OCC app:enable sociallogin 2>/dev/null || true
+          sleep 6
+        done
+        if $OCC app:list --output=json 2>/dev/null | grep -q '"sociallogin"'; then
+          $OCC config:system:set allow_local_remote_servers --type=boolean --value=true
+          $OCC config:app:set sociallogin custom_providers --value='{"custom_oidc":[{"name":"authentik","title":"Authentik","authorizeUrl":"__AUTHENTIK_URL__/application/o/authorize/","tokenUrl":"http://authentik-server.authentik.svc.cluster.local/application/o/token/","userInfoUrl":"http://authentik-server.authentik.svc.cluster.local/application/o/userinfo/","logoutUrl":"","clientId":"__NEXTCLOUD_OIDC_CLIENT_ID__","clientSecret":"__NEXTCLOUD_OIDC_CLIENT_SECRET__","scope":"openid profile email","groupsClaim":"groups","displayNameClaim":"name","style":"","defaultGroup":""}]}'
+          $OCC config:app:set sociallogin update_profile_on_login --value=1
+          $OCC config:app:set sociallogin disable_registration --value=0
+          # ponytail: auto-redirect login page straight to Authentik. Reach the
+          # local login form at /login?noredir=1 if you ever need it.
+          $OCC config:system:set social_login_auto_redirect --type=boolean --value=true
+        fi
 
   # ponytail: first boot rsyncs ~10k files of /var/www/html onto local-path
   # storage (slow on a Docker-Desktop bind mount) - the default liveness probe

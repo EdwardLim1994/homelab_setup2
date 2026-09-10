@@ -9,7 +9,9 @@
 # this repo's history (all app data + Authentik's config wiped).
 set -euo pipefail
 
-# ponytail: default storage path is repo-root-relative — run from anywhere.
+# ponytail: cd to repo root so a relative K3D_STORAGE_PATH (default or from
+# .env) always resolves to ONE place — <repo-root>/k3d-storage — not wherever
+# the caller happened to be. Absolute overrides pass through unchanged.
 cd "$(dirname "$0")/../.."
 
 # Cluster name: first arg > $K3D_CLUSTER_NAME env > "internal".
@@ -27,6 +29,14 @@ cluster_servers() {
 
 if [ "$(cluster_servers)" -gt 0 ] 2>/dev/null; then
   echo "k3d cluster '$K3D_CLUSTER_NAME' already exists — use 'k3d cluster start $K3D_CLUSTER_NAME' to resume it, or 'k3d cluster delete $K3D_CLUSTER_NAME' first if you really want to recreate it."
+  # ponytail: the running cluster bind-mounts $K3D_STORAGE_PATH. If it's gone or
+  # empty while the cluster is up, something (usually `git clean -fdx`) deleted
+  # it and every PVC mount is now broken — say so instead of looking fine.
+  if [ ! -d "$K3D_STORAGE_PATH" ] || [ -z "$(ls -A "$K3D_STORAGE_PATH" 2>/dev/null | grep -v '^\.gitkeep$')" ]; then
+    echo "WARNING: '$K3D_STORAGE_PATH' is missing/empty but the cluster is running —"
+    echo "         PVC data is likely lost and pods will fail on restart. Recreate:"
+    echo "         k3d cluster delete $K3D_CLUSTER_NAME && $0 $K3D_CLUSTER_NAME"
+  fi
   exit 0
 fi
 

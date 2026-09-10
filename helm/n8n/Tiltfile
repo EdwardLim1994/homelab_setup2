@@ -29,7 +29,7 @@ n8n_encryption_key = os.getenv('TF_VAR_n8n_encryption_key', 'dev-n8n-encryption-
 # other apps').
 n8n_oidc_client_id = os.getenv('TF_VAR_n8n_oidc_client_id', 'dev-n8n-oidc-client-id')
 n8n_oidc_client_secret = os.getenv('TF_VAR_n8n_oidc_client_secret', 'dev-n8n-oidc-client-secret-not-for-prod-use')
-n8n_db_password = os.getenv('TF_VAR_n8n_db_password', 'dev-n8n-db-password-not-for-prod-use')
+shared_db_password = os.getenv('TF_VAR_shared_db_password', 'dev-shared-db-password-not-for-prod-use')
 ts_host = os.getenv('TS_HOST', '')
 
 rendered = str(helm(
@@ -40,8 +40,7 @@ rendered = str(helm(
     'n8n.encryptionKey=' + n8n_encryption_key,
     'n8n.main.extraEnvVars.OIDC_CLIENT_ID=' + n8n_oidc_client_id,
     'n8n.main.extraEnvVars.OIDC_CLIENT_SECRET=' + n8n_oidc_client_secret,
-    'n8n.externalPostgresql.password=' + n8n_db_password,
-    'postgres.password=' + n8n_db_password,
+    'n8n.externalPostgresql.password=' + shared_db_password,
   ],
 ))
 rendered = rendered.replace('__TS_HOST__', ts_host)
@@ -50,5 +49,5 @@ k8s_yaml(blob(rendered))
 k8s_resource(
   'n8n',
   port_forwards=['5678:5678'],
-  resource_deps=['n8n-helm-deps'],
+  resource_deps=['n8n-helm-deps', 'postgres'],
 )

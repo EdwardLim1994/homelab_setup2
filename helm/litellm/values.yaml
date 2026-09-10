@@ -11,6 +11,10 @@ mcpGitlabAuthToken: "__GITLAB_MCP_AUTH_TOKEN__"
 # TF_VAR_sonarqube_mcp_token.
 mcpSonarqubeAuthToken: "__SONARQUBE_MCP_TOKEN__"
 
+# ponytail: per-caller bearer for the n8n MCP server (its AUTH_TOKEN).
+# Same value as TF_VAR_n8n_mcp_auth_token.
+mcpN8nAuthToken: "__N8N_MCP_AUTH_TOKEN__"
+
 # ponytail: the host's Ollama, reached from the cluster via k3d's built-in
 # host alias. `ollama_chat/*` provider — no /v1 suffix. `ollamaModels` are the
 # tags listed by name; add/remove to match `ollama list`.
@@ -23,7 +27,7 @@ ollamaModels:
   - "qwen3:1.7b"
 
 env:
-  DATABASE_URL: "postgresql://litellm:__LITELLM_DB_PASSWORD__@litellm-postgres:5432/litellm"
+  DATABASE_URL: "postgresql://litellm:__SHARED_DB_PASSWORD__@postgres.postgres.svc.cluster.local:5432/litellm"
   STORE_MODEL_IN_DB: "True"
   LITELLM_MASTER_KEY: "__LITELLM_MASTER_KEY__"
   LITELLM_SALT_KEY: "__LITELLM_SALT_KEY__"
@@ -68,15 +72,3 @@ ompRoles:
   - tech-lead
   - uiux-designer
 
-postgres:
-  image: postgres:16
-  database: litellm
-  username: litellm
-  password: "__LITELLM_DB_PASSWORD__"
-  storageSize: 4Gi
-  resources:
-    requests:
-      cpu: 50m
-      memory: 128Mi
-    limits:
-      memory: 256Mi
