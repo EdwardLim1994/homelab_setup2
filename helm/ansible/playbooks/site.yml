@@ -4,3 +4,4 @@
 - import_playbook: mcp-servers.yml
 - import_playbook: omp.yml
 - import_playbook: litellm.yml
+- import_playbook: openwebui.yml

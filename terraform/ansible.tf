@@ -18,6 +18,20 @@ resource "kubernetes_config_map" "ansible_n8n_flows" {
   }
 }
 
+# ponytail: the SDLC OpenWebUI pipe (helm/ansible/pipe/sdlc_pipe.py) — mounted
+# at /pipe, same pattern as ansible_n8n_flows. Kept out of the helm chart
+# package via helm/ansible/.helmignore.
+resource "kubernetes_config_map" "ansible_pipe" {
+  metadata {
+    name      = "ansible-pipe"
+    namespace = kubernetes_namespace.ansible.metadata[0].name
+  }
+  data = {
+    for f in fileset("${path.module}/../helm/ansible/pipe", "*") :
+    f => file("${path.module}/../helm/ansible/pipe/${f}")
+  }
+}
+
 resource "kubernetes_secret" "ansible_secrets" {
   metadata {
     name      = "ansible-secrets"
@@ -40,6 +54,11 @@ resource "kubernetes_secret" "ansible_secrets" {
     # only ever returns the raw secret once, at creation). Blank on first
     # run: n8n.yml mints one and prints it so you can paste it into .env.
     n8n_mcp_api_key       = var.n8n_mcp_api_key
+    # ponytail: SSO-only login (ENABLE_LOGIN_FORM=False) means openwebui.yml
+    # can't script a password login like n8n.yml does. Blank on first run —
+    # log into OpenWebUI once via the browser (SSO), Settings -> Account ->
+    # API Keys -> generate, paste it here.
+    openwebui_api_key = var.openwebui_api_key
     litellm_master_key    = var.litellm_master_key
     gitlab_webhook_secret = var.gitlab_webhook_secret
     gitlab_group_id       = var.gitlab_group_id
@@ -162,12 +181,13 @@ resource "helm_release" "ansible" {
     name = "chartHash"
     value = sha1(join(",", [
       for f in fileset("${path.module}/../helm/ansible", "**") : filesha1("${path.module}/../helm/ansible/${f}")
-      if !startswith(f, "flows/") # flows go in via the configmap above, not the chart
+      if !startswith(f, "flows/") && !startswith(f, "pipe/") # both go in via configmaps above, not the chart
     ]))
   }
 
   depends_on = [
     kubernetes_config_map.ansible_n8n_flows,
+    kubernetes_config_map.ansible_pipe,
     kubernetes_secret.ansible_secrets,
   ]
 }

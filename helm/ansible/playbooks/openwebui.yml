@@ -1,0 +1,109 @@
+# openwebui post-deploy: install the SDLC pipe (helm/ansible/pipe/sdlc_pipe.py)
+# as an OpenWebUI Function via the admin API. Idempotent: updates in place if
+# the Function already exists, creates it otherwise, enables it if not active.
+#
+#   scripts/ansible-run.sh openwebui
+#
+# ponytail: OpenWebUI's own login endpoint needs a local password, but this
+# deployment is SSO-only (ENABLE_LOGIN_FORM=False) — no credentials to script
+# a signin with, unlike n8n.yml. A personal API key generated once via the
+# browser (Settings -> Account -> API Keys) and persisted as
+# TF_VAR_openwebui_api_key stands in for the login step. Same
+# bootstrap-once-then-reuse pattern as TF_VAR_n8n_mcp_api_key.
+- name: openwebui post-deploy
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    openwebui_url: "{{ lookup('env', 'OPENWEBUI_URL') }}"
+    admin_key: "{{ lookup('env', 'openwebui_api_key') | default('', true) }}"
+    pipe_id: sdlc_pipe
+    pipe_name: "SDLC"
+    pipe_content: "{{ lookup('file', '/pipe/sdlc_pipe.py') }}"
+    auth_header:
+      Authorization: "Bearer {{ admin_key }}"
+  tasks:
+    - name: Require an admin API key
+      ansible.builtin.assert:
+        that: admin_key | length > 0
+        fail_msg: >-
+          openwebui_api_key is empty. Log into OpenWebUI via the
+          browser (SSO), Settings -> Account -> API Keys -> generate one,
+          set TF_VAR_openwebui_api_key in .env, then:
+          tofu apply -target=kubernetes_secret.ansible_secrets
+
+    - name: Wait for OpenWebUI to be ready
+      ansible.builtin.uri:
+        url: "{{ openwebui_url }}/api/config"
+        status_code: 200
+      register: ready
+      until: ready.status == 200
+      retries: 30
+      delay: 5
+
+    - name: List existing functions
+      ansible.builtin.uri:
+        url: "{{ openwebui_url }}/api/v1/functions/"
+        headers: "{{ auth_header }}"
+        status_code: 200
+      register: funcs
+
+    - name: Check whether the pipe already exists
+      ansible.builtin.set_fact:
+        pipe_exists: "{{ (funcs.json | selectattr('id', 'equalto', pipe_id) | list | length) > 0 }}"
+
+    - name: Create the pipe (first run)
+      when: not pipe_exists
+      ansible.builtin.uri:
+        url: "{{ openwebui_url }}/api/v1/functions/create"
+        method: POST
+        headers: "{{ auth_header }}"
+        body_format: json
+        body:
+          id: "{{ pipe_id }}"
+          name: "{{ pipe_name }}"
+          content: "{{ pipe_content }}"
+          meta:
+            description: "SDLC slash-command dispatcher — routes /kickoff, /develop, /uat, etc. to n8n webhooks and streams progress back."
+        status_code: [200, 201]
+      register: created
+
+    - name: Update the pipe (already exists — content may have changed)
+      when: pipe_exists
+      ansible.builtin.uri:
+        url: "{{ openwebui_url }}/api/v1/functions/id/{{ pipe_id }}/update"
+        method: POST
+        headers: "{{ auth_header }}"
+        body_format: json
+        body:
+          id: "{{ pipe_id }}"
+          name: "{{ pipe_name }}"
+          content: "{{ pipe_content }}"
+          meta:
+            description: "SDLC slash-command dispatcher — routes /kickoff, /develop, /uat, etc. to n8n webhooks and streams progress back."
+        status_code: 200
+      register: updated
+
+    - name: Re-check state (need is_active, not returned by create/update)
+      ansible.builtin.uri:
+        url: "{{ openwebui_url }}/api/v1/functions/"
+        headers: "{{ auth_header }}"
+        status_code: 200
+      register: funcs_after
+
+    - name: Enable the pipe if it isn't active
+      vars:
+        current: "{{ (funcs_after.json | selectattr('id', 'equalto', pipe_id) | list | first) }}"
+      when: not current.is_active
+      ansible.builtin.uri:
+        url: "{{ openwebui_url }}/api/v1/functions/id/{{ pipe_id }}/toggle"
+        method: POST
+        headers: "{{ auth_header }}"
+        status_code: 200
+      register: toggled
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: >-
+          SDLC pipe {{ 'created' if not pipe_exists else 'updated' }},
+          {{ 'enabled' if toggled is not skipped else 'already active' }}.

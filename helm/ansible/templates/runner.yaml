@@ -57,6 +57,8 @@ spec:
                   value: "False"
                 - name: N8N_URL
                   value: {{ .Values.n8nUrl | quote }}
+                - name: OPENWEBUI_URL
+                  value: {{ .Values.openwebuiUrl | quote }}
               # ponytail: every key in ansible-secrets becomes an env var;
               # playbooks read them with lookup('env', '<key>').
               envFrom:
@@ -68,6 +70,8 @@ spec:
                   mountPath: /playbooks
                 - name: flows
                   mountPath: /flows
+                - name: pipe
+                  mountPath: /pipe
           volumes:
             - name: playbooks
               configMap:
@@ -77,3 +81,8 @@ spec:
               # (ansible.tf) mounts the same files here so they aren't duplicated.
               configMap:
                 name: ansible-n8n-flows
+            - name: pipe
+              # ponytail: same story — helm/ansible/pipe/*.py, mounted via
+              # terraform's kubernetes_config_map.ansible_pipe.
+              configMap:
+                name: ansible-pipe

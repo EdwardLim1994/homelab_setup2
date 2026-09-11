@@ -18,6 +18,9 @@ defaultPlaybook: site.yml
 # In-cluster n8n endpoint the n8n.yml playbook talks to.
 n8nUrl: "http://n8n.n8n.svc:5678"
 
+# In-cluster openwebui endpoint the openwebui.yml playbook talks to.
+openwebuiUrl: "http://openwebui.openwebui.svc:8080"
+
 resources:
   requests:
     cpu: 50m

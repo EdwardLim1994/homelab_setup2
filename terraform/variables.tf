@@ -319,6 +319,17 @@ variable "n8n_mcp_api_key" {
   default   = ""
 }
 
+# ponytail: OpenWebUI personal API key for playbooks/openwebui.yml (installs
+# helm/ansible/pipe/sdlc_pipe.py as a Function via the admin API). SSO-only
+# login means this can't be scripted like n8n's owner login — generate it
+# once via Settings -> Account -> API Keys after logging in through the
+# browser, then paste it here.
+variable "openwebui_api_key" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
 # Long-lived Claude Code OAuth token (`claude setup-token`) for the `claude` CLI
 # inside omp pods. Blank = pods still start, `claude` just has no auth.
 variable "claude_code_token" {

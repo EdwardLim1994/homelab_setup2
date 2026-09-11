@@ -18,7 +18,7 @@ set -euo pipefail
 : "${CRONJOB:=ansible-runner}"
 
 # Playbooks with no cross-dependencies — safe to run at the same time.
-PARALLEL_PLAYBOOKS=(n8n omp litellm mcp-servers)
+PARALLEL_PLAYBOOKS=(n8n omp litellm mcp-servers openwebui)
 # Ordered chains: each chain runs serially, chains run concurrently with each
 # other and with PARALLEL_PLAYBOOKS. Empty now that mattermost (the only
 # chained-after-n8n playbook) is gone — n8n runs standalone.

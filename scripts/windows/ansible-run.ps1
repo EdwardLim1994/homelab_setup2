@@ -29,7 +29,7 @@ $cronjob = if ($env:CRONJOB) { $env:CRONJOB } else { 'ansible-runner' }
 
 # --- no arg: run everything, in parallel -----------------------------------
 if (-not $Playbook -or $Playbook -eq 'all') {
-  $parallel = @('n8n', 'omp', 'litellm', 'mcp-servers')
+  $parallel = @('n8n', 'omp', 'litellm', 'mcp-servers', 'openwebui')
   $chains = @()   # each: serial, stop on first failure. Empty now that
                    # mattermost (the only chained-after-n8n playbook) is gone.
   # ponytail: re-invoke the *same* shell that's running this (pwsh 7 or Windows

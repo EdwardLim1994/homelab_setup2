@@ -1,7 +1,9 @@
 # ponytail: flows/ is mounted into the runner via terraform's
 # kubernetes_config_map.ansible_n8n_flows, not templated by this chart — keep it
-# out of the release Secret.
+# out of the release Secret. pipe/ (openwebui.yml's Function payload) is the
+# same story via kubernetes_config_map.ansible_pipe.
 flows/
+pipe/
 
 .git/
 *.tmp
