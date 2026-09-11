@@ -1,15 +1,3 @@
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ .Release.Name }}
-  namespace: {{ .Release.Namespace }}
-spec:
-  selector:
-    app: {{ .Release.Name }}
-  ports:
-    - port: 8065
-      targetPort: 8065
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -25,18 +13,18 @@ spec:
       labels:
         app: {{ .Release.Name }}
     spec:
-      securityContext:
-        # mattermost image runs as uid 2000; make the PVC writable for it
-        fsGroup: 2000
       initContainers:
         - name: combine-certs
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           command:
-            - sh
+            - python3
             - -c
             - |
-              cat /etc/ssl/certs/ca-certificates.crt /homelab-ca/ca.crt > /combined/ca.crt 2>/dev/null \
-                || cp /etc/ssl/certs/ca-certificates.crt /combined/ca.crt
+              import certifi, os
+              with open('/combined/ca.crt', 'wb') as out:
+                  with open(certifi.where(), 'rb') as f: out.write(f.read())
+                  if os.path.exists('/homelab-ca/ca.crt'):
+                      with open('/homelab-ca/ca.crt', 'rb') as f: out.write(f.read())
           volumeMounts:
             - name: homelab-ca
               mountPath: /homelab-ca
@@ -44,10 +32,10 @@ spec:
             - name: combined-ca
               mountPath: /combined
       containers:
-        - name: mattermost
+        - name: openwebui
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           ports:
-            - containerPort: 8065
+            - containerPort: 8080
           env:
             {{- range $key, $value := .Values.env }}
             - name: {{ $key }}
@@ -55,32 +43,27 @@ spec:
             {{- end }}
           volumeMounts:
             - name: data
-              mountPath: /mattermost/data
-            - name: config
-              mountPath: /mattermost/config
-            - name: logs
-              mountPath: /mattermost/logs
-            - name: plugins
-              mountPath: /mattermost/plugins
-            - name: client-plugins
-              mountPath: /mattermost/client/plugins
+              mountPath: /app/backend/data
             - name: combined-ca
               mountPath: /certs
               readOnly: true
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          # ponytail: a cold pod spends ~90s downloading+loading its embedding
+          # model before it's actually listening — without this the Service/
+          # Ingress route to it the instant the container starts, 502ing until
+          # it catches up. failureThreshold*periodSeconds gives ~150s budget.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: {{ .Release.Name }}-data
-        - name: config
-          emptyDir: {}
-        - name: logs
-          emptyDir: {}
-        - name: plugins
-          emptyDir: {}
-        - name: client-plugins
-          emptyDir: {}
         - name: homelab-ca
           secret:
             secretName: homelab-ca

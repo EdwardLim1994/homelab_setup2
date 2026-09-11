@@ -1,0 +1,5 @@
+apiVersion: v2
+name: omp-agent
+description: Generic omp agent Job template and role skill ConfigMaps for the SDLC
+type: application
+version: 0.1.1

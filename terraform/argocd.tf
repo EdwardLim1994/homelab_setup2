@@ -4,6 +4,30 @@ resource "kubernetes_namespace" "argocd" {
   }
 }
 
+# ponytail: argocd-server does OIDC discovery server-side against Authentik's
+# tailnet HTTPS URL (coredns.tf rewrites it to in-cluster traefik + a
+# homelab-CA cert) — needs to trust that CA. Same read-and-copy pattern as
+# minio.tf / openwebui.tf; separate data source name, resource names must be
+# unique per type per module.
+data "kubernetes_secret" "homelab_ca_argocd" {
+  metadata {
+    name      = "homelab-ca-secret"
+    namespace = kubernetes_namespace.cert_manager.metadata[0].name
+  }
+  depends_on = [null_resource.homelab_ca_ready]
+}
+
+resource "kubernetes_secret" "argocd_homelab_ca" {
+  metadata {
+    name      = "homelab-ca"
+    namespace = kubernetes_namespace.argocd.metadata[0].name
+  }
+  data = {
+    "ca.crt" = data.kubernetes_secret.homelab_ca_argocd.data["tls.crt"]
+  }
+  depends_on = [kubernetes_namespace.argocd, data.kubernetes_secret.homelab_ca_argocd]
+}
+
 resource "helm_release" "argocd" {
   name              = "argocd"
   chart             = "${path.module}/../helm/argocd"
@@ -25,7 +49,7 @@ resource "helm_release" "argocd" {
     "__ADMIN_EMAIL__", var.admin_email),
   ]
 
-  depends_on = [kubernetes_namespace.argocd]
+  depends_on = [kubernetes_namespace.argocd, kubernetes_secret.argocd_homelab_ca]
 }
 
 # ponytail: mirrors Tiltfile's argocd-seed-secretkey — chart renders an empty

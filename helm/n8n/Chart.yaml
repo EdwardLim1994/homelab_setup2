@@ -1,6 +1,6 @@
 apiVersion: v2
 name: n8n
-version: 0.1.0
+version: 0.1.1
 dependencies:
   - name: n8n
     version: "1.24.36"

@@ -2,213 +2,257 @@
   "name": "F-19 Production Deployed",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "ci-production-deployed",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "wh-19",
-      "name": "Webhook: ci-production-deployed",
+      "id": "f732978e-2db5-4b01-9094-cad52864492e",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "production-deployed",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "f2d74deb-a248-48d0-97b8-f93be9a5ade4"
     },
     {
-      "parameters": {
-        "command": "=glab issue comment {{ $json.body.release_ticket_id }} --message 'Production deployed: {{ $json.body.version }} at {{ new Date().toISOString() }}'"
-      },
-      "id": "upd-rt",
-      "name": "Update release ticket: prod deployed",
-      "type": "n8n-nodes-base.executeCommand",
+      "id": "d899a4d5-8cff-4530-aead-641e94b66c03",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        480,
+        460,
         300
-      ]
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
+      }
     },
     {
-      "parameters": {
-        "command": "=echo '{\"role\":\"qa-engineer\",\"task\":\"smoke-tests\",\"version\":\"{{ $json.body.version }}\",\"base_url\":\"https://production.{{ $json.body.project }}\"}' > /tmp/smoke.json && omp run --mode json --role smol @/tmp/smoke.json"
-      },
-      "id": "smoke",
-      "name": "Run smoke tests from QA smoke plan ticket",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "cff4c956-5c06-4912-82ba-b8f42ee1eddf",
+      "name": "Notify: Production deployed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        720,
+        680,
         300
-      ]
-    },
-    {
+      ],
       "parameters": {
-        "conditions": {
-          "conditions": [
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "leftValue": "={{ $json.exitCode }}",
-              "rightValue": 0,
-              "operator": {
-                "type": "number",
-                "operation": "equals"
-              }
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
-        }
-      },
-      "id": "smoke-pass",
-      "name": "Smoke tests pass?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        960,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
-        "message": ":rotating_light: *Production smoke tests FAILED* — `{{ $json.body.version }}`\n{{ $json.stdout }}\n\nImmediate action required. Consider `/rollback {{ $json.body.version }}`.",
-        "otherOptions": {}
-      },
-      "id": "slack-smoke-fail",
-      "name": "Mattermost: smoke tests FAILED",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        1200,
-        440
-      ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\ude80 Production deployed \u2014 running smoke tests"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     },
     {
-      "parameters": {
-        "command": "=echo '{\"role\":\"release-manager\",\"task\":\"production-monitoring\",\"version\":\"{{ $json.body.version }}\",\"release_ticket_id\":\"{{ $json.body.release_ticket_id }}\"}' > /tmp/rm-mon.json && omp run --mode json --role default @/tmp/rm-mon.json"
-      },
-      "id": "spawn-rm",
-      "name": "Spawn RM: production monitoring window",
+      "id": "3f72ac1b-b047-4e0e-8fd7-d8fb5a316ce4",
+      "name": "RM: Smoke Tests",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        1200,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=glab release create {{ $json.body.version }} --title 'Release {{ $json.body.version }}' --notes 'See wiki for release notes.'"
-      },
-      "id": "git-release",
-      "name": "Create GitLab release object + schedule cleanup",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        1200,
-        320
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
-        "message": ":white_check_mark: *Production deployed* — `{{ $json.body.version }}`\nSmoke tests passed. RM monitoring window active.\n\nYou'll be notified when the monitoring window completes.",
-        "otherOptions": {}
-      },
-      "id": "slack-prod-up",
-      "name": "Mattermost: production healthy — monitoring",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        1440,
-        260
+        900,
+        300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "command": "omp --role release-manager --model default --project {{ $env.REPO_DIR }} --prompt 'Run smoke test suite against production for {{ $json.body.version }}. Output: pass/fail + key metrics.' --non-interactive"
+      }
+    },
+    {
+      "id": "b9d92087-de88-4598-9823-93d378b07284",
+      "name": "Smoke Pass?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "={{ JSON.parse($json.stdout).pass }}",
+            "operation": "equals",
+            "rightValue": "true"
+          }
+        }
+      }
+    },
+    {
+      "id": "ab88ce6a-cb54-4cc5-b95f-7d90685804fe",
+      "name": "\u2192 F-20 Monitoring",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/monitoring-window",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "33dff7c1-a45e-4baf-a08d-389062ef0b5d",
+      "name": "Notify: Smoke failed \u2014 escalating",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udea8 Smoke tests FAILED on production \u2014 escalating immediately"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "968aac0b-40f9-4ae6-adaf-b47ec455be75",
+      "name": "\u2192 Escalate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/escalate",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "reason",
+              "value": "Production smoke tests failed for {{ $json.body.version }}"
+            }
+          ]
         }
       }
     }
   ],
   "connections": {
-    "Webhook: ci-production-deployed": {
+    "f732978e-2db5-4b01-9094-cad52864492e": {
       "main": [
         [
           {
-            "node": "Update release ticket: prod deployed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Update release ticket: prod deployed": {
-      "main": [
-        [
-          {
-            "node": "Run smoke tests from QA smoke plan ticket",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Run smoke tests from QA smoke plan ticket": {
-      "main": [
-        [
-          {
-            "node": "Smoke tests pass?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Smoke tests pass?": {
-      "main": [
-        [
-          {
-            "node": "Spawn RM: production monitoring window",
+            "node": "d899a4d5-8cff-4530-aead-641e94b66c03",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Create GitLab release object + schedule cleanup",
+            "node": "cff4c956-5c06-4912-82ba-b8f42ee1eddf",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cff4c956-5c06-4912-82ba-b8f42ee1eddf": {
+      "main": [
+        [
+          {
+            "node": "3f72ac1b-b047-4e0e-8fd7-d8fb5a316ce4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3f72ac1b-b047-4e0e-8fd7-d8fb5a316ce4": {
+      "main": [
+        [
+          {
+            "node": "b9d92087-de88-4598-9823-93d378b07284",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "b9d92087-de88-4598-9823-93d378b07284": {
+      "main": [
+        [
+          {
+            "node": "ab88ce6a-cb54-4cc5-b95f-7d90685804fe",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Mattermost: smoke tests FAILED",
+            "node": "33dff7c1-a45e-4baf-a08d-389062ef0b5d",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn RM: production monitoring window": {
+    "33dff7c1-a45e-4baf-a08d-389062ef0b5d": {
       "main": [
         [
           {
-            "node": "Mattermost: production healthy — monitoring",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Create GitLab release object + schedule cleanup": {
-      "main": [
-        [
-          {
-            "node": "Mattermost: production healthy — monitoring",
+            "node": "968aac0b-40f9-4ae6-adaf-b47ec455be75",
             "type": "main",
             "index": 0
           }
@@ -217,18 +261,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "production"
-    },
-    {
-      "name": "phase-5"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

@@ -2,13 +2,14 @@
 # (STORE_MODEL_IN_DB=True) merge at startup — this file guarantees a working
 # model list even on a fresh DB.
 #
-#  - <ollama models>  : the host's Ollama (ollamaBaseUrl). Named entries are
-#                       listed by name; `ollama/*` wildcard routes any other
-#                       tag you pull later.
-#  - omp[-<role>] : omp pods, via omp-adapter (OpenAI shim).
-#                        Role pods are scale-to-zero; the adapter scales them
-#                        up on first request.
-#  - pass_through /omp[-<role>]/* : omp pods' OpenAI API, auth'd+logged
+# Only the host's currently-pulled Ollama models are listed (ollamaModels,
+# named entries — no wildcard, so an unpulled tag 404s instead of silently
+# "working"). omp pods pick their own model directly against Ollama (see
+# helm/omp-agent role ConfigMaps' OMP_MODEL) — they aren't LiteLLM-routed.
+# The old per-role omp/omp-<role> model_list + pass_through_endpoints (one
+# scale-to-zero Deployment per role, via omp-adapter) is gone: superseded by
+# helm/omp-agent's ephemeral per-story Jobs, which have no stable Service for
+# LiteLLM to point at.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -18,27 +19,12 @@ data:
   config.yaml: |
     model_list:
       {{- range $m := .Values.ollamaModels }}
-      - model_name: {{ $m | quote }}
+      - model_name: {{ $m.name | quote }}
         litellm_params:
-          model: "ollama_chat/{{ $m }}"
+          model: "ollama_chat/{{ $m.name }}"
           api_base: {{ $.Values.ollamaBaseUrl | quote }}
-      {{- end }}
-      # catch-all: any ollama tag not named above, addressed as ollama/<tag>
-      - model_name: "ollama/*"
-        litellm_params:
-          model: "ollama_chat/*"
-          api_base: {{ .Values.ollamaBaseUrl | quote }}
-      - model_name: omp
-        litellm_params:
-          model: openai/omp
-          api_base: http://omp-adapter.omp.svc.cluster.local:8000/v1
-          api_key: "dummy"
-      {{- range $r := .Values.ompRoles }}
-      - model_name: omp-{{ $r }}
-        litellm_params:
-          model: openai/omp-{{ $r }}
-          api_base: http://omp-adapter.omp.svc.cluster.local:8000/v1
-          api_key: "dummy"
+          input_cost_per_token: {{ $m.inputCostPerToken }}
+          output_cost_per_token: {{ $m.outputCostPerToken }}
       {{- end }}
 
     # ponytail: the servers from helm/mcp-servers. Paths assume each image's
@@ -84,10 +70,3 @@ data:
           include_subpath: true
           forward_headers: true
           methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-      {{- range $r := .Values.ompRoles }}
-        - path: "/omp-{{ $r }}"
-          target: "http://omp-{{ $r }}.omp.svc.cluster.local:4096"
-          include_subpath: true
-          forward_headers: true
-          methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-      {{- end }}

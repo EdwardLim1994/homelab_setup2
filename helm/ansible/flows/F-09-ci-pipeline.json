@@ -1,0 +1,221 @@
+{
+  "name": "F-09 CI Pipeline / Version Built",
+  "nodes": [
+    {
+      "id": "12eed3a8-ee21-4de9-b223-84fa33900f25",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "path": "gitlab-pipeline",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "9626f4e0-0a00-4f0a-a75c-2b2b3699f8ce"
+    },
+    {
+      "id": "6f85a167-06b0-4893-829e-3f6f452ad93e",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
+      }
+    },
+    {
+      "id": "bf79587f-6d36-4fa9-b41d-8a2817be0b7f",
+      "name": "Update DAG: pipeline state",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "11353859-5ea2-4a0a-bc95-a3f9a9108f7c",
+              "name": "pipeline_id",
+              "value": "={{ $json.object_attributes.id }}",
+              "type": "string"
+            },
+            {
+              "id": "647dc784-c163-4109-acb6-a9c672381976",
+              "name": "status",
+              "value": "={{ $json.object_attributes.status }}",
+              "type": "string"
+            },
+            {
+              "id": "977b7ed5-d19e-4914-af28-46b2f797689d",
+              "name": "ref",
+              "value": "={{ $json.object_attributes.ref }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "34d645c4-73ac-46ca-9b87-42f98c958057",
+      "name": "Pipeline Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "={{ $json.status }}",
+            "operation": "equals",
+            "rightValue": "success"
+          }
+        }
+      }
+    },
+    {
+      "id": "16400914-1c76-4cb9-b116-fab3b944625b",
+      "name": "Notify: CI success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u2705 Pipeline {{ $json.pipeline_id }} succeeded on {{ $json.ref }}"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "413d167d-0b79-45cf-b6e5-f03f6f9bb101",
+      "name": "Notify: CI failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u274c Pipeline {{ $json.pipeline_id }} FAILED on {{ $json.ref }} \u2014 check logs"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "12eed3a8-ee21-4de9-b223-84fa33900f25": {
+      "main": [
+        [
+          {
+            "node": "6f85a167-06b0-4893-829e-3f6f452ad93e",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "bf79587f-6d36-4fa9-b41d-8a2817be0b7f",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "bf79587f-6d36-4fa9-b41d-8a2817be0b7f": {
+      "main": [
+        [
+          {
+            "node": "34d645c4-73ac-46ca-9b87-42f98c958057",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "34d645c4-73ac-46ca-9b87-42f98c958057": {
+      "main": [
+        [
+          {
+            "node": "16400914-1c76-4cb9-b116-fab3b944625b",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "413d167d-0b79-45cf-b6e5-f03f6f9bb101",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "tags": [],
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

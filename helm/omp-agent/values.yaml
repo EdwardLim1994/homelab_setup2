@@ -1,0 +1,15 @@
+namespace: sdlc
+
+image:
+  repository: registry.homelab/omp
+  tag: latest
+  pullPolicy: IfNotPresent
+
+ttlSecondsAfterFinished: 300
+backoffLimit: 1
+
+# Populated from .env / terraform at deploy time
+secrets:
+  gitlabToken: ""
+  claudeCodeToken: ""
+  gitlabRepoUrl: ""

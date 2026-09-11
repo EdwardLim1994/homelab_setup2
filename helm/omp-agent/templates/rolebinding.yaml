@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: omp-agent
+  namespace: {{ .Values.namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: omp-agent
+    namespace: {{ .Values.namespace }}
+roleRef:
+  kind: Role
+  name: omp-agent
+  apiGroup: rbac.authorization.k8s.io

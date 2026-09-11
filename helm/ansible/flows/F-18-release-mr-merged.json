@@ -2,90 +2,88 @@
   "name": "F-18 Release MR Merged",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "release-mr-merged",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "wh-18",
-      "name": "Webhook: release-mr-merged",
+      "id": "e7dc2439-1c80-454e-9db2-eabb17349a26",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "gitlab-release-mr-merged",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "7db0f826-0f31-4fec-8227-f03aebf9f7fb"
     },
     {
-      "parameters": {
-        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
-        "message": ":merged: *Release MR merged* — production deployment starting.\nPost-merge CI: git diff → argocd sync → health gate → git tag.\n\nYou'll be notified when smoke tests complete.",
-        "otherOptions": {}
-      },
-      "id": "slack-18",
-      "name": "Mattermost: release MR merged — production deploying",
-      "type": "n8n-nodes-base.mattermost",
+      "id": "2415a06f-9c06-4674-84ed-dc46dd4c7790",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        480,
+        460,
         300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
-        }
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
       }
     },
     {
+      "id": "11e4784a-ee4d-4c7e-873f-0a0ba9b37443",
+      "name": "Notify: Release MR merged",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/ci-production-deployed",
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
-              "name": "version",
-              "value": "={{ $json.body.version }}"
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
             },
             {
-              "name": "release_ticket_id",
-              "value": "={{ $json.body.release_ticket_id }}"
+              "name": "message",
+              "value": "\ud83c\udfaf Release MR merged \u2014 production CI building"
             },
             {
-              "name": "project_id",
-              "value": "={{ $json.body.project_id }}"
+              "name": "notes",
+              "value": ""
             }
           ]
         }
-      },
-      "id": "trig-f19",
-      "name": "CI notifies n8n → F-19 (after post-merge CI)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        720,
-        300
-      ]
+      }
     }
   ],
   "connections": {
-    "Webhook: release-mr-merged": {
+    "e7dc2439-1c80-454e-9db2-eabb17349a26": {
       "main": [
         [
           {
-            "node": "Mattermost: release MR merged — production deploying",
+            "node": "2415a06f-9c06-4674-84ed-dc46dd4c7790",
             "type": "main",
             "index": 0
-          }
-        ]
-      ]
-    },
-    "Mattermost: release MR merged — production deploying": {
-      "main": [
-        [
+          },
           {
-            "node": "CI notifies n8n → F-19 (after post-merge CI)",
+            "node": "11e4784a-ee4d-4c7e-873f-0a0ba9b37443",
             "type": "main",
             "index": 0
           }
@@ -94,18 +92,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "production"
-    },
-    {
-      "name": "phase-5"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

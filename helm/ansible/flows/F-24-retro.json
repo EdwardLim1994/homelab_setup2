@@ -2,235 +2,349 @@
   "name": "F-24 /retro",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "mm-retro",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "slack-trigger",
-      "name": "Mattermost: trigger",
+      "id": "01128661-b98e-41e0-8695-c091872ecb72",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "retro",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "24ebe495-943d-482b-9d32-c57d92cb11ca"
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/retro`...\"}"
-      },
-      "id": "mm-ack-slack-trigger",
-      "name": "Mattermost: ack command",
+      "id": "42754aeb-fe7c-44e5-ba70-6bc0314df99c",
+      "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        480,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :hourglass: *Retrospective started* for `={{ $('Slack: trigger').item.json.text }}`\n4 pods compiling in parallel (TL · QA · Security · RM)...",
-        "otherOptions": {}
-      },
-      "id": "ack-24",
-      "name": "Mattermost: retro started",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        480,
+        460,
         300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
+      }
+    },
+    {
+      "id": "9bd2dfa9-1743-4d85-ad08-83329e3dc5cd",
+      "name": "Notify: Retro started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udd04 Retro started \u2014 4 pods compiling in parallel"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     },
     {
-      "parameters": {
-        "command": "=echo '{\"role\":\"tech-lead\",\"task\":\"retro-code-quality\"}' > /tmp/r-tl.json && omp run --mode json --role slow @/tmp/r-tl.json"
-      },
-      "id": "tl-ret",
-      "name": "Spawn TL: code quality metrics",
+      "id": "0c7322e9-f26b-4356-a4f6-76e9ccc579a3",
+      "name": "TL: Tech Retro",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        720,
+        900,
         160
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"qa-engineer\",\"task\":\"retro-qa-metrics\"}' > /tmp/r-qa.json && omp run --mode json --role smol @/tmp/r-qa.json"
-      },
-      "id": "qa-ret",
-      "name": "Spawn QA: test metrics",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        720,
-        280
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"security-engineer\",\"task\":\"retro-security-metrics\"}' > /tmp/r-sec.json && omp run --mode json --role smol @/tmp/r-sec.json"
-      },
-      "id": "sec-ret",
-      "name": "Spawn Security: security metrics",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        720,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"release-manager\",\"task\":\"retro-release-metrics\"}' > /tmp/r-rm.json && omp run --mode json --role smol @/tmp/r-rm.json"
-      },
-      "id": "rm-ret",
-      "name": "Spawn RM: release metrics",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        720,
-        520
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"pm\",\"task\":\"retro-synthesis\"}' > /tmp/r-pm.json && opencode run --print \"$(cat /tmp/r-pm.json)\""
-      },
-      "id": "pm-synth",
-      "name": "Spawn PM: synthesise 11-section retro report",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        960,
-        340
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :books: *Retrospective complete* for `={{ $('Slack: trigger').item.json.text }}`\n11-section report published to wiki.\nImprovement actions added to backlog.\n\nSprint complete — ready for next `/plan_release`.",
-        "otherOptions": {}
-      },
-      "id": "slack-retro-done",
-      "name": "Mattermost: retrospective complete",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        1200,
-        340
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "command": "omp --role tech-lead --model slow --project {{ $env.REPO_DIR }} --prompt 'Compile technical retrospective for {{ $json.body.version }}: code quality, architecture decisions, technical debt incurred, pseudocode accuracy.' --non-interactive"
+      }
+    },
+    {
+      "id": "298c9e5c-59ae-4481-9264-a11cc043a469",
+      "name": "QA: Quality Retro",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "command": "omp --role qa-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Compile QA retrospective for {{ $json.body.version }}: test coverage, defect escape rate, UAT findings.' --non-interactive"
+      }
+    },
+    {
+      "id": "4587422c-f0a2-4819-81e8-aa34af664a0a",
+      "name": "Sec: Security Retro",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        900,
+        440
+      ],
+      "parameters": {
+        "command": "omp --role security-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Compile security retrospective for {{ $json.body.version }}: vulnerabilities found, SAST/DAST findings, remediation time.' --non-interactive"
+      }
+    },
+    {
+      "id": "dca7ebc4-641e-4a8f-86d5-c93c6c7ae414",
+      "name": "RM: Process Retro",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        900,
+        580
+      ],
+      "parameters": {
+        "command": "omp --role release-manager --model default --project {{ $env.REPO_DIR }} --prompt 'Compile release process retrospective for {{ $json.body.version }}: timeline, gate durations, go/no-go history.' --non-interactive"
+      }
+    },
+    {
+      "id": "1ebfe007-62ed-4fa7-bd56-a1262b89fc35",
+      "name": "Merge 4 Retros",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        360
+      ],
+      "parameters": {
+        "mode": "waitForAll"
+      }
+    },
+    {
+      "id": "9c4eda4e-da49-464d-b76c-64a4a310f4e9",
+      "name": "Notify: Synthesising",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        360
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udcdd All retro inputs gathered \u2014 PM synthesising 11-section report"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "2bbbccbc-3a9f-40eb-a4cc-d8b4e71b554b",
+      "name": "PM: Synthesise Report",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        360
+      ],
+      "parameters": {
+        "command": "opencode --role pm --model haiku --prompt 'Synthesise 11-section retrospective report for {{ $json.body.version }} from TL, QA, Security, RM inputs. Create GitLab wiki page and post summary.' --non-interactive"
+      }
+    },
+    {
+      "id": "c5c0189c-3622-493b-8c22-8580b88558bf",
+      "name": "Notify: Retro complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        360
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u2705 Retro complete \u2014 report published to wiki"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     }
   ],
   "connections": {
-    "Mattermost: trigger": {
+    "01128661-b98e-41e0-8695-c091872ecb72": {
       "main": [
         [
           {
-            "node": "Mattermost: retro started",
+            "node": "42754aeb-fe7c-44e5-ba70-6bc0314df99c",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Mattermost: ack command",
+            "node": "9bd2dfa9-1743-4d85-ad08-83329e3dc5cd",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mattermost: retro started": {
+    "9bd2dfa9-1743-4d85-ad08-83329e3dc5cd": {
       "main": [
         [
           {
-            "node": "Spawn TL: code quality metrics",
+            "node": "0c7322e9-f26b-4356-a4f6-76e9ccc579a3",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn QA: test metrics",
+            "node": "298c9e5c-59ae-4481-9264-a11cc043a469",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn Security: security metrics",
+            "node": "4587422c-f0a2-4819-81e8-aa34af664a0a",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn RM: release metrics",
+            "node": "dca7ebc4-641e-4a8f-86d5-c93c6c7ae414",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn TL: code quality metrics": {
+    "0c7322e9-f26b-4356-a4f6-76e9ccc579a3": {
       "main": [
         [
           {
-            "node": "Spawn PM: synthesise 11-section retro report",
+            "node": "1ebfe007-62ed-4fa7-bd56-a1262b89fc35",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn QA: test metrics": {
+    "298c9e5c-59ae-4481-9264-a11cc043a469": {
       "main": [
         [
           {
-            "node": "Spawn PM: synthesise 11-section retro report",
+            "node": "1ebfe007-62ed-4fa7-bd56-a1262b89fc35",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn Security: security metrics": {
+    "4587422c-f0a2-4819-81e8-aa34af664a0a": {
       "main": [
         [
           {
-            "node": "Spawn PM: synthesise 11-section retro report",
+            "node": "1ebfe007-62ed-4fa7-bd56-a1262b89fc35",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn RM: release metrics": {
+    "dca7ebc4-641e-4a8f-86d5-c93c6c7ae414": {
       "main": [
         [
           {
-            "node": "Spawn PM: synthesise 11-section retro report",
+            "node": "1ebfe007-62ed-4fa7-bd56-a1262b89fc35",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn PM: synthesise 11-section retro report": {
+    "1ebfe007-62ed-4fa7-bd56-a1262b89fc35": {
       "main": [
         [
           {
-            "node": "Mattermost: retrospective complete",
+            "node": "9c4eda4e-da49-464d-b76c-64a4a310f4e9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9c4eda4e-da49-464d-b76c-64a4a310f4e9": {
+      "main": [
+        [
+          {
+            "node": "2bbbccbc-3a9f-40eb-a4cc-d8b4e71b554b",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2bbbccbc-3a9f-40eb-a4cc-d8b4e71b554b": {
+      "main": [
+        [
+          {
+            "node": "c5c0189c-3622-493b-8c22-8580b88558bf",
             "type": "main",
             "index": 0
           }
@@ -239,18 +353,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "retro"
-    },
-    {
-      "name": "phase-6"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

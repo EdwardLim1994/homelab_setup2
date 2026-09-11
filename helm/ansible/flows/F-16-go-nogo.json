@@ -1,161 +1,239 @@
 {
-  "name": "F-16 Release Manager Go/No-Go",
+  "name": "F-16 Go/No-Go",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "go-nogo-result",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "wh-16",
-      "name": "Webhook: go-nogo-result",
+      "id": "fef63188-40c7-4a14-a411-0aad71b25dce",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "go-nogo",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "29d43455-5a2c-487c-8985-91a20aa4edb3"
     },
     {
-      "parameters": {
-        "conditions": {
-          "conditions": [
-            {
-              "leftValue": "={{ $json.body.decision }}",
-              "rightValue": "go",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
-          ]
-        }
-      },
-      "id": "go-check",
-      "name": "GO or NO-GO?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
+      "id": "201d4074-bdbd-465b-a87a-2f600ef124b7",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
       "position": [
-        480,
+        460,
         300
-      ]
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
+      }
     },
     {
-      "parameters": {
-        "command": "=glab issue update {{ $json.body.release_ticket_id }} --label-add 'rm:go'"
-      },
-      "id": "apply-go",
-      "name": "Apply rm:go label",
+      "id": "e1c93f14-a8c2-465a-975a-4387f7790798",
+      "name": "RM: Go/No-Go Decision",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        720,
-        160
-      ]
+        680,
+        300
+      ],
+      "parameters": {
+        "command": "omp --role release-manager --model default --project {{ $env.REPO_DIR }} --prompt 'Evaluate k6 and ZAP results for {{ $json.body.version }}. Apply release criteria thresholds. Output JSON: {decision: GO|NO-GO, reason: string, options: [...]}' --non-interactive"
+      }
     },
     {
-      "parameters": {
-        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
-        "message": ":green_circle: *Staging GO* — `rm:go` applied.\n\n{{ $json.body.validation_table }}\n\nRun `/release_production {{ $json.body.version }}` to deploy.",
-        "otherOptions": {}
-      },
-      "id": "slack-go",
-      "name": "Mattermost: GO — ready for production",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
+      "id": "33f03cb9-dccf-499d-b346-6e6c074bbd1e",
+      "name": "GO?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
       "position": [
-        960,
-        160
+        900,
+        300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "={{ JSON.parse($json.stdout).decision }}",
+            "operation": "equals",
+            "rightValue": "GO"
+          }
         }
       }
     },
     {
-      "parameters": {
-        "command": "=glab issue comment {{ $json.body.release_ticket_id }} --message 'NO-GO: {{ $json.body.reason }}\\n\\nOptions: A) {{ $json.body.suggestion_a }} B) {{ $json.body.suggestion_b }} C) {{ $json.body.suggestion_c }}'"
-      },
-      "id": "post-nogo",
-      "name": "Post NO-GO report on release ticket",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "7a44622a-d6c8-4a4f-8b10-23a776c9a275",
+      "name": "Label: rm:go",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        720,
-        440
-      ]
+        1120,
+        200
+      ],
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $env.RELEASE_TICKET_ID }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "__json",
+              "value": "{\"add_labels\":\"rm:go\"}"
+            }
+          ]
+        }
+      }
     },
     {
-      "parameters": {
-        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
-        "message": ":red_circle: *Staging NO-GO* — `{{ $json.body.reason }}`\n\n*Options:*\n• A) {{ $json.body.suggestion_a }}\n• B) {{ $json.body.suggestion_b }}\n• C) {{ $json.body.suggestion_c }}\n\nReview release ticket and reply with your decision.",
-        "otherOptions": {}
-      },
-      "id": "slack-nogo",
-      "name": "Mattermost: NO-GO — decision required",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
+      "id": "301ba7b5-f5f8-43fa-ac96-df8a4e380f5f",
+      "name": "Notify: GO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        960,
-        440
+        1340,
+        200
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u2705 GO \u2014 {{ $env.RELEASE_VERSION }} cleared for /release_production"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b9f6e564-bf48-4afd-baf6-2113f9d9445e",
+      "name": "Notify: NO-GO options",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udea8 NO-GO \u2014 {{ $env.RELEASE_VERSION }} blocked. Options: 1) fix & re-stage 2) rollback story 3) defer release. Details: {{ JSON.parse($json.stdout).reason }}"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     }
   ],
   "connections": {
-    "Webhook: go-nogo-result": {
+    "fef63188-40c7-4a14-a411-0aad71b25dce": {
       "main": [
         [
           {
-            "node": "GO or NO-GO?",
+            "node": "201d4074-bdbd-465b-a87a-2f600ef124b7",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "e1c93f14-a8c2-465a-975a-4387f7790798",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "GO or NO-GO?": {
+    "e1c93f14-a8c2-465a-975a-4387f7790798": {
       "main": [
         [
           {
-            "node": "Apply rm:go label",
+            "node": "33f03cb9-dccf-499d-b346-6e6c074bbd1e",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "33f03cb9-dccf-499d-b346-6e6c074bbd1e": {
+      "main": [
+        [
+          {
+            "node": "7a44622a-d6c8-4a4f-8b10-23a776c9a275",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Post NO-GO report on release ticket",
+            "node": "b9f6e564-bf48-4afd-baf6-2113f9d9445e",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Apply rm:go label": {
+    "7a44622a-d6c8-4a4f-8b10-23a776c9a275": {
       "main": [
         [
           {
-            "node": "Mattermost: GO — ready for production",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Post NO-GO report on release ticket": {
-      "main": [
-        [
-          {
-            "node": "Mattermost: NO-GO — decision required",
+            "node": "301ba7b5-f5f8-43fa-ac96-df8a4e380f5f",
             "type": "main",
             "index": 0
           }
@@ -164,18 +242,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "staging"
-    },
-    {
-      "name": "phase-4"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

@@ -15,7 +15,6 @@ password: ""
 databases:
   - authentik
   - litellm
-  - mattermost
   - n8n
   - sonarqube
 gitlabDatabase: gitlabhq_production

@@ -112,10 +112,10 @@ resource "null_resource" "authentik_app_providers" {
     argocd_secret    = var.argocd_oidc_client_secret
     grafana_id       = var.grafana_oidc_client_id
     grafana_secret   = var.grafana_oidc_client_secret
-    mattermost_id     = var.mattermost_oidc_client_id
-    mattermost_secret = var.mattermost_oidc_client_secret
     litellm_id       = var.litellm_oidc_client_id
     litellm_secret   = var.litellm_oidc_client_secret
+    openwebui_id     = var.openwebui_oidc_client_id
+    openwebui_secret = var.openwebui_oidc_client_secret
     admin_email      = var.admin_email
     app_domain       = local.tailnet_domain
     script_hash      = filesha1("${path.module}/../helm/authentik/provision-app-providers.py")
@@ -151,8 +151,8 @@ resource "local_file" "authentik_app_providers_script" {
     "  NEXTCLOUD_OIDC_CLIENT_ID='${var.nextcloud_oidc_client_id}' NEXTCLOUD_OIDC_CLIENT_SECRET='${var.nextcloud_oidc_client_secret}' \\",
     "  ARGOCD_OIDC_CLIENT_ID='${var.argocd_oidc_client_id}' ARGOCD_OIDC_CLIENT_SECRET='${var.argocd_oidc_client_secret}' \\",
     "  GRAFANA_OIDC_CLIENT_ID='${var.grafana_oidc_client_id}' GRAFANA_OIDC_CLIENT_SECRET='${var.grafana_oidc_client_secret}' \\",
-    "  MATTERMOST_OIDC_CLIENT_ID='${var.mattermost_oidc_client_id}' MATTERMOST_OIDC_CLIENT_SECRET='${var.mattermost_oidc_client_secret}' \\",
     "  LITELLM_OIDC_CLIENT_ID='${var.litellm_oidc_client_id}' LITELLM_OIDC_CLIENT_SECRET='${var.litellm_oidc_client_secret}' \\",
+    "  OPENWEBUI_OIDC_CLIENT_ID='${var.openwebui_oidc_client_id}' OPENWEBUI_OIDC_CLIENT_SECRET='${var.openwebui_oidc_client_secret}' \\",
     "  ADMIN_EMAIL='${var.admin_email}' APP_DOMAIN='${local.tailnet_domain}' \\",
     "  ak shell < '${abspath(path.module)}/../helm/authentik/provision-app-providers.py'",
     "",

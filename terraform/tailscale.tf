@@ -19,7 +19,7 @@
 #       { "src": ["autogroup:member"],
 #         "dst": ["svc:authentik","svc:gitlab","svc:minio","svc:minio-console",
 #                 "svc:n8n","svc:sonarqube","svc:nextcloud","svc:argocd",
-#                 "svc:grafana","svc:mattermost","svc:litellm"],
+#                 "svc:grafana","svc:litellm","svc:openwebui"],
 #         "ip":  ["*"] }
 #     The svc: grant alone is NOT enough — the host netmap gets the service
 #     names but not the node backing them, so every <app>.<tailnet>.ts.net

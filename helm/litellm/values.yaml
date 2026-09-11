@@ -21,10 +21,20 @@ mcpN8nAuthToken: "__N8N_MCP_AUTH_TOKEN__"
 # host.docker.internal resolves from k3d pods on Docker Desktop; host.k3d.internal
 # depends on k3d's flaky CoreDNS NodeHosts injection and was failing name lookup.
 ollamaBaseUrl: "http://host.docker.internal:11434"
+# ponytail: the models run for free on local Ollama — these costPerToken
+# figures are reference-only (LiteLLM's usage/spend dashboard needs *some*
+# number to show $ cost), not real billing. Anthropic API list pricing
+# (USD/token) stood in per size tier: qwen3.8:27b ~ Sonnet-class,
+# qwen3:1.7b ~ Haiku-class. Update alongside shared/model-migration pricing
+# if Anthropic's list prices change.
 ollamaModels:
   # qwen3-coder-next (80B) OOMs on this host — omp default is qwen3.8:27b.
-  - "qwen3.8:27b"
-  - "qwen3:1.7b"
+  - name: "qwen3.8:27b"
+    inputCostPerToken: 0.000003
+    outputCostPerToken: 0.000015
+  - name: "qwen3:1.7b"
+    inputCostPerToken: 0.000001
+    outputCostPerToken: 0.000005
 
 env:
   DATABASE_URL: "postgresql://litellm:__SHARED_DB_PASSWORD__@postgres.postgres.svc.cluster.local:5432/litellm"
@@ -54,21 +64,4 @@ resources:
   limits:
     memory: 2Gi
 
-# ponytail: one LiteLLM pass-through route per omp role pod
-# (/omp-<role> -> omp-<role>.omp.svc:4096). Duplicated from
-# helm/omp/values.yaml `roles:` — n8n can't read that chart. Keep in sync,
-# or drop a name here to stop routing to it.
-ompRoles:
-  - backend-developer
-  - data-engineer
-  - devops-engineer
-  - frontend-developer
-  - product-owner
-  - project-manager
-  - qa-engineer
-  - release-manager
-  - security-engineer
-  - solution-architect
-  - tech-lead
-  - uiux-designer
 

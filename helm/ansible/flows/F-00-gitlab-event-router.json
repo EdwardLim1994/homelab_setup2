@@ -1,0 +1,459 @@
+{
+  "name": "F-00 GitLab Event Router",
+  "nodes": [
+    {
+      "id": "947c03cc-3079-4f4a-ac72-3275192a12b1",
+      "name": "GitLab Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "path": "gitlab-events",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "02734fda-29c5-4225-89f3-7df481136716"
+    },
+    {
+      "id": "76381f6a-c728-47ad-b2f5-36cb589a34da",
+      "name": "Verify Token",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "={{ $request.headers['x-gitlab-token'] }}",
+            "operation": "equals",
+            "rightValue": "={{ $env.GITLAB_WEBHOOK_SECRET }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "3ff27062-0971-4209-b2de-9956be6a0348",
+      "name": "Route by Event+Branch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "leftValue": "={{ $json.object_kind }}",
+                  "operation": "equals",
+                  "rightValue": "merge_request"
+                }
+              },
+              "outputKey": "mr"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "leftValue": "={{ $json.object_kind }}",
+                  "operation": "equals",
+                  "rightValue": "pipeline"
+                }
+              },
+              "outputKey": "pipeline"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7b3ff4c6-eb66-4d45-8c62-5c175c3122ea",
+      "name": "MR Open Branch Prefix",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        900,
+        160
+      ],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "leftValue": "={{ $json.object_attributes.source_branch }}",
+                  "operation": "startsWith",
+                  "rightValue": "task/"
+                }
+              },
+              "outputKey": "task"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "leftValue": "={{ $json.object_attributes.source_branch }}",
+                  "operation": "startsWith",
+                  "rightValue": "us/"
+                }
+              },
+              "outputKey": "story"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a0120684-478f-46ba-843f-859098b7d210",
+      "name": "MR Merge Branch Prefix",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        900,
+        360
+      ],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "leftValue": "={{ $json.object_attributes.source_branch }}",
+                  "operation": "startsWith",
+                  "rightValue": "task/"
+                }
+              },
+              "outputKey": "task"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "leftValue": "={{ $json.object_attributes.source_branch }}",
+                  "operation": "startsWith",
+                  "rightValue": "us/"
+                }
+              },
+              "outputKey": "story"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "leftValue": "={{ $json.object_attributes.source_branch }}",
+                  "operation": "startsWith",
+                  "rightValue": "bugfix/"
+                }
+              },
+              "outputKey": "revert"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "leftValue": "={{ $json.object_attributes.source_branch }}",
+                  "operation": "startsWith",
+                  "rightValue": "promote/"
+                }
+              },
+              "outputKey": "promote"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a87bc4a2-87f4-4982-9594-d03eb4bb5f28",
+      "name": "\u2192 F-04 Task MR Opened",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        160
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-task-mr-opened",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "__passthrough",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "fdd65090-3cbd-41ee-9f7d-7d5b54d135de",
+      "name": "\u2192 F-07 Story MR Opened",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-story-mr-opened",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "__passthrough",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "5151b54a-8ec8-480e-b605-8dabe194f962",
+      "name": "\u2192 F-05 Task MR Merged",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        320
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-task-mr-merged",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "__passthrough",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "4610489a-5bd5-4d0c-a1bd-11e6440d2e22",
+      "name": "\u2192 F-08 Story MR Merged",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-story-mr-merged",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "__passthrough",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "12ea3777-57b4-49f8-b954-fc5bef46c8e1",
+      "name": "\u2192 F-23 Revert Merged",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        480
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-revert-merged",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "__passthrough",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "50002362-72ec-45a0-899f-e1ab704f9954",
+      "name": "\u2192 F-18 Release MR Merged",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        560
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-release-mr-merged",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "__passthrough",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bf887a71-2a7c-4b8d-b8c0-8e348e2fc1d1",
+      "name": "\u2192 F-09 CI Pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        640
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-pipeline",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "__passthrough",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "2ee0baa4-8845-4bc5-9bb9-15a2359cee3d",
+      "name": "Reject 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        680,
+        440
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\":\"unauthorized\"}",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    }
+  ],
+  "connections": {
+    "947c03cc-3079-4f4a-ac72-3275192a12b1": {
+      "main": [
+        [
+          {
+            "node": "76381f6a-c728-47ad-b2f5-36cb589a34da",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "76381f6a-c728-47ad-b2f5-36cb589a34da": {
+      "main": [
+        [
+          {
+            "node": "3ff27062-0971-4209-b2de-9956be6a0348",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "2ee0baa4-8845-4bc5-9bb9-15a2359cee3d",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3ff27062-0971-4209-b2de-9956be6a0348": {
+      "main": [
+        [
+          {
+            "node": "7b3ff4c6-eb66-4d45-8c62-5c175c3122ea",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "a0120684-478f-46ba-843f-859098b7d210",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "bf887a71-2a7c-4b8d-b8c0-8e348e2fc1d1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7b3ff4c6-eb66-4d45-8c62-5c175c3122ea": {
+      "main": [
+        [
+          {
+            "node": "a87bc4a2-87f4-4982-9594-d03eb4bb5f28",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "fdd65090-3cbd-41ee-9f7d-7d5b54d135de",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "a0120684-478f-46ba-843f-859098b7d210": {
+      "main": [
+        [
+          {
+            "node": "5151b54a-8ec8-480e-b605-8dabe194f962",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "4610489a-5bd5-4d0c-a1bd-11e6440d2e22",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "12ea3777-57b4-49f8-b954-fc5bef46c8e1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "50002362-72ec-45a0-899f-e1ab704f9954",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "tags": [],
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

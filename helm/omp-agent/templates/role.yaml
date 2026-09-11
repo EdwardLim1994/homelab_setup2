@@ -1,0 +1,16 @@
+{{/* Namespace-scoped only — what the Job pods themselves need, not what n8n needs to create them (see helm/n8n for that). */}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: omp-agent
+  namespace: {{ .Values.namespace }}
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]

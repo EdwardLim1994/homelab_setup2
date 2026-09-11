@@ -1,5 +1,5 @@
-# ponytail: one shared postgres:16 for authentik / gitlab / litellm / mattermost
-# / n8n / sonarqube. Each app connects cross-namespace to
+# ponytail: one shared postgres:16 for authentik / gitlab / litellm / n8n /
+# sonarqube. Each app connects cross-namespace to
 # postgres.postgres.svc.cluster.local:5432 with its own role + database
 # (created by the chart's initdb script). nextcloud keeps its own MariaDB.
 resource "kubernetes_namespace" "postgres" {

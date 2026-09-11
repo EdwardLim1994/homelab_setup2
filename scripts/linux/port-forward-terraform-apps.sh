@@ -3,7 +3,7 @@
 #
 # Browser / SSO: use the TAILNET column — https://<app>.<tailnet_domain>, served
 # by the Tailscale k8s operator (terraform/tailscale-ingress.tf). Every OIDC app
-# (argocd, mattermost, litellm, grafana, gitlab, nextcloud) bakes that exact
+# (argocd, litellm, grafana, gitlab, nextcloud) bakes that exact
 # origin into its redirect_uri, so logging in through the localhost forward or a
 # `tailscale serve` port fails ("redirect_uri mismatch" / "Invalid redirect URL").
 #
@@ -31,7 +31,6 @@ apps=(
   "nextcloud:nextcloud:nextcloud:8080:8082:nextcloud"
   "argocd:argocd:argocd-server:80:9001:argocd"
   "grafana:observability:observability-grafana:80:3000:grafana"
-  "mattermost:mattermost:mattermost:8065:8065:mattermost"
   "litellm:litellm:litellm:4000:4000:litellm:/ui"
 )
 

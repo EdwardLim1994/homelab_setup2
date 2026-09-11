@@ -2,59 +2,50 @@
   "name": "F-10 /uat",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "mm-uat",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "slack-trigger",
-      "name": "Mattermost: trigger",
+      "id": "4f688152-8908-4662-ba01-94fe7a4b59c3",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "uat",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "9d868882-f56c-4013-9e6c-aa09a62c9a2c"
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/uat`...\"}"
-      },
-      "id": "mm-ack-slack-trigger",
-      "name": "Mattermost: ack command",
+      "id": "ba849c78-367c-440c-a2b0-4ebe9402829b",
+      "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        480,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :hourglass: *UAT started* for `{{ $json.text }}`\nRunning milestone safeguard...",
-        "otherOptions": {}
-      },
-      "id": "ack-10",
-      "name": "Mattermost: UAT started",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        480,
+        460,
         300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
-        }
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
       }
     },
     {
+      "id": "bb687645-4875-4fbc-af27-97ea0a50318f",
+      "name": "UAT Safeguard: All Stories Merged?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
       "parameters": {
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues?milestone={{ $('Slack: trigger').item.json.text }}&labels=type:user-story&per_page=100",
+        "method": "GET",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues?milestone={{ $env.RELEASE_VERSION }}&labels=type:user-story&state=opened",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -64,298 +55,256 @@
             }
           ]
         }
-      },
-      "id": "query-stories",
-      "name": "Query sprint milestone stories",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        720,
-        300
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const stories=$json;\nconst unmerged=stories.filter(s=>!s.labels.includes('merged-to-release'));\nreturn [{json:{safe:unmerged.length===0,unmerged:unmerged.map(s=>({id:s.iid,title:s.title})),total:stories.length}}];"
-      },
-      "id": "safeguard",
-      "name": "Check: all stories merged-to-release?",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        960,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "conditions": [
-            {
-              "leftValue": "={{ $json.safe }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
-            }
-          ]
-        }
-      },
-      "id": "safe-gate",
-      "name": "Safeguard passed?",
+      "id": "f5ccd427-0605-4317-b184-20232eca15bc",
+      "name": "Safeguard pass?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1200,
+        900,
         300
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :x: *UAT blocked* — stories not yet merged to release. Check release branch.",
-        "otherOptions": {}
-      },
-      "id": "slack-blocked",
-      "name": "Mattermost: UAT blocked",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        1440,
-        440
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "={{ $json.length }}",
+            "operation": "equals",
+            "rightValue": "0"
+          }
         }
       }
     },
     {
+      "id": "ee7fb018-1448-478a-b84a-e5c941d4c299",
+      "name": "Notify: UAT blocked",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        400
+      ],
       "parameters": {
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/pipelines",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "ref",
-              "value": "={{ 'release/' + $('Slack: trigger').item.json.text }}"
-            },
-            {
-              "name": "variables[DEPLOY_ENV]",
-              "value": "uat"
-            }
-          ]
-        },
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
-        }
-      },
-      "id": "trig-ci",
-      "name": "Trigger manual CI on release branch",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        1440,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/cluster-wake",
+        },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udeab /uat blocked \u2014 {{ $json.length }} stories still open, not all merged to release"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "9dda1bce-e5cc-4691-9d73-86e55e3aa0d8",
+      "name": "Wake UAT Cluster",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/cluster-lifecycle",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "action",
+              "value": "wake"
+            },
             {
               "name": "cluster",
               "value": "uat"
             }
           ]
         }
-      },
-      "id": "wake-uat",
-      "name": "Wake UAT cluster",
+      }
+    },
+    {
+      "id": "dea28236-790c-4e23-9457-aa3686060a62",
+      "name": "ArgoCD: Sync UAT",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "typeVersion": 4.2,
       "position": [
-        1680,
+        1340,
         200
-      ]
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ARGOCD_URL }}/api/v1/applications/{{ $env.ARGOCD_PROJECT }}-uat/sync",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.ARGOCD_TOKEN }}"
+            }
+          ]
+        }
+      }
     },
     {
-      "parameters": {
-        "command": "=argocd app sync {{ $env.ARGOCD_PROJECT }}-uat --server $ARGOCD_URL"
-      },
-      "id": "argocd",
-      "name": "ArgoCD sync: rc images to UAT",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "bd6a2087-8ab3-43c3-b49d-addbf6929e31",
+      "name": "Notify: UAT deployed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        1920,
+        1560,
         200
-      ]
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\ude80 UAT deployed \u2014 triggering QA stage F-11"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
     },
     {
+      "id": "eebeeb33-2386-4944-9bbf-2f6f57cfb60b",
+      "name": "\u2192 F-11 QA UAT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        200
+      ],
       "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/uat-qa-start",
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/uat-qa",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
               "name": "version",
-              "value": "={{ $('Slack: trigger').item.json.text }}"
-            },
-            {
-              "name": "release_ticket_id",
-              "value": "={{ $env.RELEASE_TICKET_ID }}"
+              "value": "={{ $env.RELEASE_VERSION }}"
             }
           ]
-        }
-      },
-      "id": "trig-f11",
-      "name": "Trigger F-11: QA UAT stage 1",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        2160,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :white_check_mark: Safeguard passed · UAT cluster deploying · QA stage 1 started.\n\nYou'll be notified when all 3 stages complete.",
-        "otherOptions": {}
-      },
-      "id": "slack-uat-running",
-      "name": "Mattermost: UAT underway",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        2400,
-        200
-      ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
         }
       }
     }
   ],
   "connections": {
-    "Mattermost: trigger": {
+    "4f688152-8908-4662-ba01-94fe7a4b59c3": {
       "main": [
         [
           {
-            "node": "Mattermost: UAT started",
+            "node": "ba849c78-367c-440c-a2b0-4ebe9402829b",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Mattermost: ack command",
+            "node": "bb687645-4875-4fbc-af27-97ea0a50318f",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mattermost: UAT started": {
+    "bb687645-4875-4fbc-af27-97ea0a50318f": {
       "main": [
         [
           {
-            "node": "Query sprint milestone stories",
+            "node": "f5ccd427-0605-4317-b184-20232eca15bc",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Query sprint milestone stories": {
+    "f5ccd427-0605-4317-b184-20232eca15bc": {
       "main": [
         [
           {
-            "node": "Check: all stories merged-to-release?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check: all stories merged-to-release?": {
-      "main": [
-        [
-          {
-            "node": "Safeguard passed?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Safeguard passed?": {
-      "main": [
-        [
-          {
-            "node": "Trigger manual CI on release branch",
+            "node": "9dda1bce-e5cc-4691-9d73-86e55e3aa0d8",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Mattermost: UAT blocked",
+            "node": "ee7fb018-1448-478a-b84a-e5c941d4c299",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Trigger manual CI on release branch": {
+    "9dda1bce-e5cc-4691-9d73-86e55e3aa0d8": {
       "main": [
         [
           {
-            "node": "Wake UAT cluster",
+            "node": "dea28236-790c-4e23-9457-aa3686060a62",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Wake UAT cluster": {
+    "dea28236-790c-4e23-9457-aa3686060a62": {
       "main": [
         [
           {
-            "node": "ArgoCD sync: rc images to UAT",
+            "node": "bd6a2087-8ab3-43c3-b49d-addbf6929e31",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "ArgoCD sync: rc images to UAT": {
+    "bd6a2087-8ab3-43c3-b49d-addbf6929e31": {
       "main": [
         [
           {
-            "node": "Trigger F-11: QA UAT stage 1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Trigger F-11: QA UAT stage 1": {
-      "main": [
-        [
-          {
-            "node": "Mattermost: UAT underway",
+            "node": "eebeeb33-2386-4944-9bbf-2f6f57cfb60b",
             "type": "main",
             "index": 0
           }
@@ -364,18 +313,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "uat"
-    },
-    {
-      "name": "phase-3"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

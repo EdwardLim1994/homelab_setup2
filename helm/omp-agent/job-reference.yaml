@@ -1,0 +1,83 @@
+# THIS FILE IS A REFERENCE TEMPLATE — not deployed by Helm/Tilt (lives
+# outside templates/ for exactly that reason — anything under templates/
+# gets installed as-is, and these {{ }} tokens are n8n's, not Helm's).
+# n8n reads this structure and substitutes values before calling the K8s API.
+# See helm/omp-agent/README.md for the substitution contract.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: omp-{{ role }}-{{ story }}-{{ timestamp }}
+  namespace: sdlc
+  labels:
+    app.kubernetes.io/name: omp-agent
+    omp-role: "{{ role }}"
+    sdlc-story: "{{ story }}"
+spec:
+  ttlSecondsAfterFinished: 300        # auto-cleanup 5 min after completion
+  backoffLimit: 1                     # one retry on failure, then fail the Job
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: omp-agent
+        omp-role: "{{ role }}"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: omp-agent
+      initContainers:
+        - name: git-clone
+          image: alpine/git:latest
+          command:
+            - sh
+            - -c
+            - |
+              git clone --depth=1 \
+                --branch {{ task_branch }} \
+                $GITLAB_REPO_URL /workspace
+          env:
+            - name: GITLAB_REPO_URL
+              valueFrom:
+                secretKeyRef:
+                  name: omp-agent-secrets
+                  key: gitlab_repo_url
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      containers:
+        - name: omp
+          image: "{{ omp_image }}"       # e.g. registry.homelab/omp:latest
+          env:
+            - name: OMP_ROLE
+              value: "{{ role }}"
+            - name: OMP_MODEL       # from the role's own ConfigMap, not n8n —
+              valueFrom:            # see helm/omp-agent/templates/configmaps.yaml
+                configMapKeyRef:
+                  name: "omp-skill-{{ role }}"
+                  key: OMP_MODEL
+            - name: TASK_BRANCH
+              value: "{{ task_branch }}"
+            - name: TASK_IDS
+              value: "{{ task_ids }}"    # comma-separated GL-N,GL-M
+            - name: N8N_CALLBACK_URL
+              value: "{{ callback_url }}"
+            - name: GITLAB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: omp-agent-secrets
+                  key: gitlab_token
+            - name: CLAUDE_CODE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: omp-agent-secrets
+                  key: claude_code_token
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: skills
+              mountPath: /agents/skills/
+              readOnly: true
+      volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: skills
+          configMap:
+            name: "omp-skill-{{ role }}"   # matches ConfigMap label omp-role

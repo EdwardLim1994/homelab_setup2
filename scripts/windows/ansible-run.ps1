@@ -11,9 +11,8 @@
 #   scripts/windows/ansible-run.ps1 n8n --syntax-check # parse-only
 #
 # ponytail: no-arg fans out one child process per playbook instead of the
-# serial site.yml. Independent playbooks (own namespace each) run concurrently;
-# mattermost is chained after n8n because it needs the flows seeded. Pass a
-# playbook name explicitly (or `site`) to run just that one.
+# serial site.yml. Independent playbooks (own namespace each) run
+# concurrently. Pass a playbook name explicitly (or `site`) to run just that one.
 [CmdletBinding()]
 param(
   [string]$Playbook = '',
@@ -30,8 +29,9 @@ $cronjob = if ($env:CRONJOB) { $env:CRONJOB } else { 'ansible-runner' }
 
 # --- no arg: run everything, in parallel -----------------------------------
 if (-not $Playbook -or $Playbook -eq 'all') {
-  $parallel = @('omp', 'litellm', 'mcp-servers')
-  $chains = @(@('n8n', 'mattermost'))   # each: serial, stop on first failure
+  $parallel = @('n8n', 'omp', 'litellm', 'mcp-servers')
+  $chains = @()   # each: serial, stop on first failure. Empty now that
+                   # mattermost (the only chained-after-n8n playbook) is gone.
   # ponytail: re-invoke the *same* shell that's running this (pwsh 7 or Windows
   # PowerShell 5.1) - `pwsh` isn't always on PATH.
   $self = (Get-Process -Id $PID).Path
@@ -84,9 +84,16 @@ if (-not $pod) { Write-Host "[$Playbook] pod never appeared - inspect: kubectl -
 # the status poll below be the authority on "done".
 $podName = ($pod -replace '^pod/', '')
 $self = (Get-Process -Id $PID).Path
+# ponytail: the -Command string must not embed double quotes — Start-Process's
+# ArgumentList-to-command-line quoting mishandles nested " inside an argument
+# that already needs quoting for its spaces, truncating it early. The
+# fragment that survives ("[n8n] ...") then gets parsed by the child
+# powershell.exe as top-level script text, where a bare [n8n] is a
+# type-literal expression -> "Unable to find type [n8n]." Single-quoted
+# literal + string concat avoids embedding any " at all.
 $logProc = Start-Process $self -PassThru -NoNewWindow -ArgumentList @(
   '-NoProfile', '-Command',
-  "kubectl -n $ns logs -f $podName 2>`$null | ForEach-Object { `"[$Playbook] `$_`" }"
+  "kubectl -n $ns logs -f $podName 2>`$null | ForEach-Object { '[$Playbook] ' + `$_ }"
 )
 
 # ponytail: poll the job's terminal condition. A job that TTL-reaps after

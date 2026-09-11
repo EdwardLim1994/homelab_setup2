@@ -28,8 +28,8 @@ $apps = @(
   'nextcloud;nextcloud;nextcloud.local;'
   'argocd;argocd;argocd.local;'
   'grafana;grafana;grafana.local;'
-  'mattermost;mattermost;mattermost.local;'
   'litellm;litellm;;/ui'
+  'openwebui;openwebui;;'
 ) | ForEach-Object {
   $p = $_ -split ';'
   [pscustomobject]@{ Name = $p[0]; Host = $p[1]; Ingress = $p[2]; Path = $p[3] }

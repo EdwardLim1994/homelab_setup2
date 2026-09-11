@@ -35,6 +35,11 @@ resource "kubernetes_secret" "ansible_secrets" {
     gitlab_mcp_token      = var.gitlab_mcp_token
     gitlab_mcp_auth_token = var.gitlab_mcp_auth_token
     omp_gitlab_token = var.omp_gitlab_token
+    # ponytail: n8n API key playbooks/n8n.yml uses for the mcp-servers-n8n
+    # deployment — persisted here instead of minted fresh every run (n8n
+    # only ever returns the raw secret once, at creation). Blank on first
+    # run: n8n.yml mints one and prints it so you can paste it into .env.
+    n8n_mcp_api_key       = var.n8n_mcp_api_key
     litellm_master_key    = var.litellm_master_key
     gitlab_webhook_secret = var.gitlab_webhook_secret
     gitlab_group_id       = var.gitlab_group_id
@@ -97,43 +102,6 @@ resource "kubernetes_role_binding" "ansible_omp_patch" {
     api_group = "rbac.authorization.k8s.io"
     kind      = "Role"
     name      = kubernetes_role.ansible_omp_patch.metadata[0].name
-  }
-  subject {
-    kind      = "ServiceAccount"
-    name      = "ansible-runner"
-    namespace = kubernetes_namespace.ansible.metadata[0].name
-  }
-}
-
-# ponytail: mattermost.yml runs `mmctl --local` inside the mattermost pod via
-# kubernetes.core.k8s_exec — needs pod read + exec in that one namespace.
-resource "kubernetes_role" "ansible_mattermost_exec" {
-  metadata {
-    name      = "ansible-mattermost-exec"
-    namespace = "mattermost"
-  }
-  rule {
-    api_groups = [""]
-    resources  = ["pods"]
-    verbs      = ["get", "list"]
-  }
-  rule {
-    api_groups = [""]
-    resources  = ["pods/exec"]
-    verbs      = ["get", "create"]
-  }
-  depends_on = [kubernetes_namespace.mattermost]
-}
-
-resource "kubernetes_role_binding" "ansible_mattermost_exec" {
-  metadata {
-    name      = "ansible-mattermost-exec"
-    namespace = "mattermost"
-  }
-  role_ref {
-    api_group = "rbac.authorization.k8s.io"
-    kind      = "Role"
-    name      = kubernetes_role.ansible_mattermost_exec.metadata[0].name
   }
   subject {
     kind      = "ServiceAccount"

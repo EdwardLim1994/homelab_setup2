@@ -9,7 +9,7 @@
 # Fix: in-cluster, rewrite authentik.<tailnet> to traefik, and give traefik a
 # vhost for it with a homelab-CA cert. Browser traffic is unaffected — it still
 # uses the real external name over Tailscale. Consuming apps trust the homelab
-# CA (see kubernetes_secret.minio_homelab_ca in minio.tf, mattermost.tf).
+# CA (see kubernetes_secret.minio_homelab_ca in minio.tf, openwebui.tf).
 #
 # Terraform-only: the Tilt path reaches apps via *.local + port-forwards and
 # never uses the tailnet hostname, so there is no Tiltfile counterpart (same as

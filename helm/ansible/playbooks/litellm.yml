@@ -34,3 +34,33 @@
     - name: Report
       ansible.builtin.debug:
         msg: "litellm: {{ models.json.data | length }} models loaded"
+
+    # ponytail: reference-only cost (Anthropic list pricing stood in per size
+    # tier — see helm/litellm/values.yaml) so the usage/spend dashboard shows
+    # $ figures for free local Ollama models. /model/info (admin endpoint,
+    # not /v1/models) is where litellm_params.*cost_per_token actually lands.
+    - name: Fetch full model info (admin endpoint — carries litellm_params)
+      ansible.builtin.uri:
+        url: "{{ litellm_url }}/model/info"
+        headers:
+          Authorization: "Bearer {{ master_key }}"
+      register: model_info
+
+    - name: Fail if any ollama model is missing its reference cost-per-token
+      ansible.builtin.assert:
+        that: >-
+          model_info.json.data
+          | selectattr('litellm_params.model', 'match', '^ollama_chat/')
+          | rejectattr('litellm_params.input_cost_per_token', 'defined')
+          | list | length == 0
+        fail_msg: "one or more ollama models in litellm are missing input_cost_per_token — check helm/litellm/values.yaml ollamaModels"
+
+    - name: Report cost-per-token
+      ansible.builtin.debug:
+        msg: >-
+          {{ item.model_name }}:
+          in={{ item.litellm_params.input_cost_per_token }}
+          out={{ item.litellm_params.output_cost_per_token }}
+      loop: "{{ model_info.json.data | selectattr('litellm_params.model', 'match', '^ollama_chat/') | list }}"
+      loop_control:
+        label: "{{ item.model_name }}"

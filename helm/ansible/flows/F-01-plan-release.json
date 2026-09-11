@@ -1,403 +1,449 @@
 {
-  "name": "F-01 /plan-release",
+  "name": "F-01 /plan_release",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "mm-plan_release",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "slack-trigger",
-      "name": "Mattermost: trigger",
+      "id": "640b5fba-4d3c-4c1e-9ca3-34b4278d83ad",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "plan-release",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "aa24848e-da89-4e4d-b81c-6b167ad2b6d2"
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/plan_release`...\"}"
-      },
-      "id": "mm-ack-slack-trigger",
-      "name": "Mattermost: ack command",
+      "id": "bf072095-3a82-4456-bd45-01a2f53dafb4",
+      "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        480,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :hourglass: *Plan-release started* for `{{ $json.text }}`\nGate A: Architect + Data Engineer pods spawning...",
-        "otherOptions": {}
-      },
-      "id": "ack-01",
-      "name": "Mattermost: ack received",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        480,
+        460,
         300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
-        }
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
       }
     },
     {
-      "parameters": {
-        "command": "=echo '{\"role\":\"architect\",\"task\":\"gate-A-planning\",\"version\":\"{{ $json.text }}\"}' > /tmp/arch.json && omp run --mode json --role slow @/tmp/arch.json"
-      },
-      "id": "spawn-arch",
-      "name": "Spawn Architect Pod (gate A)",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "3e881a0f-4cee-4076-806c-97c39841b19f",
+      "name": "Notify: Starting plan_release",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        720,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"data-engineer\",\"task\":\"gate-A-planning\",\"version\":\"{{ $json.text }}\"}' > /tmp/de.json && omp run --mode json --role slow @/tmp/de.json"
-      },
-      "id": "spawn-de",
-      "name": "Spawn Data Engineer Pod (gate A)",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        720,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const a=$node['Spawn Architect Pod (gate A)'].json.exitCode;\nconst d=$node['Spawn Data Engineer Pod (gate A)'].json.exitCode;\nreturn [{json:{ok:a===0&&d===0}}];"
-      },
-      "id": "gate-a-check",
-      "name": "Gate A complete?",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        960,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :white_check_mark: Gate A done. Spawning QA · Security · UX pods (gate B)...",
-        "otherOptions": {}
-      },
-      "id": "ack-gate-a",
-      "name": "Mattermost: gate A complete",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        1200,
+        680,
         300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
-        }
-      }
-    },
-    {
       "parameters": {
-        "command": "=echo '{\"role\":\"qa\",\"task\":\"gate-B-challenge\",\"version\":\"{{ $('Slack: trigger').item.json.text }}\"}' > /tmp/qa.json && omp run --mode json --role default @/tmp/qa.json"
-      },
-      "id": "spawn-qa",
-      "name": "Spawn QA Pod (gate B)",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        1440,
-        160
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"security\",\"task\":\"gate-B-threat-model\",\"version\":\"{{ $('Slack: trigger').item.json.text }}\"}' > /tmp/sec.json && omp run --mode json --role default @/tmp/sec.json"
-      },
-      "id": "spawn-sec",
-      "name": "Spawn Security Pod (gate B)",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        1440,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"ui-ux\",\"task\":\"gate-B-ux-spec\",\"version\":\"{{ $('Slack: trigger').item.json.text }}\"}' > /tmp/ux.json && omp run --mode json --role default @/tmp/ux.json"
-      },
-      "id": "spawn-ux",
-      "name": "Spawn UX Pod (gate B)",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        1440,
-        440
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const dag=$workflow.staticData;\ndag.revisions=(dag.revisions||0)+1;\nif(dag.revisions>=3) return [{json:{escalate:true,count:dag.revisions}}];\nreturn [{json:{escalate:false,count:dag.revisions}}];"
-      },
-      "id": "revision-check",
-      "name": "Arch revision check (max 3)",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1680,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "conditions": [
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "leftValue": "={{ $json.escalate }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udd0d plan_release started \u2014 Arch+DE gate A running"
+            },
+            {
+              "name": "notes",
+              "value": ""
             }
           ]
         }
-      },
-      "id": "escalate-if",
-      "name": "Escalate?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        1920,
-        300
-      ]
+      }
     },
     {
-      "parameters": {
-        "command": "=echo '{\"role\":\"pm\",\"task\":\"prd-scoring\",\"version\":\"{{ $('Slack: trigger').item.json.text }}\"}' > /tmp/pm.json && omp run --mode json --role slow @/tmp/pm.json"
-      },
-      "id": "spawn-pm",
-      "name": "Spawn PM Pod (gate C)",
+      "id": "3a736ffc-34c4-4ee2-acc7-b4c34d0dc4fc",
+      "name": "Architect Analysis",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        2160,
-        200
-      ]
+        900,
+        240
+      ],
+      "parameters": {
+        "command": "omp --role architect --model slow --project {{ $env.REPO_DIR }} --prompt 'Analyse release scope for {{ $json.body.version }}. Output: components affected, risk surface, API contract changes.' --non-interactive"
+      }
     },
     {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :rocket: *Sprint plan ready* for `{{ $('Slack: trigger').item.json.text }}`\nPRD + task breakdown complete. Review and run `/kickoff` when ready.",
-        "otherOptions": {}
-      },
-      "id": "notify-done-01",
-      "name": "Mattermost: plan-release complete",
-      "type": "n8n-nodes-base.mattermost",
+      "id": "e754cd32-92b1-4106-948c-6c959f268573",
+      "name": "DE Schema Impact",
+      "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        2400,
-        200
+        900,
+        360
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "command": "omp --role data-engineer --model default --project {{ $env.REPO_DIR }} --prompt 'Analyse schema migration impact for {{ $json.body.version }}. Output: migrations needed, Apicurio schema changes.' --non-interactive"
+      }
+    },
+    {
+      "id": "deba9a4f-9194-455a-8c3e-2e35986f6ca8",
+      "name": "Merge Gate A",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        300
+      ],
+      "parameters": {
+        "mode": "waitForAll"
+      }
+    },
+    {
+      "id": "3ba5b627-f598-4689-933f-ee277b51bc9e",
+      "name": "Notify: Gate A done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u2705 Gate A done \u2014 QA+Sec+UX gate B running"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     },
     {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :warning: *Architecture revision limit reached* (3 rounds)\nManual review required before continuing. Check release ticket for details.",
-        "otherOptions": {}
-      },
-      "id": "notify-escalate-01",
-      "name": "Mattermost: escalation",
-      "type": "n8n-nodes-base.mattermost",
+      "id": "a4375dcf-d046-4fb5-a1c9-7a50595e23da",
+      "name": "QA Risk Assessment",
+      "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        2160,
+        1560,
+        200
+      ],
+      "parameters": {
+        "command": "omp --role qa-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Assess test strategy for {{ $json.body.version }} based on arch analysis.' --non-interactive"
+      }
+    },
+    {
+      "id": "2983ca0a-24d8-4174-8d38-948ef19a2093",
+      "name": "Security Threat Model",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        320
+      ],
+      "parameters": {
+        "command": "omp --role security-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Threat model for {{ $json.body.version }} based on arch analysis.' --non-interactive"
+      }
+    },
+    {
+      "id": "5ef55af3-7aea-4d65-9e56-69326096bf99",
+      "name": "UX Review",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1560,
         440
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "command": "omp --role ui-ux-designer --model smol --project {{ $env.REPO_DIR }} --prompt 'UX impact review for {{ $json.body.version }}.' --non-interactive"
+      }
+    },
+    {
+      "id": "a69927df-3116-4731-95ed-79aa3f40b649",
+      "name": "Merge Gate B",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1780,
+        320
+      ],
+      "parameters": {
+        "mode": "waitForAll"
+      }
+    },
+    {
+      "id": "e99f836a-4301-4a11-95f2-baa44e891325",
+      "name": "Notify: Gate B done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        320
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u2705 Gate B done \u2014 PM PRD gate C running"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "0fd57ab2-eb21-44b6-9ee1-813a61209de9",
+      "name": "PM PRD",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2220,
+        320
+      ],
+      "parameters": {
+        "command": "opencode --role pm --model haiku --prompt 'Generate PRD for {{ $json.body.version }} using all gate outputs. Create GitLab milestone and epic.' --non-interactive"
+      }
+    },
+    {
+      "id": "f72e1772-9cba-4f16-be6e-dc7311443563",
+      "name": "Notify: plan_release complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2440,
+        320
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u2705 plan_release complete \u2014 PRD created, milestone ready"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     }
   ],
   "connections": {
-    "Mattermost: trigger": {
+    "640b5fba-4d3c-4c1e-9ca3-34b4278d83ad": {
       "main": [
         [
           {
-            "node": "Mattermost: ack received",
+            "node": "bf072095-3a82-4456-bd45-01a2f53dafb4",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Mattermost: ack command",
+            "node": "3e881a0f-4cee-4076-806c-97c39841b19f",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mattermost: ack received": {
+    "3e881a0f-4cee-4076-806c-97c39841b19f": {
       "main": [
         [
           {
-            "node": "Spawn Architect Pod (gate A)",
+            "node": "3a736ffc-34c4-4ee2-acc7-b4c34d0dc4fc",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn Data Engineer Pod (gate A)",
+            "node": "e754cd32-92b1-4106-948c-6c959f268573",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn Architect Pod (gate A)": {
+    "3a736ffc-34c4-4ee2-acc7-b4c34d0dc4fc": {
       "main": [
         [
           {
-            "node": "Gate A complete?",
+            "node": "deba9a4f-9194-455a-8c3e-2e35986f6ca8",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn Data Engineer Pod (gate A)": {
+    "e754cd32-92b1-4106-948c-6c959f268573": {
       "main": [
         [
           {
-            "node": "Gate A complete?",
+            "node": "deba9a4f-9194-455a-8c3e-2e35986f6ca8",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Gate A complete?": {
+    "deba9a4f-9194-455a-8c3e-2e35986f6ca8": {
       "main": [
         [
           {
-            "node": "Mattermost: gate A complete",
+            "node": "3ba5b627-f598-4689-933f-ee277b51bc9e",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mattermost: gate A complete": {
+    "3ba5b627-f598-4689-933f-ee277b51bc9e": {
       "main": [
         [
           {
-            "node": "Spawn QA Pod (gate B)",
+            "node": "a4375dcf-d046-4fb5-a1c9-7a50595e23da",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn Security Pod (gate B)",
+            "node": "2983ca0a-24d8-4174-8d38-948ef19a2093",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn UX Pod (gate B)",
+            "node": "5ef55af3-7aea-4d65-9e56-69326096bf99",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn QA Pod (gate B)": {
+    "a4375dcf-d046-4fb5-a1c9-7a50595e23da": {
       "main": [
         [
           {
-            "node": "Arch revision check (max 3)",
+            "node": "a69927df-3116-4731-95ed-79aa3f40b649",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn Security Pod (gate B)": {
+    "2983ca0a-24d8-4174-8d38-948ef19a2093": {
       "main": [
         [
           {
-            "node": "Arch revision check (max 3)",
+            "node": "a69927df-3116-4731-95ed-79aa3f40b649",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn UX Pod (gate B)": {
+    "5ef55af3-7aea-4d65-9e56-69326096bf99": {
       "main": [
         [
           {
-            "node": "Arch revision check (max 3)",
+            "node": "a69927df-3116-4731-95ed-79aa3f40b649",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Arch revision check (max 3)": {
+    "a69927df-3116-4731-95ed-79aa3f40b649": {
       "main": [
         [
           {
-            "node": "Escalate?",
+            "node": "e99f836a-4301-4a11-95f2-baa44e891325",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Escalate?": {
+    "e99f836a-4301-4a11-95f2-baa44e891325": {
       "main": [
         [
           {
-            "node": "Spawn PM Pod (gate C)",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Mattermost: escalation",
+            "node": "0fd57ab2-eb21-44b6-9ee1-813a61209de9",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn PM Pod (gate C)": {
+    "0fd57ab2-eb21-44b6-9ee1-813a61209de9": {
       "main": [
         [
           {
-            "node": "Mattermost: plan-release complete",
+            "node": "f72e1772-9cba-4f16-be6e-dc7311443563",
             "type": "main",
             "index": 0
           }
@@ -406,18 +452,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "planning"
-    },
-    {
-      "name": "phase-0"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

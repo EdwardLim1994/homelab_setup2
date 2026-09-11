@@ -2,206 +2,245 @@
   "name": "F-02 /kickoff",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "mm-kickoff",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "slack-trigger",
-      "name": "Mattermost: trigger",
+      "id": "516ef61b-d041-49ae-824a-d528608d6980",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "kickoff",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "61ec943e-86b1-4118-b28b-fda8049c924d"
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/kickoff`...\"}"
-      },
-      "id": "mm-ack-slack-trigger",
-      "name": "Mattermost: ack command",
+      "id": "d277cfaa-f9ce-4419-852c-ad0eea13f7ca",
+      "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        480,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :rocket: *Kickoff started* for `{{ $json.text }}`\nSpawning 3 parallel tracks: TL branches · PM GitLab artifacts · DevOps infra + webhook...",
-        "otherOptions": {}
-      },
-      "id": "ack-02",
-      "name": "Mattermost: kickoff started",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        480,
+        460,
         300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
+      }
+    },
+    {
+      "id": "90948b75-fde9-49d4-8339-dbf4dd3edd4a",
+      "name": "Notify: Kickoff started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\ude80 kickoff started \u2014 3 parallel tracks"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     },
     {
-      "parameters": {
-        "command": "=echo '{\"role\":\"tech-lead\",\"task\":\"kickoff-branches\",\"version\":\"{{ $('Slack: trigger').item.json.text }}\"}' > /tmp/tl.json && omp run --mode json --role slow @/tmp/tl.json"
-      },
-      "id": "spawn-tl",
-      "name": "Spawn TL Pod: branches+openspec+pseudocode",
+      "id": "b02da329-9a7e-45ca-a098-30860e5e762d",
+      "name": "TL: Branches + Pseudocode",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        720,
+        900,
         160
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"pm\",\"task\":\"kickoff-gitlab-artifacts\",\"version\":\"{{ $('Slack: trigger').item.json.text }}\"}' > /tmp/pm.json && opencode run --print \"$(cat /tmp/pm.json)\""
-      },
-      "id": "spawn-pm",
-      "name": "Spawn PM Pod: GitLab artifacts (opencode)",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        720,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"devops\",\"task\":\"kickoff-infra-webhook\",\"version\":\"{{ $('Slack: trigger').item.json.text }}\"}' > /tmp/do.json && omp run --mode json --role default @/tmp/do.json"
-      },
-      "id": "spawn-do",
-      "name": "Spawn DevOps Pod: infra+webhook+CI vars",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        720,
-        440
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const tl=$node['Spawn TL Pod: branches+openspec+pseudocode'].json.exitCode;\nconst pm=$node['Spawn PM Pod: GitLab artifacts (opencode)'].json.exitCode;\nconst dv=$node['Spawn DevOps Pod: infra+webhook+CI vars'].json.exitCode;\nreturn [{json:{ok:tl===0&&pm===0&&dv===0,tl,pm,dv}}];"
-      },
-      "id": "all-done-02",
-      "name": "All 3 tracks complete?",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        960,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :white_check_mark: *Kickoff complete* for `{{ $('Slack: trigger').item.json.text }}`\n• Branches created + openspec + pseudocode committed\n• GitLab milestone, stories, tasks, release ticket created\n• Infra provisioned · GitLab group webhook registered\n\nReview branches and openspec, then run `/develop` to start.",
-        "otherOptions": {}
-      },
-      "id": "notify-02",
-      "name": "Mattermost: kickoff complete",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        1200,
-        300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "command": "omp --role tech-lead --model slow --project {{ $env.REPO_DIR }} --prompt 'Kickoff for {{ $json.body.version }}. Create story branches from release/{{ $json.body.version }}, write openspec pseudocode per task, label openspec:ready.' --non-interactive"
+      }
+    },
+    {
+      "id": "e1dc6899-3754-4706-ade7-ae3a5bc076ac",
+      "name": "PM: GitLab Artifacts",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        900,
+        320
+      ],
+      "parameters": {
+        "command": "opencode --role pm --model haiku --prompt 'Create GitLab user-story issues and task issues for {{ $json.body.version }} milestone.' --non-interactive"
+      }
+    },
+    {
+      "id": "e80b2745-2d8d-4624-b99d-17eba1e6cddd",
+      "name": "DevOps: Infra + Webhook",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        900,
+        480
+      ],
+      "parameters": {
+        "command": "omp --role devops-engineer --model default --project {{ $env.REPO_DIR }} --prompt 'Register GitLab group webhook (idempotent), set CI env vars, verify SIT cluster healthy for {{ $json.body.version }}.' --non-interactive"
+      }
+    },
+    {
+      "id": "190355fa-88b0-41e7-ba40-da302eecf355",
+      "name": "Merge 3 Tracks",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        320
+      ],
+      "parameters": {
+        "mode": "waitForAll"
+      }
+    },
+    {
+      "id": "c6510faf-ce27-45a1-a886-63f8d1e8e394",
+      "name": "Notify: Kickoff complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        320
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u2705 kickoff complete \u2014 branches created, tickets open, infra ready"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     }
   ],
   "connections": {
-    "Mattermost: trigger": {
+    "516ef61b-d041-49ae-824a-d528608d6980": {
       "main": [
         [
           {
-            "node": "Mattermost: kickoff started",
+            "node": "d277cfaa-f9ce-4419-852c-ad0eea13f7ca",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Mattermost: ack command",
+            "node": "90948b75-fde9-49d4-8339-dbf4dd3edd4a",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mattermost: kickoff started": {
+    "90948b75-fde9-49d4-8339-dbf4dd3edd4a": {
       "main": [
         [
           {
-            "node": "Spawn TL Pod: branches+openspec+pseudocode",
+            "node": "b02da329-9a7e-45ca-a098-30860e5e762d",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn PM Pod: GitLab artifacts (opencode)",
+            "node": "e1dc6899-3754-4706-ade7-ae3a5bc076ac",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn DevOps Pod: infra+webhook+CI vars",
+            "node": "e80b2745-2d8d-4624-b99d-17eba1e6cddd",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn TL Pod: branches+openspec+pseudocode": {
+    "b02da329-9a7e-45ca-a098-30860e5e762d": {
       "main": [
         [
           {
-            "node": "All 3 tracks complete?",
+            "node": "190355fa-88b0-41e7-ba40-da302eecf355",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn PM Pod: GitLab artifacts (opencode)": {
+    "e1dc6899-3754-4706-ade7-ae3a5bc076ac": {
       "main": [
         [
           {
-            "node": "All 3 tracks complete?",
+            "node": "190355fa-88b0-41e7-ba40-da302eecf355",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn DevOps Pod: infra+webhook+CI vars": {
+    "e80b2745-2d8d-4624-b99d-17eba1e6cddd": {
       "main": [
         [
           {
-            "node": "All 3 tracks complete?",
+            "node": "190355fa-88b0-41e7-ba40-da302eecf355",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "All 3 tracks complete?": {
+    "190355fa-88b0-41e7-ba40-da302eecf355": {
       "main": [
         [
           {
-            "node": "Mattermost: kickoff complete",
+            "node": "c6510faf-ce27-45a1-a886-63f8d1e8e394",
             "type": "main",
             "index": 0
           }
@@ -210,18 +249,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "planning"
-    },
-    {
-      "name": "phase-0"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

@@ -137,6 +137,11 @@ variable "omp_gitlab_token" {
   default   = "" # GitLab token pushed into every omp pod by ansible omp.yml
 }
 
+variable "omp_gitlab_repo_url" {
+  type    = string
+  default = "" # clone URL microservice-rnd1 — omp-agent Job pods git-clone this
+}
+
 variable "gitlab_webhook_secret" {
   type      = string
   sensitive = true
@@ -235,18 +240,6 @@ variable "grafana_oidc_client_secret" {
   default   = "dev-grafana-oidc-client-secret-not-for-prod-use"
 }
 
-variable "mattermost_oidc_client_id" {
-  type      = string
-  sensitive = true
-  default   = "dev-mattermost-oidc-client-id"
-}
-
-variable "mattermost_oidc_client_secret" {
-  type      = string
-  sensitive = true
-  default   = "dev-mattermost-oidc-client-secret-not-for-prod-use"
-}
-
 variable "litellm_oidc_client_id" {
   type      = string
   sensitive = true
@@ -257,6 +250,18 @@ variable "litellm_oidc_client_secret" {
   type      = string
   sensitive = true
   default   = "dev-litellm-oidc-client-secret-not-for-prod-use"
+}
+
+variable "openwebui_oidc_client_id" {
+  type      = string
+  sensitive = true
+  default   = "dev-openwebui-oidc-client-id"
+}
+
+variable "openwebui_oidc_client_secret" {
+  type      = string
+  sensitive = true
+  default   = "dev-openwebui-oidc-client-secret-not-for-prod-use"
 }
 
 variable "litellm_master_key" {
@@ -302,6 +307,16 @@ variable "n8n_mcp_auth_token" {
   type      = string
   sensitive = true
   default   = "dev-n8n-mcp-auth-token-not-for-prod-use-000"
+}
+
+# ponytail: n8n's own API key (mcp-servers-n8n's N8N_API_KEY) — distinct from
+# n8n_mcp_auth_token above (that's the caller bearer *into* the MCP server;
+# this is what the MCP server uses to call *into* n8n). Blank default:
+# playbooks/n8n.yml mints one on first run and tells you to paste it here.
+variable "n8n_mcp_api_key" {
+  type      = string
+  sensitive = true
+  default   = ""
 }
 
 # Long-lived Claude Code OAuth token (`claude setup-token`) for the `claude` CLI

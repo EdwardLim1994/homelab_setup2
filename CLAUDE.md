@@ -48,9 +48,7 @@ read it first. This file adds Claude-Code-specific notes.
   (`N8N_BLOCK_ENV_ACCESS_IN_NODE=false` is set).
 - n8n 2.x rejects `active`/`tags` on `POST /workflows`; activate via
   `POST /workflows/{id}/activate`.
-- Mattermost `mmctl bot create` doesn't work in `--local` mode (hence the
-  `sdlc-svc` normal user).
-- Git Bash rewrites `/mattermost/...` (and `/bin/sh`) paths passed to
+- Git Bash rewrites absolute in-pod paths (and `/bin/sh`) passed to
   `kubectl exec` — prefix with `MSYS_NO_PATHCONV=1`.
 - `kubernetes.core.k8s_exec` returns `return_code` (not `rc`), and may omit
   it entirely on success — gate `until:` / `failed_when:` on `stdout` content.
@@ -86,7 +84,7 @@ read it first. This file adds Claude-Code-specific notes.
   a `coredns-custom` rewrite points that name at traefik in-cluster, plus a
   traefik vhost for it with a homelab-CA cert. Apps consuming it must trust the
   homelab CA (`kubernetes_secret.*_homelab_ca` — minio via the chart's
-  `trustedCertsSecret`, mattermost via an init-container bundle). gitlab /
+  `trustedCertsSecret`, openwebui via an init-container bundle). gitlab /
   grafana / litellm sidestep it by hard-coding `authentik-server.authentik.svc`
   for their server-side endpoints and only using the external URL for the
   browser redirect — do that for new apps when the app allows split endpoints.

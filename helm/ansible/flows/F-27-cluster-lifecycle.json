@@ -2,218 +2,250 @@
   "name": "F-27 Cluster Lifecycle",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "cluster-wake",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "wh-wake",
-      "name": "Webhook: cluster-wake",
+      "id": "7bbb5a9d-514f-4fcd-a13d-5a5096eb05bc",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
-    },
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "cluster-sleep",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "wh-sleep",
-      "name": "Webhook: cluster-sleep",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
-      "position": [
-        240,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "conditions": [
-            {
-              "leftValue": "={{ $json.body.cluster }}",
-              "rightValue": "sit",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
-          ]
-        }
-      },
-      "id": "not-sit-wake",
-      "name": "Not SIT? (always on)",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        480,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=kubectl scale deployment --all --replicas=1 -n {{ $json.body.cluster }} && kubectl rollout status deployment --all -n {{ $json.body.cluster }}"
-      },
-      "id": "wake-cmd",
-      "name": "kubectl scale up: wake cluster",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        720,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "conditions": [
-            {
-              "leftValue": "={{ $json.body.cluster }}",
-              "rightValue": "production",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
-          ]
-        }
-      },
-      "id": "not-prod-sleep",
-      "name": "Not production? (never sleeps)",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        480,
-        440
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=kubectl scale deployment --all --replicas=0 -n {{ $json.body.cluster }}-server && kubectl scale deployment --all --replicas=0 -n {{ $json.body.cluster }}-frontend"
-      },
-      "id": "sleep-cmd",
-      "name": "kubectl scale down: sleep cluster",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        720,
-        440
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const dag=$workflow.staticData.dagState||{};\ndag.clusterStates=dag.clusterStates||{};\ndag.clusterStates[$json.body.cluster]=$json.body.cluster?'awake':'sleeping';\ndag.lastActivity=new Date().toISOString();\n$workflow.staticData.dagState=dag;\nreturn [{json:{updated:true,cluster:$json.body.cluster}}];"
-      },
-      "id": "upd-state",
-      "name": "Update cluster state in DAG",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        960,
-        320
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
-        "message": "={{ $json.body.cluster === 'cluster-wake' ? ':green_circle:' : ':zzz:' }} *Cluster `{{ $json.body.cluster }}`* state updated.",
-        "otherOptions": {}
-      },
-      "id": "slack-cluster",
-      "name": "Mattermost: cluster state updated",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        1200,
-        320
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "path": "cluster-lifecycle",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "8ae0992e-3a28-46f4-91e8-01d980907f1b"
+    },
+    {
+      "id": "3577a959-a560-4bf1-9492-d9b6075873b7",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
+      }
+    },
+    {
+      "id": "e39e2cb4-1ffd-4765-b6a4-950d36a4a3a0",
+      "name": "Action?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "leftValue": "={{ $json.body.action }}",
+                  "operation": "equals",
+                  "rightValue": "wake"
+                }
+              },
+              "outputKey": "wake"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "leftValue": "={{ $json.body.action }}",
+                  "operation": "equals",
+                  "rightValue": "sleep"
+                }
+              },
+              "outputKey": "sleep"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "79e04b85-1fa7-40b2-b7f3-044e08807cf6",
+      "name": "ArgoCD: Scale Up",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ARGOCD_URL }}/api/v1/applications/{{ $env.ARGOCD_PROJECT }}-{{ $json.body.cluster }}/sync",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.ARGOCD_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "HEAD"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ba42f8d6-7b37-40f0-94aa-1c024c22f67c",
+      "name": "kubectl: Scale Down",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        900,
+        400
+      ],
+      "parameters": {
+        "command": "kubectl scale deploy --all --replicas=0 -n {{ $json.body.cluster }} --context={{ $json.body.cluster }}-ctx"
+      }
+    },
+    {
+      "id": "a5c05c09-27ae-4c83-b4f4-7269e29d94a7",
+      "name": "Notify: Cluster woken",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u2600\ufe0f {{ $json.body.cluster }} cluster woken"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "af49003d-1c6a-488a-85be-342cb7b386df",
+      "name": "Notify: Cluster sleeping",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83c\udf19 {{ $json.body.cluster }} cluster sleeping"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     }
   ],
   "connections": {
-    "Webhook: cluster-wake": {
+    "7bbb5a9d-514f-4fcd-a13d-5a5096eb05bc": {
       "main": [
         [
           {
-            "node": "Not SIT? (always on)",
+            "node": "3577a959-a560-4bf1-9492-d9b6075873b7",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "e39e2cb4-1ffd-4765-b6a4-950d36a4a3a0",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Not SIT? (always on)": {
+    "e39e2cb4-1ffd-4765-b6a4-950d36a4a3a0": {
       "main": [
         [
           {
-            "node": "kubectl scale up: wake cluster",
+            "node": "79e04b85-1fa7-40b2-b7f3-044e08807cf6",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ba42f8d6-7b37-40f0-94aa-1c024c22f67c",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "kubectl scale up: wake cluster": {
+    "79e04b85-1fa7-40b2-b7f3-044e08807cf6": {
       "main": [
         [
           {
-            "node": "Update cluster state in DAG",
+            "node": "a5c05c09-27ae-4c83-b4f4-7269e29d94a7",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Webhook: cluster-sleep": {
+    "ba42f8d6-7b37-40f0-94aa-1c024c22f67c": {
       "main": [
         [
           {
-            "node": "Not production? (never sleeps)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Not production? (never sleeps)": {
-      "main": [
-        [
-          {
-            "node": "kubectl scale down: sleep cluster",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "kubectl scale down: sleep cluster": {
-      "main": [
-        [
-          {
-            "node": "Update cluster state in DAG",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Update cluster state in DAG": {
-      "main": [
-        [
-          {
-            "node": "Mattermost: cluster state updated",
+            "node": "af49003d-1c6a-488a-85be-342cb7b386df",
             "type": "main",
             "index": 0
           }
@@ -222,15 +254,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "cross-cutting"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

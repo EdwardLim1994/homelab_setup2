@@ -37,7 +37,6 @@ minio:
     - name: gitlab-terraform-state
     - name: gitlab-ci-secure-files
     - name: gitlab-backups
-    - name: mattermost
 
   persistence:
     size: 8Gi

@@ -1,0 +1,51 @@
+{{- /*
+One ConfigMap per SDLC role: that role's SKILL.md + the OMP_MODEL it runs
+with. This is the single source of truth for role->model — job-reference.yaml
+reads OMP_MODEL out of the matching ConfigMap (configMapKeyRef) instead of
+n8n carrying its own copy of the mapping.
+Real skill content ships in microservice-rnd1's sdlc-agent-skills.zip
+(.agents/skills/<role>/SKILL.md) — not present in this repo, so these
+render placeholders. Swap in the real content once the zip is unpacked
+here, or point this template at the unpacked path.
+ponytail: hardcoded role/model list — matches the table in
+helm/omp-agent/README.md, add a values.yaml list only if roles start
+changing per environment. Model values are literal `ollama/<tag>` strings
+omp's own provider config understands directly — must stay a subset of
+helm/litellm/values.yaml's ollamaModels (what's actually pulled).
+*/ -}}
+{{- range list
+  (dict "role" "tech-lead" "model" "ollama/qwen3.8:27b")
+  (dict "role" "architect" "model" "ollama/qwen3.8:27b")
+  (dict "role" "data-engineer" "model" "ollama/qwen3.8:27b")
+  (dict "role" "devops-engineer" "model" "ollama/qwen3.8:27b")
+  (dict "role" "release-manager" "model" "ollama/qwen3.8:27b")
+  (dict "role" "backend-developer" "model" "ollama/qwen3:1.7b")
+  (dict "role" "frontend-developer" "model" "ollama/qwen3:1.7b")
+  (dict "role" "qa-engineer" "model" "ollama/qwen3:1.7b")
+  (dict "role" "security-engineer" "model" "ollama/qwen3:1.7b")
+  (dict "role" "product-manager" "model" "ollama/qwen3:1.7b")
+}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: omp-skill-{{ .role }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    app.kubernetes.io/component: omp-skill
+    omp-role: {{ .role }}
+data:
+  OMP_MODEL: {{ .model | quote }}
+  SKILL.md: |
+    ---
+    name: {{ .role }}
+    description: {{ .role }} skill placeholder — replace with content from sdlc-agent-skills.zip
+    compatibility: [omp, opencode]
+    license: MIT
+    ---
+
+    # {{ .role | replace "-" " " | title }}
+
+    Install the real skill from sdlc-agent-skills.zip:
+      unzip sdlc-agent-skills.zip -d .agents/skills/
+{{- end }}

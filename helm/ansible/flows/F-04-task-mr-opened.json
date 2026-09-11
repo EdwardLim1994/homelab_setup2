@@ -2,368 +2,393 @@
   "name": "F-04 Task MR Opened",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "gitlab-mr-opened",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "wh-04",
-      "name": "Webhook: gitlab-mr-opened",
+      "id": "f7b685ac-b6b3-48a9-abbe-40447f4381d4",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "gitlab-task-mr-opened",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "1bedb63f-c0bb-4844-8ac9-f02ab71fd289"
     },
     {
-      "parameters": {
-        "conditions": {
-          "conditions": [
-            {
-              "leftValue": "={{ ['task/','api/','qa/','security/','devops/','bugfix/'].some(p=>$json.body.object_attributes.source_branch.startsWith(p)) }}",
-              "rightValue": true,
-              "operator": {
-                "type": "number",
-                "operation": "equals"
-              }
-            }
-          ]
-        }
-      },
-      "id": "is-task",
-      "name": "Is task/api/qa/security/devops MR?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        480,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const dag=$workflow.staticData.dagState||{};\nconst mrId=$json.body.object_attributes.iid;\ndag.retryCounters=dag.retryCounters||{};\ndag.retryCounters[mrId]=0;\ndag.openMRs=dag.openMRs||{};\ndag.openMRs[mrId]={branch:$json.body.object_attributes.source_branch,status:'open'};\n$workflow.staticData.dagState=dag;\nreturn [{json:{mrId,retryCount:0,branch:$json.body.object_attributes.source_branch,mrUrl:$json.body.object_attributes.url}}];"
-      },
-      "id": "reg-dag",
-      "name": "Register MR + init retry counter",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        720,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"tech-lead\",\"task\":\"mr-review\",\"mr_id\":\"{{ $json.body.object_attributes.iid }}\",\"mr_url\":\"{{ $json.body.object_attributes.url }}\"}' > /tmp/tl-rev.json && omp run --mode json --role slow @/tmp/tl-rev.json"
-      },
-      "id": "spawn-tl-review",
-      "name": "Spawn TL Pod: MR review (omp slow+LSP+advisor)",
-      "type": "n8n-nodes-base.executeCommand",
+      "id": "19f5aa68-7bca-452d-9ac0-eb0148fb49a7",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        960,
-        160
-      ]
+        460,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
+      }
     },
     {
+      "id": "2af57f60-e829-44b7-86c2-c0b297b48990",
+      "name": "Notify: Task MR opened",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
       "parameters": {
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $json.body.project.id }}/merge_requests/{{ $json.body.object_attributes.iid }}/pipelines",
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
-              "name": "per_page",
-              "value": "1"
-            }
-          ]
-        }
-      },
-      "id": "poll-ci",
-      "name": "Poll CI pipeline status",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        960,
-        360
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const tl=$node['Spawn TL Pod: MR review (omp slow+LSP+advisor)'].json.exitCode;\nconst ci=$node['Poll CI pipeline status'].json[0]?.status;\nreturn [{json:{ok:tl===0&&ci==='success',tl,ci,mrUrl:$('Webhook: gitlab-mr-opened').item.json.body.object_attributes.url}}];"
-      },
-      "id": "both-pass",
-      "name": "Both CI + TL passed?",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1200,
-        260
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "conditions": [
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
             {
-              "leftValue": "={{ $json.ok }}",
-              "rightValue": true,
-              "operator": {
-                "type": "number",
-                "operation": "equals"
-              }
+              "name": "message",
+              "value": "\ud83d\udd0e Task MR opened \u2014 TL review + CI parallel"
+            },
+            {
+              "name": "notes",
+              "value": ""
             }
           ]
         }
-      },
-      "id": "pass-check",
-      "name": "Both pass?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        1440,
-        260
-      ]
+      }
     },
     {
-      "parameters": {
-        "command": "=glab mr merge {{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.iid }} --auto-merge"
-      },
-      "id": "merge-mr",
-      "name": "Tech Lead merges task MR via glab",
+      "id": "daddf81f-124d-4c3d-9762-6b66c98649cf",
+      "name": "TL: MR Review",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        1680,
-        160
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
-        "message": ":merged: *Task MR merged* — `{{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.source_branch }}`\nCI :white_check_mark: · TL review :white_check_mark:\n<{{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.url }}|View MR>",
-        "otherOptions": {}
-      },
-      "id": "slack-merged",
-      "name": "Mattermost: task MR merged",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        1920,
-        160
+        900,
+        200
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
-        }
+      "parameters": {
+        "command": "omp --role tech-lead --model slow --project {{ $env.REPO_DIR }} --prompt 'Review MR {{ $json.object_attributes.iid }} against pseudocode. Check correctness, style, test coverage. Output: APPROVE or REQUEST_CHANGES with notes.' --non-interactive"
       }
     },
     {
-      "parameters": {
-        "jsCode": "const dag=$workflow.staticData.dagState||{};\nconst mrId=$('Webhook: gitlab-mr-opened').item.json.body.object_attributes.iid;\nconst count=(dag.retryCounters[mrId]||0)+1;\ndag.retryCounters[mrId]=count;\n$workflow.staticData.dagState=dag;\nreturn [{json:{escalate:count>=3,count,mrId}}];"
-      },
-      "id": "retry-counter",
-      "name": "Increment retry counter",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "a0f3dfde-0892-429f-9fc9-96f2d31289d5",
+      "name": "Wait CI Result",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
       "position": [
-        1680,
-        380
-      ]
+        900,
+        400
+      ],
+      "parameters": {
+        "resume": "webhook"
+      }
     },
     {
+      "id": "6d2aaa6d-9851-4042-afa4-ec3c7337ee11",
+      "name": "Merge TL+CI",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        300
+      ],
       "parameters": {
-        "conditions": {
-          "conditions": [
-            {
-              "leftValue": "={{ $json.escalate }}",
-              "rightValue": true,
-              "operator": {
-                "type": "number",
-                "operation": "equals"
-              }
-            }
-          ]
-        }
-      },
-      "id": "escalate-chk",
-      "name": "Escalate?",
+        "mode": "waitForAll"
+      }
+    },
+    {
+      "id": "e4024f3c-704d-498f-8ae0-e3a7c504191a",
+      "name": "All Passed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1920,
-        380
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
-        "message": ":warning: *Fix required* on `{{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.source_branch }}`\nCI or TL review needs attention. Developer: check inline comments and push a fix.\n<{{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.url }}|View MR>",
-        "otherOptions": {}
-      },
-      "id": "slack-fix",
-      "name": "Mattermost: fix required",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        2160,
-        440
+        1340,
+        300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "={{ $json.tl_result }}",
+            "operation": "equals",
+            "rightValue": "APPROVE"
+          }
         }
       }
     },
     {
-      "parameters": {
-        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
-        "message": ":rotating_light: *Escalation* — MR `{{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.source_branch }}` has failed 3 fix attempts.\nManual review required.\n<{{ $('Webhook: gitlab-mr-opened').item.json.body.object_attributes.url }}|View MR>",
-        "otherOptions": {}
-      },
-      "id": "slack-escalate-04",
-      "name": "Mattermost: MR escalation",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
+      "id": "0005a06a-44ce-4e2e-a29f-72d5cf885594",
+      "name": "GitLab: Approve MR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        2160,
-        300
+        1560,
+        200
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/merge_requests/{{ $json.mr_iid }}/approve",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "d0a7a36e-9e01-4236-8b03-c4f4505130d7",
+      "name": "Retry < 3?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "={{ $json.retry_count ?? 0 }}",
+            "operation": "smallerEqual",
+            "rightValue": "2"
+          }
+        }
+      }
+    },
+    {
+      "id": "026275d2-92c9-4a4f-a9a8-888bbe28b92d",
+      "name": "Notify: Review feedback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        480
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udd04 MR {{ $json.mr_iid }} needs changes \u2014 retry {{ $json.retry_count }}/3"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bca280de-b215-4aaf-b10b-4fb7c032d3bb",
+      "name": "\u2192 Escalate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        560
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/escalate",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "reason",
+              "value": "MR {{ $json.mr_iid }} exceeded 3 review retries"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "9f7b1556-3932-4a73-9cc3-c991ff062f64",
+      "name": "Notify: MR approved",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u2705 Task MR {{ $json.mr_iid }} approved"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     }
   ],
   "connections": {
-    "Webhook: gitlab-mr-opened": {
+    "f7b685ac-b6b3-48a9-abbe-40447f4381d4": {
       "main": [
         [
           {
-            "node": "Is task/api/qa/security/devops MR?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Is task/api/qa/security/devops MR?": {
-      "main": [
-        [
-          {
-            "node": "Register MR + init retry counter",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Register MR + init retry counter": {
-      "main": [
-        [
-          {
-            "node": "Spawn TL Pod: MR review (omp slow+LSP+advisor)",
+            "node": "19f5aa68-7bca-452d-9ac0-eb0148fb49a7",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Poll CI pipeline status",
+            "node": "2af57f60-e829-44b7-86c2-c0b297b48990",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn TL Pod: MR review (omp slow+LSP+advisor)": {
+    "2af57f60-e829-44b7-86c2-c0b297b48990": {
       "main": [
         [
           {
-            "node": "Both CI + TL passed?",
+            "node": "daddf81f-124d-4c3d-9762-6b66c98649cf",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "a0f3dfde-0892-429f-9fc9-96f2d31289d5",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Poll CI pipeline status": {
+    "daddf81f-124d-4c3d-9762-6b66c98649cf": {
       "main": [
         [
           {
-            "node": "Both CI + TL passed?",
+            "node": "6d2aaa6d-9851-4042-afa4-ec3c7337ee11",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Both CI + TL passed?": {
+    "a0f3dfde-0892-429f-9fc9-96f2d31289d5": {
       "main": [
         [
           {
-            "node": "Both pass?",
+            "node": "6d2aaa6d-9851-4042-afa4-ec3c7337ee11",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Both pass?": {
+    "6d2aaa6d-9851-4042-afa4-ec3c7337ee11": {
       "main": [
         [
           {
-            "node": "Tech Lead merges task MR via glab",
+            "node": "e4024f3c-704d-498f-8ae0-e3a7c504191a",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "e4024f3c-704d-498f-8ae0-e3a7c504191a": {
+      "main": [
+        [
+          {
+            "node": "0005a06a-44ce-4e2e-a29f-72d5cf885594",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Increment retry counter",
+            "node": "d0a7a36e-9e01-4236-8b03-c4f4505130d7",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Tech Lead merges task MR via glab": {
+    "0005a06a-44ce-4e2e-a29f-72d5cf885594": {
       "main": [
         [
           {
-            "node": "Mattermost: task MR merged",
+            "node": "9f7b1556-3932-4a73-9cc3-c991ff062f64",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Increment retry counter": {
+    "d0a7a36e-9e01-4236-8b03-c4f4505130d7": {
       "main": [
         [
           {
-            "node": "Escalate?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Escalate?": {
-      "main": [
-        [
-          {
-            "node": "Mattermost: MR escalation",
+            "node": "026275d2-92c9-4a4f-a9a8-888bbe28b92d",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Mattermost: fix required",
+            "node": "bca280de-b215-4aaf-b10b-4fb7c032d3bb",
             "type": "main",
             "index": 0
           }
@@ -372,18 +397,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "development"
-    },
-    {
-      "name": "phase-2"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

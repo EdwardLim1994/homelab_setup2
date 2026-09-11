@@ -45,9 +45,19 @@ n8n:
       - name: oidc-hooks
         configMap:
           name: n8n-oidc-hooks
+      # ponytail: homelab-ca Secret — optional so Tilt (no tailnet ingress,
+      # no coredns rewrite, OIDC_ISSUER_URL stays plain) still boots without
+      # it. See terraform/n8n.tf for the copy-in + NODE_EXTRA_CA_CERTS below.
+      - name: homelab-ca
+        secret:
+          secretName: homelab-ca
+          optional: true
     volumeMounts:
       - name: oidc-hooks
         mountPath: /hooks
+        readOnly: true
+      - name: homelab-ca
+        mountPath: /homelab-ca
         readOnly: true
 
     # ponytail: fixed dev client_id/secret matching the Authentik OAuth2

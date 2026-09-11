@@ -2,471 +2,499 @@
   "name": "F-03 /develop",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "mm-develop",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "slack-trigger",
-      "name": "Mattermost: trigger",
+      "id": "7c170cce-8d64-45c1-a94a-801cdf2da165",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "develop",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "3f19b4ff-d160-418a-b7ff-8abf858c47ae"
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/develop`...\"}"
-      },
-      "id": "mm-ack-slack-trigger",
-      "name": "Mattermost: ack command",
+      "id": "a4d16171-010d-4298-ad7e-b5fa03796943",
+      "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        480,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :hourglass_flowing_sand: *Development started* for `={{ $('Slack: trigger').item.json.text }}`\nActivating sprint DAG · spawning DevOps gate A...",
-        "otherOptions": {}
-      },
-      "id": "ack-03",
-      "name": "Mattermost: develop started",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        480,
+        460,
         300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
-        }
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
       }
     },
     {
-      "parameters": {
-        "jsCode": "$workflow.staticData.dagState={version:$('Slack: trigger').item.json.text,project:$('Slack: trigger').item.json.user_name,stories:{},retryCounters:{}};\nreturn [{json:{status:'dag-activated'}}];"
-      },
-      "id": "activate-dag",
-      "name": "Activate sprint DAG",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "dc53460c-f74e-44a3-b874-beab93430f8e",
+      "name": "Notify: Develop started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        720,
+        680,
         300
-      ]
-    },
-    {
+      ],
       "parameters": {
-        "command": "=echo '{\"role\":\"devops\",\"task\":\"gate-A-infra-check\"}' > /tmp/gA.json && omp run --mode json --role default @/tmp/gA.json"
-      },
-      "id": "spawn-do-a",
-      "name": "Spawn DevOps Pod (gate A)",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        960,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "conditions": [
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "leftValue": "={{ $json.exitCode }}",
-              "rightValue": 0,
-              "operator": {
-                "type": "number",
-                "operation": "equals"
-              }
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udee0\ufe0f develop started \u2014 Gate A DevOps"
+            },
+            {
+              "name": "notes",
+              "value": ""
             }
           ]
         }
-      },
-      "id": "gate-a",
-      "name": "Gate A: infra ready?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        1200,
-        300
-      ]
+      }
     },
     {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :white_check_mark: Gate A (DevOps infra) ready. Spawning Data Engineer (gate B)...",
-        "otherOptions": {}
-      },
-      "id": "slack-gA-ok",
-      "name": "Mattermost: gate A ready",
-      "type": "n8n-nodes-base.mattermost",
+      "id": "dd6553b5-1c7c-4578-941d-3ed60f516ca0",
+      "name": "Gate A: DevOps preflight",
+      "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        1440,
-        200
+        900,
+        300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "command": "omp --role devops-engineer --model default --project {{ $env.REPO_DIR }} --prompt 'Verify CI pipelines green, SIT cluster healthy, secrets in Vault current for {{ $json.body.version }}.' --non-interactive"
+      }
+    },
+    {
+      "id": "efa3b262-8e0a-4670-bfc5-1738207a7cf1",
+      "name": "Notify: Gate A done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u2705 Gate A done \u2014 Gate B Data Engineer"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     },
     {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :x: Gate A *failed* — DevOps infra not ready. Check DevOps pod logs.",
-        "otherOptions": {}
-      },
-      "id": "slack-gA-fail",
-      "name": "Mattermost: gate A failed",
-      "type": "n8n-nodes-base.mattermost",
+      "id": "f0545535-45d5-4a11-a37a-a8fd8cb51521",
+      "name": "Gate B: Data Engineer",
+      "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        1440,
+        1340,
+        300
+      ],
+      "parameters": {
+        "command": "omp --role data-engineer --model default --project {{ $env.REPO_DIR }} --prompt 'Apply migrations, push schema to Apicurio, verify Debezium connectors for {{ $json.body.version }}.' --non-interactive"
+      }
+    },
+    {
+      "id": "1cabde1d-6cf7-479d-bda4-f8d95f8f3e12",
+      "name": "Notify: Gate B done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u2705 Gate B done \u2014 Gate C TL pseudocode review"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cc2cf0c2-8da6-4e50-9ae5-00186e7ca6b7",
+      "name": "Gate C: TL Pseudocode",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        300
+      ],
+      "parameters": {
+        "command": "omp --role tech-lead --model slow --project {{ $env.REPO_DIR }} --prompt 'Review all openspec pseudocode for {{ $json.body.version }} tasks. Confirm openspec:ready labels. Identify cross-task dependencies.' --non-interactive"
+      }
+    },
+    {
+      "id": "324c08a1-b841-4e0f-b22f-0173df9d5b8b",
+      "name": "Notify: Fanning out dev pods",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u2705 Gate C done \u2014 dev pods fanning out"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "95b3b524-ad23-4843-aec0-d90688264fa6",
+      "name": "Backend Developer",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2220,
+        160
+      ],
+      "parameters": {
+        "command": "omp --role backend-developer --model smol --project {{ $env.REPO_DIR }} --prompt 'Implement backend tasks for {{ $json.body.version }} from pseudocode. No design reasoning \u2014 translate only.' --non-interactive"
+      }
+    },
+    {
+      "id": "8e105bcc-5ee0-409c-92a1-21994617786a",
+      "name": "Frontend Developer",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2220,
+        300
+      ],
+      "parameters": {
+        "command": "omp --role frontend-developer --model smol --project {{ $env.REPO_DIR }} --prompt 'Implement frontend tasks for {{ $json.body.version }} from pseudocode.' --non-interactive"
+      }
+    },
+    {
+      "id": "0c0438f2-1867-4ab7-a43d-31ee8184c056",
+      "name": "QA: Write Tests",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2220,
         440
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
-        }
+      "parameters": {
+        "command": "omp --role qa-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Write test suites for {{ $json.body.version }} tasks from tests.pseudo.ts.' --non-interactive"
       }
     },
     {
-      "parameters": {
-        "command": "=echo '{\"role\":\"data-engineer\",\"task\":\"gate-B-contracts\"}' > /tmp/gB.json && omp run --mode json --role slow @/tmp/gB.json"
-      },
-      "id": "spawn-de-b",
-      "name": "Spawn Data Engineer Pod (gate B)",
+      "id": "e1c6efed-804b-40fb-8da6-9ebf6ed8dabc",
+      "name": "Security: SAST",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        1680,
-        200
-      ]
+        2220,
+        580
+      ],
+      "parameters": {
+        "command": "omp --role security-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Run SAST, check secrets scanning, verify no new CVEs for {{ $json.body.version }}.' --non-interactive"
+      }
     },
     {
+      "id": "e575fa2d-4e42-41a3-86f9-eea4accfe52b",
+      "name": "Merge Dev Pods",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2440,
+        360
+      ],
       "parameters": {
-        "conditions": {
-          "conditions": [
+        "mode": "waitForAll"
+      }
+    },
+    {
+      "id": "ed0bd710-9731-4377-b7a1-c4225424ce01",
+      "name": "Notify: Develop complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2660,
+        360
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "leftValue": "={{ $json.exitCode }}",
-              "rightValue": 0,
-              "operator": {
-                "type": "number",
-                "operation": "equals"
-              }
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u2705 develop complete \u2014 all pods done, MRs opened"
+            },
+            {
+              "name": "notes",
+              "value": ""
             }
           ]
         }
-      },
-      "id": "gate-b",
-      "name": "Gate B: types ready?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        1920,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :white_check_mark: Gate B (types + contracts) ready. Spawning TL pseudocode (gate C)...",
-        "otherOptions": {}
-      },
-      "id": "slack-gB-ok",
-      "name": "Mattermost: gate B ready",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        2160,
-        120
-      ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
-        }
       }
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"tech-lead\",\"task\":\"gate-C-pseudocode\"}' > /tmp/gC.json && omp run --mode json --role slow @/tmp/gC.json"
-      },
-      "id": "spawn-tl-c",
-      "name": "Spawn TL Pod (gate C): pseudocode",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        2400,
-        120
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "conditions": [
-            {
-              "leftValue": "={{ $json.exitCode }}",
-              "rightValue": 0,
-              "operator": {
-                "type": "number",
-                "operation": "equals"
-              }
-            }
-          ]
-        }
-      },
-      "id": "gate-c",
-      "name": "Gate C: openspec:ready?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        2640,
-        120
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :rocket: All gates complete. Developer pods now running in parallel:\n• Backend (smol+hashline)\n• Frontend (smol+hashline)\n• QA + Security (smol)\n• DevOps (smol)\n\nMR opened events will drive F-04 review cycles.",
-        "otherOptions": {}
-      },
-      "id": "slack-gC-ok",
-      "name": "Mattermost: all pods unblocked",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        2880,
-        120
-      ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"backend-developer\",\"task\":\"implement\"}' > /tmp/be.json && omp run --mode json --role smol @/tmp/be.json"
-      },
-      "id": "spawn-be",
-      "name": "Spawn Backend Pods",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        3120,
-        60
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"frontend-developer\",\"task\":\"implement\"}' > /tmp/fe.json && omp run --mode json --role smol @/tmp/fe.json"
-      },
-      "id": "spawn-fe",
-      "name": "Spawn Frontend Pods",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        3120,
-        180
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"qa-engineer\",\"task\":\"write-tests\"}' > /tmp/qa.json && omp run --mode json --role smol @/tmp/qa.json"
-      },
-      "id": "spawn-qa",
-      "name": "Spawn QA Pods",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        3120,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"devops-engineer\",\"task\":\"pipeline-config\"}' > /tmp/dv.json && omp run --mode json --role smol @/tmp/dv.json"
-      },
-      "id": "spawn-dv",
-      "name": "Spawn DevOps Pods",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        3120,
-        420
-      ]
     }
   ],
   "connections": {
-    "Mattermost: trigger": {
+    "7c170cce-8d64-45c1-a94a-801cdf2da165": {
       "main": [
         [
           {
-            "node": "Mattermost: develop started",
+            "node": "a4d16171-010d-4298-ad7e-b5fa03796943",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Mattermost: ack command",
+            "node": "dc53460c-f74e-44a3-b874-beab93430f8e",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mattermost: develop started": {
+    "dc53460c-f74e-44a3-b874-beab93430f8e": {
       "main": [
         [
           {
-            "node": "Activate sprint DAG",
+            "node": "dd6553b5-1c7c-4578-941d-3ed60f516ca0",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Activate sprint DAG": {
+    "dd6553b5-1c7c-4578-941d-3ed60f516ca0": {
       "main": [
         [
           {
-            "node": "Spawn DevOps Pod (gate A)",
+            "node": "efa3b262-8e0a-4670-bfc5-1738207a7cf1",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn DevOps Pod (gate A)": {
+    "efa3b262-8e0a-4670-bfc5-1738207a7cf1": {
       "main": [
         [
           {
-            "node": "Gate A: infra ready?",
+            "node": "f0545535-45d5-4a11-a37a-a8fd8cb51521",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Gate A: infra ready?": {
+    "f0545535-45d5-4a11-a37a-a8fd8cb51521": {
       "main": [
         [
           {
-            "node": "Mattermost: gate A ready",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Mattermost: gate A failed",
+            "node": "1cabde1d-6cf7-479d-bda4-f8d95f8f3e12",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mattermost: gate A ready": {
+    "1cabde1d-6cf7-479d-bda4-f8d95f8f3e12": {
       "main": [
         [
           {
-            "node": "Spawn Data Engineer Pod (gate B)",
+            "node": "cc2cf0c2-8da6-4e50-9ae5-00186e7ca6b7",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn Data Engineer Pod (gate B)": {
+    "cc2cf0c2-8da6-4e50-9ae5-00186e7ca6b7": {
       "main": [
         [
           {
-            "node": "Gate B: types ready?",
+            "node": "324c08a1-b841-4e0f-b22f-0173df9d5b8b",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Gate B: types ready?": {
+    "324c08a1-b841-4e0f-b22f-0173df9d5b8b": {
       "main": [
         [
           {
-            "node": "Mattermost: gate B ready",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Mattermost: gate B ready": {
-      "main": [
-        [
-          {
-            "node": "Spawn TL Pod (gate C): pseudocode",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Spawn TL Pod (gate C): pseudocode": {
-      "main": [
-        [
-          {
-            "node": "Gate C: openspec:ready?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Gate C: openspec:ready?": {
-      "main": [
-        [
-          {
-            "node": "Mattermost: all pods unblocked",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Mattermost: all pods unblocked": {
-      "main": [
-        [
-          {
-            "node": "Spawn Backend Pods",
+            "node": "95b3b524-ad23-4843-aec0-d90688264fa6",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn Frontend Pods",
+            "node": "8e105bcc-5ee0-409c-92a1-21994617786a",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn QA Pods",
+            "node": "0c0438f2-1867-4ab7-a43d-31ee8184c056",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn DevOps Pods",
+            "node": "e1c6efed-804b-40fb-8da6-9ebf6ed8dabc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "95b3b524-ad23-4843-aec0-d90688264fa6": {
+      "main": [
+        [
+          {
+            "node": "e575fa2d-4e42-41a3-86f9-eea4accfe52b",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8e105bcc-5ee0-409c-92a1-21994617786a": {
+      "main": [
+        [
+          {
+            "node": "e575fa2d-4e42-41a3-86f9-eea4accfe52b",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0c0438f2-1867-4ab7-a43d-31ee8184c056": {
+      "main": [
+        [
+          {
+            "node": "e575fa2d-4e42-41a3-86f9-eea4accfe52b",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "e1c6efed-804b-40fb-8da6-9ebf6ed8dabc": {
+      "main": [
+        [
+          {
+            "node": "e575fa2d-4e42-41a3-86f9-eea4accfe52b",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "e575fa2d-4e42-41a3-86f9-eea4accfe52b": {
+      "main": [
+        [
+          {
+            "node": "ed0bd710-9731-4377-b7a1-c4225424ce01",
             "type": "main",
             "index": 0
           }
@@ -475,18 +503,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "development"
-    },
-    {
-      "name": "phase-2"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

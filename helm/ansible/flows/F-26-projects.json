@@ -2,92 +2,148 @@
   "name": "F-26 /projects",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "mm-projects",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "slack-trigger",
-      "name": "Mattermost: trigger",
+      "id": "012cb2a3-5712-42eb-9cc7-d7bbe6112a6a",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "projects",
+        "httpMethod": "GET",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "0ba3c35a-7646-4360-b4fd-d570efdb6283"
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/projects`...\"}"
-      },
-      "id": "mm-ack-slack-trigger",
-      "name": "Mattermost: ack command",
+      "id": "cf747eb0-70aa-4dfc-8b97-c5f79f92c548",
+      "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        480,
-        200
-      ]
+        460,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
+      }
     },
     {
+      "id": "d0342401-24c5-437f-a35c-d26606bdeba7",
+      "name": "Query DAG State",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
       "parameters": {
-        "jsCode": "const dag=$workflow.staticData.dagState||{};\nconst summary={\n  version:dag.version||'(none)',\n  phase:dag.currentPhase||'idle',\n  storiesTotal:dag.totalStories||0,\n  storiesMerged:(dag.mergedStories||[]).length,\n  openMRs:Object.keys(dag.openMRs||{}).length,\n  clusterStates:dag.clusterStates||{},\n  pausedTasks:(dag.pausedTasks||[]).length,\n  lastActivity:dag.lastActivity||'—'\n};\nreturn [{json:summary}];"
-      },
-      "id": "read-dag",
-      "name": "Read n8n DAG state",
+        "method": "GET",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues?milestone={{ $env.RELEASE_VERSION }}&per_page=100",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7dc9f5b9-02e2-4b3d-9819-7e36e3cca501",
+      "name": "Build DAG Summary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        480,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :bar_chart: *SDLC Status*\n*Version:* `{{ $json.version }}`\n*Phase:* {{ $json.phase }}\n*Stories:* {{ $json.storiesMerged }}/{{ $json.storiesTotal }} merged\n*Open MRs:* {{ $json.openMRs }}\n*Paused tasks:* {{ $json.pausedTasks }}\n*Clusters:* {{ JSON.stringify($json.clusterStates) }}\n*Last activity:* {{ $json.lastActivity }}",
-        "otherOptions": {}
-      },
-      "id": "slack-status",
-      "name": "Mattermost: project status report",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        720,
+        900,
         300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "jsCode": "\nconst issues = $input.all().map(i => i.json);\nconst stories = issues.filter(i => i.labels.includes('type:user-story'));\nconst tasks = issues.filter(i => i.labels.includes('type:task'));\nconst open = stories.filter(i => i.state === 'opened').length;\nconst merged = stories.filter(i => i.labels.includes('merged-to-release')).length;\nreturn [{json: {\n  version: $env.RELEASE_VERSION,\n  stories_total: stories.length,\n  stories_open: open,\n  stories_merged: merged,\n  tasks_open: tasks.filter(i => i.state === 'opened').length,\n  tasks_closed: tasks.filter(i => i.state === 'closed').length,\n  dag_paused: $env.DAG_PAUSED ?? false,\n  summary: `${merged}/${stories.length} stories merged, ${tasks.filter(i=>i.state==='opened').length} tasks open`\n}}];\n"
+      }
+    },
+    {
+      "id": "d3ff71cd-fc3f-4906-b479-7c0a23df6e68",
+      "name": "Notify: DAG state",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udcca DAG state {{ $env.RELEASE_VERSION }}: {{ $json.summary }} | paused={{ $json.dag_paused }}"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     }
   ],
   "connections": {
-    "Mattermost: trigger": {
+    "012cb2a3-5712-42eb-9cc7-d7bbe6112a6a": {
       "main": [
         [
           {
-            "node": "Read n8n DAG state",
+            "node": "cf747eb0-70aa-4dfc-8b97-c5f79f92c548",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Mattermost: ack command",
+            "node": "d0342401-24c5-437f-a35c-d26606bdeba7",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Read n8n DAG state": {
+    "d0342401-24c5-437f-a35c-d26606bdeba7": {
       "main": [
         [
           {
-            "node": "Mattermost: project status report",
+            "node": "7dc9f5b9-02e2-4b3d-9819-7e36e3cca501",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7dc9f5b9-02e2-4b3d-9819-7e36e3cca501": {
+      "main": [
+        [
+          {
+            "node": "d3ff71cd-fc3f-4906-b479-7c0a23df6e68",
             "type": "main",
             "index": 0
           }
@@ -96,15 +152,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "cross-cutting"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

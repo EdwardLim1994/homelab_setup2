@@ -31,6 +31,45 @@ argo-cd:
         memory: 128Mi
       limits:
         memory: 256Mi
+    # ponytail: oidc.config's issuer must stay the external tailnet URL (it's
+    # what Authentik puts in the token's `iss` claim and what the browser
+    # redirects to) — ArgoCD's built-in OIDC client has no split
+    # discovery-vs-browser endpoint like gitlab/grafana/litellm use, so unlike
+    # them argocd-server must actually trust the homelab CA to fetch
+    # .well-known/openid-configuration over that tailnet HTTPS (coredns.tf
+    # rewrites it to in-cluster traefik, which serves a homelab-CA cert).
+    # Same combine-and-overwrite-the-system-bundle trick as openwebui's
+    # init container, targeted at the Debian path Go's x509 reads by default
+    # (so this doesn't clobber public-CA trust for git-over-HTTPS etc, unlike
+    # setting SSL_CERT_FILE, which replaces rather than appends on Go/Linux).
+    volumes:
+      - name: homelab-ca
+        secret:
+          secretName: homelab-ca
+          optional: true
+      - name: combined-ca
+        emptyDir: {}
+    initContainers:
+      - name: combine-certs
+        image: alpine:3
+        command:
+          - sh
+          - -c
+          - |
+            apk add --no-cache ca-certificates >/dev/null 2>&1
+            cp /etc/ssl/certs/ca-certificates.crt /combined/ca-certificates.crt
+            [ -f /homelab-ca/ca.crt ] && cat /homelab-ca/ca.crt >> /combined/ca-certificates.crt
+            exit 0
+        volumeMounts:
+          - name: homelab-ca
+            mountPath: /homelab-ca
+            readOnly: true
+          - name: combined-ca
+            mountPath: /combined
+    volumeMounts:
+      - name: combined-ca
+        mountPath: /etc/ssl/certs/ca-certificates.crt
+        subPath: ca-certificates.crt
 
   controller:
     resources:

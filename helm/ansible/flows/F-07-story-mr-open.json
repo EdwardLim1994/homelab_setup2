@@ -1,0 +1,227 @@
+{
+  "name": "F-07 Story MR Open",
+  "nodes": [
+    {
+      "id": "df96bafb-4aa1-4c90-9f46-5f7ba30126d3",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "path": "story-mr-open",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "4e7e56cf-aa7d-4a0a-9c87-94ff20e0153f"
+    },
+    {
+      "id": "ba5062e9-336c-4106-a59e-d53c31cd68c6",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
+      }
+    },
+    {
+      "id": "4482e1db-09f7-4db2-bab7-cfbf0d8e3ae6",
+      "name": "Notify: Story MR opening",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udccb Story MR opening \u2014 TL + QA parallel"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "15610405-e40d-45b1-bc0a-c5124fd42a9e",
+      "name": "TL: Open Story MR",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        900,
+        200
+      ],
+      "parameters": {
+        "command": "opencode --role tech-lead --model sonnet --prompt 'Open MR from us/{{ $json.body.story_id }} \u2192 release/{{ $json.body.version }} via glab. Set reviewers.' --non-interactive"
+      }
+    },
+    {
+      "id": "d93ceb5e-24c0-466b-a4a4-102ad7f2b1d6",
+      "name": "QA: Story Integration Tests",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        900,
+        400
+      ],
+      "parameters": {
+        "command": "omp --role qa-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Run integration test suite for story {{ $json.body.story_id }}. Report pass/fail with coverage.' --non-interactive"
+      }
+    },
+    {
+      "id": "f1eaf118-e763-4983-a61e-992b0a37376c",
+      "name": "Merge TL+QA",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        300
+      ],
+      "parameters": {
+        "mode": "waitForAll"
+      }
+    },
+    {
+      "id": "b9e6b8aa-39d6-45fc-9ec0-b76c443c0415",
+      "name": "Notify: Story MR ready for Edward",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udc64 Story MR ready \u2014 Edward please review and merge us/{{ $json.body.story_id }}"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "df96bafb-4aa1-4c90-9f46-5f7ba30126d3": {
+      "main": [
+        [
+          {
+            "node": "ba5062e9-336c-4106-a59e-d53c31cd68c6",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "4482e1db-09f7-4db2-bab7-cfbf0d8e3ae6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4482e1db-09f7-4db2-bab7-cfbf0d8e3ae6": {
+      "main": [
+        [
+          {
+            "node": "15610405-e40d-45b1-bc0a-c5124fd42a9e",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "d93ceb5e-24c0-466b-a4a4-102ad7f2b1d6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "15610405-e40d-45b1-bc0a-c5124fd42a9e": {
+      "main": [
+        [
+          {
+            "node": "f1eaf118-e763-4983-a61e-992b0a37376c",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "d93ceb5e-24c0-466b-a4a4-102ad7f2b1d6": {
+      "main": [
+        [
+          {
+            "node": "f1eaf118-e763-4983-a61e-992b0a37376c",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "f1eaf118-e763-4983-a61e-992b0a37376c": {
+      "main": [
+        [
+          {
+            "node": "b9e6b8aa-39d6-45fc-9ec0-b76c443c0415",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "tags": [],
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

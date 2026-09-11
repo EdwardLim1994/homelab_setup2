@@ -28,8 +28,8 @@ apps=(
   "nextcloud:nextcloud:nextcloud.local"
   "argocd:argocd:argocd.local"
   "grafana:grafana:grafana.local"
-  "mattermost:mattermost:mattermost.local"
   "litellm:litellm::/ui"
+  "openwebui:openwebui:"
 )
 
 # ponytail: no -L — the SSO apps 302/307 to a login page (and litellm's 307

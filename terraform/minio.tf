@@ -6,16 +6,26 @@ resource "kubernetes_namespace" "minio" {
 
 # ponytail: MinIO trusts the homelab CA so its server-side OIDC discovery to
 # authentik.<tailnet> (rewritten to traefik in terraform/coredns.tf) validates.
-# Same read-and-copy pattern as mattermost.tf.
+# Same read-and-copy pattern as openwebui.tf — separate data source name
+# (used to piggyback on mattermost.tf's before that file was removed;
+# resource names must be unique per type per module).
+data "kubernetes_secret" "homelab_ca_minio" {
+  metadata {
+    name      = "homelab-ca-secret"
+    namespace = kubernetes_namespace.cert_manager.metadata[0].name
+  }
+  depends_on = [null_resource.homelab_ca_ready]
+}
+
 resource "kubernetes_secret" "minio_homelab_ca" {
   metadata {
     name      = "minio-homelab-ca"
     namespace = kubernetes_namespace.minio.metadata[0].name
   }
   data = {
-    "ca.crt" = data.kubernetes_secret.homelab_ca.data["tls.crt"]
+    "ca.crt" = data.kubernetes_secret.homelab_ca_minio.data["tls.crt"]
   }
-  depends_on = [kubernetes_namespace.minio, data.kubernetes_secret.homelab_ca]
+  depends_on = [kubernetes_namespace.minio, data.kubernetes_secret.homelab_ca_minio]
 }
 
 resource "helm_release" "minio" {

@@ -1,74 +1,183 @@
 {
-  "name": "F-25 /escalate (Cross-cutting)",
+  "name": "F-25 /escalate",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "escalate",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "wh-25",
-      "name": "Webhook: escalate",
+      "id": "eb6d990b-6de1-4945-a1dc-17515ee5e874",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "escalate",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "d0831192-d92b-4838-aa02-b20f4636d72b"
     },
     {
-      "parameters": {
-        "jsCode": "const dag=$workflow.staticData.dagState||{};\ndag.pausedTasks=dag.pausedTasks||[];\ndag.pausedTasks.push($json.body.context);\n$workflow.staticData.dagState=dag;\nreturn [{json:{paused:true,context:$json.body.context,reason:$json.body.reason,flow:$json.body.flow,attempts:$json.body.attempts}}];"
-      },
-      "id": "pause-dag",
-      "name": "Pause DAG tasks",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        480,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
-        "message": ":rotating_light: *ESCALATION* — `{{ $json.flow }}`\n*Reason:* {{ $json.reason }}\n*Attempts:* {{ $json.attempts }}\n*Context:* {{ $json.context }}\n\nDAG paused. Your action required.",
-        "otherOptions": {}
-      },
-      "id": "slack-escalate",
-      "name": "Mattermost: ESCALATION",
-      "type": "n8n-nodes-base.mattermost",
+      "id": "550c519d-e536-4f5c-83a4-3363457998a9",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        720,
+        460,
         300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
+      }
+    },
+    {
+      "id": "8b9c6c31-d424-4a9f-b994-460b9bfeb90d",
+      "name": "Pause DAG State",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3c5ff122-c010-44e2-bca8-0d36392f5667",
+              "name": "dag_paused",
+              "value": "true",
+              "type": "string"
+            },
+            {
+              "id": "0cc4e41f-3179-413d-afde-ee552e217854",
+              "name": "escalation_reason",
+              "value": "={{ $json.body.reason }}",
+              "type": "string"
+            },
+            {
+              "id": "5c4d989b-7dad-4c1e-98ac-6bbbfd045116",
+              "name": "escalated_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a61db17a-ed2b-4dbe-b255-db74242ab93d",
+      "name": "Notify: ESCALATION",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udea8 ESCALATION \u2014 DAG paused. Reason: {{ $json.body.reason }}. Human intervention required."
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c32fa87a-b132-416a-b3db-0aa7d00728fb",
+      "name": "Open Escalation Ticket",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "__json",
+              "value": "{\"title\":\"[ESCALATION] {{ $json.body.reason }}\",\"labels\":\"type:escalation,priority:critical\",\"description\":\"Auto-escalated by n8n SDLC orchestrator.\"}"
+            }
+          ]
         }
       }
     }
   ],
   "connections": {
-    "Webhook: escalate": {
+    "eb6d990b-6de1-4945-a1dc-17515ee5e874": {
       "main": [
         [
           {
-            "node": "Pause DAG tasks",
+            "node": "550c519d-e536-4f5c-83a4-3363457998a9",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "8b9c6c31-d424-4a9f-b994-460b9bfeb90d",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Pause DAG tasks": {
+    "8b9c6c31-d424-4a9f-b994-460b9bfeb90d": {
       "main": [
         [
           {
-            "node": "Mattermost: ESCALATION",
+            "node": "a61db17a-ed2b-4dbe-b255-db74242ab93d",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "a61db17a-ed2b-4dbe-b255-db74242ab93d": {
+      "main": [
+        [
+          {
+            "node": "c32fa87a-b132-416a-b3db-0aa7d00728fb",
             "type": "main",
             "index": 0
           }
@@ -77,15 +186,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "cross-cutting"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

@@ -10,8 +10,8 @@ in front of everything, every app reachable over Tailscale MagicDNS
 (`https://<app>.<tailnet>.ts.net`) and on the LAN (`https://<app>.local`).
 
 Apps: Authentik, GitLab (+ runner), MinIO, n8n, SonarQube, Nextcloud, ArgoCD,
-an LGTM observability stack, Mattermost, LiteLLM, a set of MCP servers, and an
-in-cluster coding-agent stack (`omp` / oh-my-pi).
+an LGTM observability stack, LiteLLM, OpenWebUI, a set of MCP
+servers, and an in-cluster coding-agent stack (`omp` / oh-my-pi).
 
 ## Two deploy paths, kept in lockstep
 
@@ -67,7 +67,7 @@ k3d-storage/           host-path mount backing the cluster's local-path PVs
 
 One `postgres:16` pod (`helm/postgres`, namespace `postgres`, service
 `postgres.postgres.svc.cluster.local:5432`) backs **authentik, gitlab, litellm,
-mattermost, n8n, sonarqube** — one LOGIN role + owned database per app, all
+n8n, sonarqube** — one LOGIN role + owned database per app, all
 sharing `var.shared_db_password`, created by the chart's `initdb` ConfigMap on
 **first init only**. Role name == db name for everyone except GitLab (role
 `gitlab`, db `gitlabhq_production`); initdb also adds `pg_trgm` / `btree_gist`
@@ -116,7 +116,7 @@ Service VIP, so an app doing OIDC discovery server-side against
 `https://authentik.<tailnet>` just times out. A `coredns-custom` rewrite points
 that name at traefik in-cluster + a traefik vhost serves it with a homelab-CA
 cert; the consuming app trusts that CA (minio via the chart's
-`trustedCertsSecret`, mattermost via an init container). Browser traffic is
+`trustedCertsSecret`, openwebui via an init container). Browser traffic is
 untouched. Terraform-only — Tilt has no tailnet ingress. Apps that *can* split
 browser vs backend endpoints (gitlab/grafana/litellm) skip all this and just
 point server-side calls at `authentik-server.authentik.svc`.
@@ -147,8 +147,8 @@ See `helm/omp/SPAWN.md` for the spawn/despawn flows and role pods.
 
 ## n8n SDLC flows
 
-`helm/ansible/flows/F-*.json` — 29 n8n workflows implementing an SDLC pipeline
-driven by Mattermost slash commands + GitLab/CI webhooks. Seeded by
+`helm/ansible/flows/F-*.json` — 29 n8n workflows implementing an SDLC pipeline,
+originally driven by Mattermost slash commands + GitLab/CI webhooks. Seeded by
 `helm/ansible/flows/seed.sh`, run from `helm/ansible/playbooks/n8n.yml`
 (mints an n8n API key, then upserts the flows). Flow files are mounted at
 `/flows` in the ansible runner via the `ansible-n8n-flows` ConfigMap
@@ -157,32 +157,11 @@ driven by Mattermost slash commands + GitLab/CI webhooks. Seeded by
 `seed.sh` strips read-only keys (`active`, `tags`) before `POST /api/v1/workflows`
 and activates via `POST /workflows/{id}/activate` (n8n 2.x).
 
-## Mattermost
-
-- Team Edition image. SSO via Mattermost's **GitLab-format OAuth slot pointed
-  at Authentik** (TE has no generic OIDC) — login button says "GitLab", goes
-  to Authentik. `provision-app-providers.py` adds a numeric-`id` claim mapping
-  that Mattermost's driver needs.
-- **File storage → MinIO S3** (`MM_FILESETTINGS_*` in `values.yaml`, bucket
-  `mattermost` pre-created by `helm/minio`, MinIO root creds, plain http on
-  the in-cluster endpoint — same pattern GitLab uses).
-- Mobile push via the hosted test gateway (`push-test.mattermost.com`).
-- **`playbooks/mattermost.yml`** automates the chat integration: `mmctl --local`
-  (root socket, no auth — works around OIDC-only login) creates the `ai`
-  channel + `sdlc-svc` user + a personal access token + the outgoing webhook
-  (`omp` trigger word → n8n `/webhook/mm-chat`), then registers the token as
-  an n8n `mattermostApi` credential and runs `bind-mm-cred.py` to point all
-  Mattermost-using flows at it. Needs `MM_SERVICESETTINGS_ENABLELOCALMODE`,
-  `ENABLEOUTGOINGWEBHOOKS`, `ENABLEUSERACCESSTOKENS` (all in `values.yaml`)
-  and the `pods/exec` RBAC in `terraform/ansible.tf`.
-- **Two ways to chat with the agent:**
-  1. `F-28-chat.json` — type `omp <question>` in `#ai`; the outgoing webhook
-     hits n8n → LiteLLM `omp` model → reply posted back.
-  2. The **Agents** plugin (`mattermost-ai`, already installed + enabled) —
-     configure a bot in System Console → Plugins → Agents pointed at
-     `http://litellm.litellm.svc.cluster.local:4000/v1` with the LiteLLM
-     master key and model `omp` (agent) or `qwen3.8:27b` (plain chat). This
-     is the "chat like a normal user" path (DMs, @mentions, streaming).
+**Mattermost was removed** (see "Current progress" below) — the flow JSON
+files still carry `mattermostApi` credential refs and Mattermost-shaped nodes
+(`F-28-chat.json`'s outgoing-webhook trigger, the notification posts in the
+release/UAT/rollback flows). They're stale until updated to a new
+notification target; not yet done.
 
 ## Ansible runner
 
@@ -192,14 +171,14 @@ one-shot Jobs cloned from it by `scripts/{linux,windows}/ansible-run.*`:
 ```
 scripts/linux/ansible-run.sh              # ALL playbooks, fanned out in parallel
 scripts/linux/ansible-run.sh n8n          # playbooks/n8n.yml
-scripts/linux/ansible-run.sh mattermost --syntax-check
+scripts/linux/ansible-run.sh omp --syntax-check
 ```
 
-Playbooks: `n8n.yml`, `mattermost.yml`, `mcp-servers.yml`, `omp.yml`,
-`litellm.yml`. With no argument the script launches one Job per playbook
-concurrently — `omp` / `litellm` / `mcp-servers` in parallel, plus an
-`n8n → mattermost` chain (mattermost needs the flows seeded first). Pass
-`site` to run the old serial `site.yml` in a single Job instead. Runner SA is
+Playbooks: `n8n.yml`, `mcp-servers.yml`, `omp.yml`, `litellm.yml`. With no
+argument the script launches one Job per playbook, all in parallel (no
+cross-dependencies now that `mattermost.yml` — the one thing chained after
+n8n — is gone). Pass `site` to run the old serial `site.yml` in a single Job
+instead. Runner SA is
 `ansible-runner`; per-namespace Roles for it live in `terraform/ansible.tf`.
 
 `gitlab-webhook.yml` (+ `gitlab-webhook-project.yml`, included per-project) is
@@ -217,14 +196,11 @@ in-cluster address). The DevOps pod hooks new repos at `/kickoff`.
 
 - **`ponytail:` comments** mark deliberate simplifications and their upgrade
   path. Respect them; don't "fix" them without cause.
-- **`mmctl --local`** is `/mattermost/bin/mmctl --local` inside the pod; it
-  hits a root Unix socket, no auth. `bot create` is **not** available in
-  local mode (hence `sdlc-svc` is a normal user).
 - **`kubernetes.core.k8s_exec`** returns `return_code`/`stdout`, not `rc`.
 - k3d image flow: build `k3d-registry:5111/omp-box:dev` (or `localhost:5111/...`),
   push, `crictl rmi` the old tag on the node so `IfNotPresent` re-pulls.
-- Git Bash mangles `/mattermost/...` args to `kubectl exec` — prefix with
-  `MSYS_NO_PATHCONV=1`.
+- Git Bash mangles absolute in-pod paths (e.g. `/gitlab/...`) passed to
+  `kubectl exec` — prefix with `MSYS_NO_PATHCONV=1`.
 
 ## Common commands
 
@@ -235,7 +211,7 @@ scripts/linux/gen-tfvars.sh && (cd terraform && tofu apply)   # prod path
 scripts/linux/list-urls.sh                        # app URLs + status
 scripts/linux/omp-shell.sh                        # interactive omp pod shell
 scripts/linux/ansible-run.sh                      # every playbook, parallel fan-out
-scripts/linux/ansible-run.sh <playbook>           # just one (n8n / mattermost / omp / …)
+scripts/linux/ansible-run.sh <playbook>           # just one (n8n / omp / litellm / …)
 scripts/linux/ansible-run.sh gitlab-webhook       # not in the default set
 kubectl -n omp scale deploy/omp --replicas=1      # wake the agent pod
 ```
@@ -250,17 +226,18 @@ Working and verified end-to-end:
   without that, a fresh Authentik DB leaves every provider unscoped and every
   OIDC login fails "Insufficient scope".)
 - **Shared postgres + redis** — one pod each; authentik / gitlab / litellm /
-  mattermost / n8n / sonarqube migrated off their per-app postgres, authentik
-  + gitlab off their per-app redis.
+  n8n / sonarqube migrated off their per-app postgres, authentik + gitlab off
+  their per-app redis.
 - **omp agent stack** — `models.yml` fixed for omp 18.x (`baseUrl` without
   `/v1`, `auth: none`); default model `ollama/qwen3.8:27b` (80B
   `qwen3-coder-next` OOMs); `pod-openai.py` runs `omp models refresh` at boot
   and pins `--model`. `n8n → LiteLLM omp → omp-adapter → omp pod → Ollama`
   returns completions.
-- **29 n8n SDLC flows** seeded and active. `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`
-  so `$env.*` resolves.
-- **Mattermost** — SSO, MinIO S3 file storage, mobile push, `mattermost.yml`
-  automation. `F-28` chat verified (`omp <q>` in `#ai`).
+- **29 n8n SDLC flows** seeded and active (though Mattermost-shaped — see
+  "n8n SDLC flows" above; not yet updated post-removal).
+  `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` so `$env.*` resolves.
+- **OpenWebUI** — SSO-only login (Authentik), routed through LiteLLM, PWA
+  install verified working.
 - **MCP servers** — grafana, sonarqube, gitlab, playwright, **n8n**
   (`czlonkowski/n8n-mcp`, docs + management once `n8n.yml` injects the key).
 - **GitLab webhook** — `gitlab-webhook.yml` registers a project-level SDLC
@@ -272,10 +249,26 @@ Known issues / next steps:
   ~1–2 min. Ollama must be running on the host or nothing LLM-shaped works.
 - `seed.sh` bails if any workflow exists unless `--force`, and `--force`
   creates duplicates — not a true upsert. Wipe + reseed is the working path.
-- Mattermost files uploaded before the S3 switch sit on the old `data` PVC and
-  404; no migration done.
 - Old per-app `data-<app>-postgres-0` / `-postgresql-0` PVCs are orphaned after
   the shared-DB switch — delete them by hand (StatefulSet PVCs aren't pruned).
-- The Agents-plugin bot is configured via the System Console UI (version-
-  specific config blob, not scripted).
-- `openwebui` / `opencode` fully removed (Mattermost / `omp`).
+- `opencode` fully removed (`omp`). `openwebui` was removed in favor of
+  Mattermost, then restored (`helm/openwebui`, `terraform/openwebui.tf`) as a
+  SSO-only chat UI onto the same LiteLLM backend. OpenWebUI is a PWA out of
+  the box (own manifest/service worker); no extra server config beyond the
+  HTTPS it already gets from the Tailscale/LAN ingress — install via the
+  browser's "Add to Home Screen" (iOS: Safari only) / install icon (desktop
+  Chrome/Edge). Login is SSO-only (`ENABLE_LOGIN_FORM: "False"`) — no
+  password form.
+- **Mattermost removed** (superseded by OpenWebUI for chat — see above). Live
+  cluster resources torn down via `tofu destroy`; `helm/mattermost/` and
+  `terraform/mattermost.tf` deleted; its shared-postgres db entry, MinIO
+  bucket, ansible RBAC/playbook, and script references all removed. **Not**
+  cleaned up: the `mattermost` OAuth2Provider/Application still sits in
+  Authentik's DB (the provisioner only creates/updates, never deletes —
+  remove it by hand via `ak shell` if it matters); the MinIO `mattermost`
+  bucket and its shared-postgres role/db aren't dropped either (`initdb` only
+  runs on first init — pre-existing data doesn't get cleaned by removing it
+  from the chart); the tailnet ACL's `svc:mattermost` grant (external, in the
+  Tailscale admin console — outside this repo) needs manual removal; the 29
+  n8n flows still reference Mattermost (see "n8n SDLC flows" above) — pending
+  update.

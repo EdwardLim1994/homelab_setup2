@@ -1,60 +1,51 @@
 {
-  "name": "F-14 /release-staging",
+  "name": "F-14 /release_staging",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "mm-release_staging",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "slack-trigger",
-      "name": "Mattermost: trigger",
+      "id": "6be2386d-220c-416d-aa45-ff7597498aa3",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "release-staging",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "a4252b67-7ea8-4bfd-8894-e613a7b3c86c"
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/release_staging`...\"}"
-      },
-      "id": "mm-ack-slack-trigger",
-      "name": "Mattermost: ack command",
+      "id": "6d9be0a5-8fd1-4c8a-a586-30d43b4fc4e2",
+      "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        480,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :hourglass: *Release-staging* for `={{ $('Slack: trigger').item.json.text }}`\nChecking UAT sign-offs...",
-        "otherOptions": {}
-      },
-      "id": "ack-14",
-      "name": "Mattermost: staging started",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        480,
+        460,
         300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
-        }
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
       }
     },
     {
+      "id": "574de774-cf51-4be9-ad69-eedf5b6c17ce",
+      "name": "UAT Safeguard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
       "parameters": {
+        "method": "GET",
         "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $env.RELEASE_TICKET_ID }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -64,279 +55,221 @@
             }
           ]
         }
-      },
-      "id": "check-rt",
-      "name": "Check release ticket labels",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        720,
-        300
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const labels=$json.labels||[];\nconst req=['qa:uat-approved','security:cleared','po:uat-approved'];\nconst missing=req.filter(l=>!labels.includes(l));\nreturn [{json:{safe:missing.length===0,missing}}];"
-      },
-      "id": "validate",
-      "name": "All UAT sign-offs present?",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        960,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "conditions": [
-            {
-              "leftValue": "={{ $json.safe }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
-            }
-          ]
-        }
-      },
-      "id": "safe-gate",
-      "name": "Safeguard passed?",
+      "id": "94b7463d-558e-4d36-b9d0-4ebd90fda8a3",
+      "name": "All UAT Labels?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1200,
+        900,
         300
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :x: *Staging blocked* — missing UAT sign-offs: `{{ $json.missing.join(', ') }}`",
-        "otherOptions": {}
-      },
-      "id": "slack-blocked",
-      "name": "Mattermost: staging blocked",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        1440,
-        440
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "={{ $json.labels.includes('po:uat-approved') && $json.labels.includes('security:cleared') && $json.labels.includes('qa:uat-approved') }}",
+            "operation": "equals",
+            "rightValue": "true"
+          }
         }
       }
     },
     {
+      "id": "2759c45d-c7cc-4400-86b1-b888794704b3",
+      "name": "Notify: Staging blocked",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        400
+      ],
       "parameters": {
-        "command": "=opencode run --print 'Create release-plan ticket for version ={{ $('Slack: trigger').item.json.text }}'"
-      },
-      "id": "rm-ticket",
-      "name": "RM creates release-plan ticket",
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udeab /release_staging blocked \u2014 UAT labels missing on release ticket"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3ebdd3bd-7d83-4eff-a970-27c4e24e8a4e",
+      "name": "RM: Create Release Plan Ticket",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        1440,
-        160
-      ]
+        1120,
+        200
+      ],
+      "parameters": {
+        "command": "opencode --role release-manager --model sonnet --prompt 'Create release-plan child ticket for {{ $env.RELEASE_VERSION }} under release ticket {{ $env.RELEASE_TICKET_ID }}. Include go-live checklist.' --non-interactive"
+      }
     },
     {
-      "parameters": {
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/repository/branches",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "branch",
-              "value": "={{ 'promote/' + $('Slack: trigger').item.json.text }}"
-            },
-            {
-              "name": "ref",
-              "value": "={{ 'release/' + $('Slack: trigger').item.json.text }}"
-            }
-          ]
-        },
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
-            }
-          ]
-        }
-      },
-      "id": "create-promote",
+      "id": "ff579f3b-661a-417b-9ffe-bb6608d5d5cb",
       "name": "Create promote/ branch",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "typeVersion": 4.2,
       "position": [
-        1440,
-        280
-      ]
-    },
-    {
+        1340,
+        200
+      ],
       "parameters": {
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/pipelines",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "ref",
-              "value": "={{ 'promote/' + $('Slack: trigger').item.json.text }}"
-            },
-            {
-              "name": "variables[STAGE]",
-              "value": "promote-build-deploy"
-            }
-          ]
-        },
+        "method": "POST",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/repository/branches",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "PRIVATE-TOKEN",
               "value": "={{ $env.GITLAB_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "__json",
+              "value": "{\"branch\":\"promote/{{ $env.RELEASE_VERSION }}\",\"ref\":\"release/{{ $env.RELEASE_VERSION }}\"}"
             }
           ]
         }
-      },
-      "id": "trig-ci",
-      "name": "Trigger promotion CI",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        1680,
-        220
-      ]
+      }
     },
     {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :rocket: Staging kicked off for `={{ $('Slack: trigger').item.json.text }}`!\n• Release-plan ticket created · promote/ branch created · Promotion CI running\n\nYou'll be notified with the go/no-go decision.",
-        "otherOptions": {}
-      },
-      "id": "slack-kicked",
-      "name": "Mattermost: staging pipeline running",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
+      "id": "5ffa83c3-ccf7-4d5f-b669-012b5aac7f72",
+      "name": "Notify: Staging CI triggered",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        1920,
-        220
+        1560,
+        200
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\ude80 promote/ branch created \u2014 promotion CI triggered"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     }
   ],
   "connections": {
-    "Mattermost: trigger": {
+    "6be2386d-220c-416d-aa45-ff7597498aa3": {
       "main": [
         [
           {
-            "node": "Mattermost: staging started",
+            "node": "6d9be0a5-8fd1-4c8a-a586-30d43b4fc4e2",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Mattermost: ack command",
+            "node": "574de774-cf51-4be9-ad69-eedf5b6c17ce",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mattermost: staging started": {
+    "574de774-cf51-4be9-ad69-eedf5b6c17ce": {
       "main": [
         [
           {
-            "node": "Check release ticket labels",
+            "node": "94b7463d-558e-4d36-b9d0-4ebd90fda8a3",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Check release ticket labels": {
+    "94b7463d-558e-4d36-b9d0-4ebd90fda8a3": {
       "main": [
         [
           {
-            "node": "All UAT sign-offs present?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "All UAT sign-offs present?": {
-      "main": [
-        [
-          {
-            "node": "Safeguard passed?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Safeguard passed?": {
-      "main": [
-        [
-          {
-            "node": "RM creates release-plan ticket",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Create promote/ branch",
+            "node": "3ebdd3bd-7d83-4eff-a970-27c4e24e8a4e",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Mattermost: staging blocked",
+            "node": "2759c45d-c7cc-4400-86b1-b888794704b3",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "RM creates release-plan ticket": {
+    "3ebdd3bd-7d83-4eff-a970-27c4e24e8a4e": {
       "main": [
         [
           {
-            "node": "Trigger promotion CI",
+            "node": "ff579f3b-661a-417b-9ffe-bb6608d5d5cb",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create promote/ branch": {
+    "ff579f3b-661a-417b-9ffe-bb6608d5d5cb": {
       "main": [
         [
           {
-            "node": "Trigger promotion CI",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Trigger promotion CI": {
-      "main": [
-        [
-          {
-            "node": "Mattermost: staging pipeline running",
+            "node": "5ffa83c3-ccf7-4d5f-b669-012b5aac7f72",
             "type": "main",
             "index": 0
           }
@@ -345,18 +278,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "staging"
-    },
-    {
-      "name": "phase-4"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

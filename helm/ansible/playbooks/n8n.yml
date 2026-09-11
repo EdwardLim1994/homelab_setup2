@@ -1,7 +1,8 @@
-# n8n post-deploy: owner setup -> mint API key -> seed SDLC flows.
+# n8n post-deploy: owner setup -> mint (or reuse) API key -> seed SDLC flows.
 # Replaces the one-time-manual steps (n8n Settings -> API Keys). Idempotent:
-# skips owner setup if already done, always re-seeds flows (seed.sh upserts
-# by name). Flow JSON lives in helm/ansible/flows/, mounted at /flows.
+# skips owner setup if already done, reuses TF_VAR_n8n_mcp_api_key if set
+# instead of minting a new key every run, always re-seeds flows (seed.sh
+# upserts by name). Flow JSON lives in helm/ansible/flows/, mounted at /flows.
 #
 #   scripts/ansible-run.sh n8n
 #   scripts/ansible-run.sh n8n --syntax-check     # parse-only self-check
@@ -13,6 +14,11 @@
     n8n_url: "{{ lookup('env', 'N8N_URL') }}"
     owner_email: "{{ lookup('env', 'n8n_owner_email') }}"
     owner_password: "{{ lookup('env', 'n8n_owner_password') }}"
+    # ponytail: n8n only ever returns the raw API key once, at creation — so
+    # unlike owner setup this can't be "check if it exists, skip" against
+    # n8n's own API. Persisted in .env instead (TF_VAR_n8n_mcp_api_key ->
+    # ansible-secrets), same as every other credential in this stack.
+    persisted_api_key: "{{ lookup('env', 'n8n_mcp_api_key') | default('', true) }}"
   tasks:
     - name: Wait for n8n to answer
       ansible.builtin.uri:
@@ -62,7 +68,9 @@
     # ponytail: newer n8n requires an explicit scopes array on api-key creation.
     # Ask the instance what scopes exist rather than hard-coding a list that
     # drifts — 404 on older builds, so tolerate that and fall back to [].
+    # Skipped entirely when persisted_api_key is set — the whole point.
     - name: Get available API-key scopes
+      when: persisted_api_key | length == 0
       ansible.builtin.uri:
         url: "{{ n8n_url }}/rest/api-keys/scopes"
         headers:
@@ -70,7 +78,8 @@
         status_code: [200, 404]
       register: scopes_resp
 
-    - name: Mint an API key
+    - name: Mint an API key (first run only — see persisted_api_key)
+      when: persisted_api_key | length == 0
       ansible.builtin.uri:
         url: "{{ n8n_url }}/rest/api-keys"
         method: POST
@@ -78,15 +87,27 @@
           Cookie: "n8n-auth={{ n8n_auth }}"
         body_format: json
         body:
-          label: "ansible-{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+          label: "ansible-managed"
           expiresAt: null
           scopes: "{{ scopes_resp.json.data | default(scopes_resp.json, true) | default([], true) }}"
         status_code: [200, 201]
       register: keyresp
 
-    - name: Extract raw key
+    - name: Use the key
       ansible.builtin.set_fact:
-        n8n_api_key: "{{ keyresp.json.data.rawApiKey | default(keyresp.json.data.apiKey) }}"
+        n8n_api_key: >-
+          {{ persisted_api_key if persisted_api_key | length > 0
+             else (keyresp.json.data.rawApiKey | default(keyresp.json.data.apiKey)) }}
+
+    - name: Freshly minted — persist this or it'll mint again next run
+      when: persisted_api_key | length == 0
+      ansible.builtin.debug:
+        msg: >-
+          New n8n API key minted (n8n never shows the raw value again).
+          Add it to .env as TF_VAR_n8n_mcp_api_key, then
+          `gen-tfvars.sh && tofu apply -target=kubernetes_secret.ansible_secrets`
+          — future runs will reuse it instead of minting a new one:
+          {{ n8n_api_key }}
 
     - name: Seed flows with the existing seed.sh
       ansible.builtin.command: bash /flows/seed.sh

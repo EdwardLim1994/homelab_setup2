@@ -10,8 +10,7 @@
 #   scripts/linux/ansible-run.sh n8n --syntax-check # parse-only (self-check)
 #
 # ponytail: no-arg fans out one Job per playbook instead of the serial
-# site.yml. Independent playbooks (own namespace each) run concurrently;
-# mattermost.yml is chained after n8n.yml because it needs the flows seeded.
+# site.yml. Independent playbooks (own namespace each) run concurrently.
 # Pass a playbook name explicitly (or `site`) to run just that one.
 set -euo pipefail
 
@@ -19,10 +18,11 @@ set -euo pipefail
 : "${CRONJOB:=ansible-runner}"
 
 # Playbooks with no cross-dependencies — safe to run at the same time.
-PARALLEL_PLAYBOOKS=(omp litellm mcp-servers)
+PARALLEL_PLAYBOOKS=(n8n omp litellm mcp-servers)
 # Ordered chains: each chain runs serially, chains run concurrently with each
-# other and with PARALLEL_PLAYBOOKS. mattermost needs n8n's flows seeded first.
-CHAINS=("n8n mattermost")
+# other and with PARALLEL_PLAYBOOKS. Empty now that mattermost (the only
+# chained-after-n8n playbook) is gone — n8n runs standalone.
+CHAINS=()
 
 # run_playbook <playbook> [ansible args...]
 # Creates the Job, streams its logs (prefixed when running in parallel),

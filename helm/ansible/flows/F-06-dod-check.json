@@ -2,193 +2,261 @@
   "name": "F-06 DoD Check",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "dod-check",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "wh-06",
-      "name": "Webhook: dod-check",
+      "id": "eda43cdc-9e98-484e-83dd-ff7fc3d2f7ef",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "dod-check",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "89d8e361-ddcc-4216-b410-f969b0827ce2"
     },
     {
-      "parameters": {
-        "command": "=echo '{\"role\":\"tech-lead\",\"task\":\"dod-check\",\"story_id\":\"{{ $json.body.story_id }}\"}' > /tmp/dod.json && omp run --mode json --role slow @/tmp/dod.json"
-      },
-      "id": "spawn-tl-dod",
-      "name": "Spawn TL Pod: DoD check",
-      "type": "n8n-nodes-base.executeCommand",
+      "id": "fcd2cdf3-42fa-43fc-98aa-089bc5a012b8",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        480,
+        460,
         300
-      ]
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
+      }
     },
     {
+      "id": "a590f7ba-c7e8-4d7e-b928-2e53ed38c051",
+      "name": "Notify: DoD check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
       "parameters": {
-        "conditions": {
-          "conditions": [
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "leftValue": "={{ $json.exitCode }}",
-              "rightValue": 0,
-              "operator": {
-                "type": "number",
-                "operation": "equals"
-              }
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
-        }
-      },
-      "id": "dod-pass",
-      "name": "DoD satisfied?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        720,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/story-mr-open",
+        },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
-              "name": "story_id",
-              "value": "={{ $json.body.story_id }}"
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udd2c DoD check running for story"
+            },
+            {
+              "name": "notes",
+              "value": ""
             }
           ]
         }
-      },
-      "id": "trig-f07",
-      "name": "Trigger F-07: open story MR",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        960,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
-        "message": ":white_check_mark: DoD passed for `{{ $json.body.story_id }}`. Opening story MR...",
-        "otherOptions": {}
-      },
-      "id": "slack-dod-pass",
-      "name": "Mattermost: DoD passed",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        960,
-        200
-      ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
-        }
       }
     },
     {
-      "parameters": {
-        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
-        "message": ":x: DoD *failed* for `{{ $json.body.story_id }}`. Feedback sent to developer. Fix cycle restarting...",
-        "otherOptions": {}
-      },
-      "id": "slack-dod-fail",
-      "name": "Mattermost: DoD failed",
-      "type": "n8n-nodes-base.mattermost",
+      "id": "1c5e32cb-eeda-4422-bd5b-80546a7143a3",
+      "name": "TL: DoD Evaluation",
+      "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        960,
-        440
+        900,
+        300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
-        }
+      "parameters": {
+        "command": "omp --role tech-lead --model slow --project {{ $env.REPO_DIR }} --prompt 'Evaluate Definition of Done for story tasks in {{ $json.body.version }}. Check: all tests pass, coverage \u226580%, no critical lint, pseudocode implemented fully. Output JSON: {pass: bool, notes: string}' --non-interactive"
       }
     },
     {
-      "parameters": {
-        "jsCode": "const dag=$workflow.staticData.dagState||{};\nconst sid=$json.body.story_id;\ndag.dodRetries=dag.dodRetries||{};\ndag.dodRetries[sid]=(dag.dodRetries[sid]||0)+1;\n$workflow.staticData.dagState=dag;\nreturn [{json:{retries:dag.dodRetries[sid],storyId:sid}}];"
-      },
-      "id": "dod-retry",
-      "name": "DoD fail: feedback + re-trigger F-04",
-      "type": "n8n-nodes-base.code",
+      "id": "ac914dd1-65f2-4505-ba31-0f16a13feca7",
+      "name": "DoD Pass?",
+      "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1200,
-        440
-      ]
+        1120,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "={{ JSON.parse($json.stdout).pass }}",
+            "operation": "equals",
+            "rightValue": "true"
+          }
+        }
+      }
+    },
+    {
+      "id": "14598c3c-4bcb-42da-a706-88e04456e5f3",
+      "name": "\u2192 F-07 Story MR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/story-mr-open",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "73274a11-99a5-4946-8a9b-fcf129e509e4",
+      "name": "Notify: DoD fail feedback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\u274c DoD failed \u2014 feedback posted to task branches, re-triggering F-04"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bb1a533a-181e-4bba-8c29-5fd0fad2d6e3",
+      "name": "Re-trigger F-04 pods",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-task-mr-opened",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "retry",
+              "value": "true"
+            },
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            }
+          ]
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook: dod-check": {
+    "eda43cdc-9e98-484e-83dd-ff7fc3d2f7ef": {
       "main": [
         [
           {
-            "node": "Spawn TL Pod: DoD check",
+            "node": "fcd2cdf3-42fa-43fc-98aa-089bc5a012b8",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "a590f7ba-c7e8-4d7e-b928-2e53ed38c051",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn TL Pod: DoD check": {
+    "a590f7ba-c7e8-4d7e-b928-2e53ed38c051": {
       "main": [
         [
           {
-            "node": "DoD satisfied?",
+            "node": "1c5e32cb-eeda-4422-bd5b-80546a7143a3",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "DoD satisfied?": {
+    "1c5e32cb-eeda-4422-bd5b-80546a7143a3": {
       "main": [
         [
           {
-            "node": "Mattermost: DoD passed",
+            "node": "ac914dd1-65f2-4505-ba31-0f16a13feca7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ac914dd1-65f2-4505-ba31-0f16a13feca7": {
+      "main": [
+        [
+          {
+            "node": "14598c3c-4bcb-42da-a706-88e04456e5f3",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Mattermost: DoD failed",
+            "node": "73274a11-99a5-4946-8a9b-fcf129e509e4",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mattermost: DoD passed": {
+    "73274a11-99a5-4946-8a9b-fcf129e509e4": {
       "main": [
         [
           {
-            "node": "Trigger F-07: open story MR",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Mattermost: DoD failed": {
-      "main": [
-        [
-          {
-            "node": "DoD fail: feedback + re-trigger F-04",
+            "node": "bb1a533a-181e-4bba-8c29-5fd0fad2d6e3",
             "type": "main",
             "index": 0
           }
@@ -197,18 +265,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "development"
-    },
-    {
-      "name": "phase-2"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

@@ -1,60 +1,51 @@
 {
-  "name": "F-17 /release-production",
+  "name": "F-17 /release_production",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "mm-release_production",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "slack-trigger",
-      "name": "Mattermost: trigger",
+      "id": "487cf1ce-c9d6-47c3-b053-558ffc6efc20",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "release-production",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "3581e892-b9f9-4646-ac5a-c20a793c77f1"
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"response_type\": \"ephemeral\", \"text\": \":hourglass_flowing_sand: Running `/release_production`...\"}"
-      },
-      "id": "mm-ack-slack-trigger",
-      "name": "Mattermost: ack command",
+      "id": "f2693e1e-4c54-4993-a84d-ceac19fb6ebd",
+      "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        480,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :hourglass: *Production release* for `={{ $('Slack: trigger').item.json.text }}`\nVerifying rm:go...",
-        "otherOptions": {}
-      },
-      "id": "ack-17",
-      "name": "Mattermost: production release started",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        480,
+        460,
         300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
-        }
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
       }
     },
     {
+      "id": "40bb0ef7-c057-436b-b123-c9de5c9d2271",
+      "name": "rm:go Safeguard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
       "parameters": {
+        "method": "GET",
         "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $env.RELEASE_TICKET_ID }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -64,216 +55,197 @@
             }
           ]
         }
-      },
-      "id": "chk-rmgo",
-      "name": "Check rm:go on release ticket",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        720,
-        300
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const labels=$json.labels||[];\nreturn [{json:{safe:labels.includes('rm:go')}}];"
-      },
-      "id": "validate-go",
-      "name": "rm:go confirmed?",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        960,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "conditions": [
-            {
-              "leftValue": "={{ $json.safe }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
-            }
-          ]
-        }
-      },
-      "id": "go-gate",
-      "name": "rm:go present?",
+      "id": "457bfee4-1b22-4ab0-b34a-b6f18184f771",
+      "name": "rm:go label present?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1200,
+        900,
         300
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :x: *Production blocked* — `rm:go` not found on release ticket.\nRun `/release_staging` first.",
-        "otherOptions": {}
-      },
-      "id": "slack-no-go",
-      "name": "Mattermost: production blocked",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        1440,
-        440
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "={{ $json.labels.includes('rm:go') }}",
+            "operation": "equals",
+            "rightValue": "true"
+          }
         }
       }
     },
     {
+      "id": "3e5da2ec-23b6-4643-8d13-fa95a32f1c7f",
+      "name": "Notify: Production blocked",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        400
+      ],
       "parameters": {
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/merge_requests",
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
-              "name": "source_branch",
-              "value": "={{ 'promote/' + $('Slack: trigger').item.json.text }}"
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
             },
             {
-              "name": "target_branch",
-              "value": "main"
+              "name": "message",
+              "value": "\ud83d\udeab /release_production blocked \u2014 rm:go label missing"
             },
             {
-              "name": "title",
-              "value": "={{ '[release] ' + $('Slack: trigger').item.json.text }}"
-            },
-            {
-              "name": "labels",
-              "value": "type:release"
-            },
-            {
-              "name": "description",
-              "value": "Release MR for `={{ $('Slack: trigger').item.json.text }}`. CI validates no rc versions."
+              "name": "notes",
+              "value": ""
             }
           ]
-        },
+        }
+      }
+    },
+    {
+      "id": "0b27e754-868c-4d20-8a5a-147072921e7f",
+      "name": "Create promote\u2192main MR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/merge_requests",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "PRIVATE-TOKEN",
               "value": "={{ $env.GITLAB_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "__json",
+              "value": "{\"source_branch\":\"promote/{{ $env.RELEASE_VERSION }}\",\"target_branch\":\"main\",\"title\":\"Release {{ $env.RELEASE_VERSION }}\",\"labels\":\"type:release\"}"
             }
           ]
         }
-      },
-      "id": "create-mr",
-      "name": "Create promote→main MR via GitLab API",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        1440,
-        200
-      ]
+      }
     },
     {
-      "parameters": {
-        "channelId": "={{ $('Mattermost: trigger').item.json.body.channel_id }}",
-        "message": "@{{ $('Mattermost: trigger').item.json.body.user_name }} :eyes: *Release MR created* — `{{ $json.web_url }}`\n\n*Your action:* review, approve, and merge to deploy to production.",
-        "otherOptions": {}
-      },
-      "id": "slack-mr-ready",
-      "name": "Mattermost: release MR ready",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
+      "id": "ba4b70d7-09f3-40cc-bc27-a788cfc5ea07",
+      "name": "Notify: Production MR ready",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        1680,
+        1340,
         200
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udc64 Release MR ready \u2014 Edward please review and merge promote/{{ $env.RELEASE_VERSION }} \u2192 main"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
         }
       }
     }
   ],
   "connections": {
-    "Mattermost: trigger": {
+    "487cf1ce-c9d6-47c3-b053-558ffc6efc20": {
       "main": [
         [
           {
-            "node": "Mattermost: production release started",
+            "node": "f2693e1e-4c54-4993-a84d-ceac19fb6ebd",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Mattermost: ack command",
+            "node": "40bb0ef7-c057-436b-b123-c9de5c9d2271",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mattermost: production release started": {
+    "40bb0ef7-c057-436b-b123-c9de5c9d2271": {
       "main": [
         [
           {
-            "node": "Check rm:go on release ticket",
+            "node": "457bfee4-1b22-4ab0-b34a-b6f18184f771",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Check rm:go on release ticket": {
+    "457bfee4-1b22-4ab0-b34a-b6f18184f771": {
       "main": [
         [
           {
-            "node": "rm:go confirmed?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "rm:go confirmed?": {
-      "main": [
-        [
-          {
-            "node": "rm:go present?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "rm:go present?": {
-      "main": [
-        [
-          {
-            "node": "Create promote→main MR via GitLab API",
+            "node": "0b27e754-868c-4d20-8a5a-147072921e7f",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Mattermost: production blocked",
+            "node": "3e5da2ec-23b6-4643-8d13-fa95a32f1c7f",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create promote→main MR via GitLab API": {
+    "0b27e754-868c-4d20-8a5a-147072921e7f": {
       "main": [
         [
           {
-            "node": "Mattermost: release MR ready",
+            "node": "ba4b70d7-09f3-40cc-bc27-a788cfc5ea07",
             "type": "main",
             "index": 0
           }
@@ -282,18 +254,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "production"
-    },
-    {
-      "name": "phase-5"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

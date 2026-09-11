@@ -2,150 +2,258 @@
   "name": "F-15 Staging Deployed",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "ci-staging-deployed",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "wh-15",
-      "name": "Webhook: ci-staging-deployed",
+      "id": "554ea05d-2cf1-494d-a971-be89d557c8e9",
+      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         240,
         300
-      ]
+      ],
+      "parameters": {
+        "path": "staging-deployed",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "0551be02-7279-4189-b7d2-adb2392094d9"
     },
     {
-      "parameters": {
-        "command": "=glab issue comment {{ $json.body.release_ticket_id }} --message 'Staging deployed: {{ $json.body.version }}'"
-      },
-      "id": "upd-rt",
-      "name": "Update release ticket",
-      "type": "n8n-nodes-base.executeCommand",
+      "id": "9718ffb5-80fe-4e0b-ab06-f6ffbf326a7b",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        480,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"qa-engineer\",\"task\":\"staging-performance\"}' > /tmp/qa-stg.json && omp run --mode json --role smol @/tmp/qa-stg.json"
-      },
-      "id": "qa-stg",
-      "name": "Spawn QA: k6 performance tests",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        720,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"security-engineer\",\"task\":\"staging-zap\"}' > /tmp/sec-stg.json && omp run --mode json --role smol @/tmp/sec-stg.json"
-      },
-      "id": "sec-stg",
-      "name": "Spawn Security: ZAP full scan",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        720,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "command": "=echo '{\"role\":\"release-manager\",\"task\":\"go-nogo\",\"version\":\"{{ $json.body.version }}\",\"release_ticket_id\":\"{{ $json.body.release_ticket_id }}\"}' > /tmp/rm-gng.json && omp run --mode json --role default @/tmp/rm-gng.json"
-      },
-      "id": "rm-gng",
-      "name": "Spawn RM: go/no-go assessment",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        960,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "channelId": "={{ $env.MM_SDLC_CHANNEL }}",
-        "message": ":rocket: *Staging deployed* — `{{ $json.body.version }}`\nQA k6 + Security ZAP running in parallel · RM go/no-go assessment in progress.\n\nYou'll be notified with the decision.",
-        "otherOptions": {}
-      },
-      "id": "slack-15",
-      "name": "Mattermost: staging deployed",
-      "type": "n8n-nodes-base.mattermost",
-      "typeVersion": 1,
-      "position": [
-        1200,
+        460,
         300
       ],
-      "credentials": {
-        "mattermostApi": {
-          "id": "mm-creds",
-          "name": "Mattermost SDLC Bot"
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
+      }
+    },
+    {
+      "id": "0227f7d2-760f-4aba-84df-cd0fda58f870",
+      "name": "Notify: Staging up",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\ude80 Staging deployed \u2014 k6 + ZAP parallel"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c3a8c289-761d-467d-8990-5bff750ac79f",
+      "name": "QA: k6 Load Test",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        900,
+        200
+      ],
+      "parameters": {
+        "command": "omp --role qa-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Run k6 load test suite against staging for {{ $json.body.version }}. Output: p95 latency, error rate, pass/fail.' --non-interactive"
+      }
+    },
+    {
+      "id": "d1b2ff7f-47bb-4554-8e6c-dc4d7cede9c6",
+      "name": "Security: ZAP DAST",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        900,
+        400
+      ],
+      "parameters": {
+        "command": "omp --role security-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Run OWASP ZAP DAST scan against staging for {{ $json.body.version }}. Output: critical/high findings list.' --non-interactive"
+      }
+    },
+    {
+      "id": "3d3b1485-fae6-4ed9-a1c6-eebad98c4db1",
+      "name": "Merge QA+Sec",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        300
+      ],
+      "parameters": {
+        "mode": "waitForAll"
+      }
+    },
+    {
+      "id": "71dc2e21-be43-45b6-9d8f-482ab7074ee7",
+      "name": "Notify: Tests done, RM deciding",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udcca Load + DAST done \u2014 RM evaluating go/no-go"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "87b68cc1-0f96-4b80-86b5-8ed7f3acf01f",
+      "name": "\u2192 F-16 Go/No-Go",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/go-nogo",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            },
+            {
+              "name": "k6_result",
+              "value": "={{ $node['QA: k6 Load Test'].json.stdout }}"
+            },
+            {
+              "name": "zap_result",
+              "value": "={{ $node['Security: ZAP DAST'].json.stdout }}"
+            }
+          ]
         }
       }
     }
   ],
   "connections": {
-    "Webhook: ci-staging-deployed": {
+    "554ea05d-2cf1-494d-a971-be89d557c8e9": {
       "main": [
         [
           {
-            "node": "Update release ticket",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Update release ticket": {
-      "main": [
-        [
-          {
-            "node": "Spawn QA: k6 performance tests",
+            "node": "9718ffb5-80fe-4e0b-ab06-f6ffbf326a7b",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Spawn Security: ZAP full scan",
+            "node": "0227f7d2-760f-4aba-84df-cd0fda58f870",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn QA: k6 performance tests": {
+    "0227f7d2-760f-4aba-84df-cd0fda58f870": {
       "main": [
         [
           {
-            "node": "Spawn RM: go/no-go assessment",
+            "node": "c3a8c289-761d-467d-8990-5bff750ac79f",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "d1b2ff7f-47bb-4554-8e6c-dc4d7cede9c6",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn Security: ZAP full scan": {
+    "c3a8c289-761d-467d-8990-5bff750ac79f": {
       "main": [
         [
           {
-            "node": "Spawn RM: go/no-go assessment",
+            "node": "3d3b1485-fae6-4ed9-a1c6-eebad98c4db1",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Spawn RM: go/no-go assessment": {
+    "d1b2ff7f-47bb-4554-8e6c-dc4d7cede9c6": {
       "main": [
         [
           {
-            "node": "Mattermost: staging deployed",
+            "node": "3d3b1485-fae6-4ed9-a1c6-eebad98c4db1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3d3b1485-fae6-4ed9-a1c6-eebad98c4db1": {
+      "main": [
+        [
+          {
+            "node": "71dc2e21-be43-45b6-9d8f-482ab7074ee7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "71dc2e21-be43-45b6-9d8f-482ab7074ee7": {
+      "main": [
+        [
+          {
+            "node": "87b68cc1-0f96-4b80-86b5-8ed7f3acf01f",
             "type": "main",
             "index": 0
           }
@@ -154,18 +262,8 @@
     }
   },
   "active": true,
+  "tags": [],
   "settings": {
     "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "staging"
-    },
-    {
-      "name": "phase-4"
-    },
-    {
-      "name": "mattermost"
-    }
-  ]
+  }
 }

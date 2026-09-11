@@ -1,0 +1,283 @@
+{
+  "name": "F-12 UAT Security Stage",
+  "nodes": [
+    {
+      "id": "85430670-4c10-42a6-9ef6-57f18f7683a1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "path": "uat-security",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "a46cc09a-cd08-436e-9c07-c6adf5ee6e6f"
+    },
+    {
+      "id": "0ff39314-3f65-438e-a530-2f7762974e01",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"accepted\"}"
+      }
+    },
+    {
+      "id": "cbc26af0-47a0-4816-a868-f8041b76c916",
+      "name": "Notify: UAT Security running",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udd10 UAT Security stage running"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c597df3c-75f5-4741-b92f-596f81d49fa2",
+      "name": "Security: UAT Scan",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "command": "omp --role security-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Run DAST and dependency audit against UAT environment for {{ $json.body.version }}. Output: cleared/blocked with findings.' --non-interactive"
+      }
+    },
+    {
+      "id": "67e07137-eaf7-46a6-9824-09911972c3c4",
+      "name": "Security Cleared?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "={{ JSON.parse($json.stdout).status }}",
+            "operation": "equals",
+            "rightValue": "cleared"
+          }
+        }
+      }
+    },
+    {
+      "id": "e23bbdf9-1b15-4db9-98c5-ef749da6215e",
+      "name": "Label: security:cleared",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        200
+      ],
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $env.RELEASE_TICKET_ID }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "__json",
+              "value": "{\"add_labels\":\"security:cleared\"}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "e62ade73-9f21-46d1-983e-6e7ed652fe43",
+      "name": "\u2192 F-13 PO UAT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/uat-po",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "version",
+              "value": "={{ $json.body.version }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "eba2e308-8ffe-40e6-8289-22dc2abeea27",
+      "name": "Notify: Security UAT blocked",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "flow_id",
+              "value": "={{ $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "\ud83d\udea8 UAT Security blocked \u2014 critical findings require remediation"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "85430670-4c10-42a6-9ef6-57f18f7683a1": {
+      "main": [
+        [
+          {
+            "node": "0ff39314-3f65-438e-a530-2f7762974e01",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "cbc26af0-47a0-4816-a868-f8041b76c916",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cbc26af0-47a0-4816-a868-f8041b76c916": {
+      "main": [
+        [
+          {
+            "node": "c597df3c-75f5-4741-b92f-596f81d49fa2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "c597df3c-75f5-4741-b92f-596f81d49fa2": {
+      "main": [
+        [
+          {
+            "node": "67e07137-eaf7-46a6-9824-09911972c3c4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "67e07137-eaf7-46a6-9824-09911972c3c4": {
+      "main": [
+        [
+          {
+            "node": "e23bbdf9-1b15-4db9-98c5-ef749da6215e",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "eba2e308-8ffe-40e6-8289-22dc2abeea27",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "e23bbdf9-1b15-4db9-98c5-ef749da6215e": {
+      "main": [
+        [
+          {
+            "node": "e62ade73-9f21-46d1-983e-6e7ed652fe43",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "tags": [],
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
