@@ -1,12 +1,12 @@
 # homelab_setup2
 
 Self-hosted homelab on a local k3d cluster: Authentik SSO, GitLab, MinIO,
-n8n, SonarQube, Nextcloud, ArgoCD, an LGTM observability stack, Mattermost,
+n8n, SonarQube, Nextcloud, ArgoCD, an LGTM observability stack, OpenWebUI,
 LiteLLM, a set of MCP servers, and an in-cluster coding-agent stack (`omp`).
 Every app gets SSO via Authentik and is reachable remotely over Tailscale.
 
-One shared `postgres` pod backs authentik / gitlab / litellm / mattermost /
-n8n / sonarqube (nextcloud keeps its own MariaDB); one shared `redis` pod
+One shared `postgres` pod backs authentik / gitlab / litellm / n8n /
+sonarqube (nextcloud keeps its own MariaDB); one shared `redis` pod
 backs authentik + gitlab.
 
 Two deployment paths exist side by side:
@@ -102,7 +102,7 @@ or the underlying Python script change.
 
 Passwords, DB passwords, encryption/salt keys, and every OIDC
 `client_id` / `client_secret` pair (gitlab, minio, n8n, sonarqube, nextcloud,
-argocd, grafana, mattermost, litellm). Authentik trusts whatever value it's
+argocd, grafana, openwebui, litellm). Authentik trusts whatever value it's
 given, so a placeholder is exactly as real as a generated one. The whole
 cluster comes up with the shipped defaults untouched.
 
@@ -134,6 +134,8 @@ app is up, so the flow is: deploy once → generate → put in `.env` → redepl
 | `TF_VAR_grafana_mcp_token` | Grafana → Administration → Users and access → **Service accounts** → add account (role: Editor/Admin) → **Add service account token** → copy. | **Yes** — Grafana | Grafana MCP server boots, every tool call 401s |
 | `TF_VAR_sonarqube_mcp_token` | SonarQube → **My Account → Security → Generate Token** (type: User Token) → copy (shown once). | **Yes** — SonarQube | SonarQube MCP server boots, every tool call 401s |
 | `TF_VAR_gitlab_mcp_token` | GitLab → **Edit profile → Access Tokens** → new token, scope `api`, expiry as you like → copy. | **Yes** — GitLab | GitLab MCP server **hard-refuses to start** |
+| `TF_VAR_n8n_mcp_api_key` | Nothing to do by hand — leave blank the first time. `playbooks/n8n.yml` mints an n8n API key itself and prints it in the task output; copy that value in. | **Yes** — n8n (the playbook bootstraps it for you) | Without it the playbook just mints a fresh key on every run instead of reusing one — harmless but sloppy (n8n Settings → API Keys piles up) |
+| `TF_VAR_openwebui_api_key` | OpenWebUI → log in via the browser (SSO) → **Settings → Account → API Keys** → generate → copy. Can't be scripted like n8n's above — OpenWebUI is SSO-only, no password to log in with from a playbook. | **Yes** — OpenWebUI | `playbooks/openwebui.yml` (installs the SDLC chat pipe) hard-fails on its own assert with the exact same instructions |
 
 ### Not real credentials (safe defaults, listed for completeness)
 
@@ -191,9 +193,9 @@ browsed to.
 ## Post-deploy automation (ansible)
 
 Some setup can't be expressed as a `helm_release` — n8n owner + API key + the
-29 SDLC flows, the Mattermost bot + `#ai` channel + webhook, MCP-server tokens,
-GitLab webhooks. Those live as ansible playbooks (`helm/ansible/playbooks/`)
-run as one-shot in-cluster Jobs:
+29 SDLC flows, the OpenWebUI SDLC chat pipe, MCP-server tokens, GitLab
+webhooks. Those live as ansible playbooks (`helm/ansible/playbooks/`) run as
+one-shot in-cluster Jobs:
 
 ```bash
 ./scripts/linux/ansible-run.sh            # every playbook, fanned out in parallel

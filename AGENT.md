@@ -174,12 +174,22 @@ scripts/linux/ansible-run.sh n8n          # playbooks/n8n.yml
 scripts/linux/ansible-run.sh omp --syntax-check
 ```
 
-Playbooks: `n8n.yml`, `mcp-servers.yml`, `omp.yml`, `litellm.yml`. With no
-argument the script launches one Job per playbook, all in parallel (no
-cross-dependencies now that `mattermost.yml` — the one thing chained after
-n8n — is gone). Pass `site` to run the old serial `site.yml` in a single Job
-instead. Runner SA is
+Playbooks: `n8n.yml`, `mcp-servers.yml`, `omp.yml`, `litellm.yml`,
+`openwebui.yml`. With no argument the script launches one Job per playbook,
+all in parallel (no cross-dependencies now that `mattermost.yml` — the one
+thing chained after n8n — is gone). Pass `site` to run the old serial
+`site.yml` in a single Job instead. Runner SA is
 `ansible-runner`; per-namespace Roles for it live in `terraform/ansible.tf`.
+
+`openwebui.yml` installs `helm/ansible/pipe/sdlc_pipe.py` as an OpenWebUI
+Function via the admin API (create-or-update, idempotent, enables it if not
+active) — needs `TF_VAR_openwebui_api_key`, a personal API key generated
+once via the browser (OpenWebUI is SSO-only, so unlike n8n.yml this can't
+script a login). `n8n.yml` similarly needs `TF_VAR_n8n_mcp_api_key`, but that
+one bootstraps itself — leave it blank the first run, the playbook mints a
+key and prints it, paste it back into `.env` so later runs reuse it instead
+of minting a new one every time (n8n only ever returns the raw key once).
+Full generation steps for both: README.md's env-var table.
 
 `gitlab-webhook.yml` (+ `gitlab-webhook-project.yml`, included per-project) is
 **not** in `site.yml` — bootstrap / disaster-recovery for the n8n SDLC webhook

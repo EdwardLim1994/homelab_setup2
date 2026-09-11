@@ -88,3 +88,17 @@ read it first. This file adds Claude-Code-specific notes.
   grafana / litellm sidestep it by hard-coding `authentik-server.authentik.svc`
   for their server-side endpoints and only using the external URL for the
   browser redirect — do that for new apps when the app allows split endpoints.
+- **Two different "generate this credential by hand" flows in `.env`** — see
+  README.md's env-var table for the full how-to on each:
+  - **External-service tokens** (`gitlab_mcp_token`, `sonarqube_mcp_token`,
+    `grafana_mcp_token`, `claude_code_token`, `github_oauth_client_*`) — made
+    on the external service's own site/CLI, no dependency on this stack.
+  - **Bootstrap-from-this-stack tokens** (`n8n_mcp_api_key`,
+    `openwebui_api_key`) — only exist *after* the app itself is up.
+    `n8n_mcp_api_key` bootstraps itself: leave blank, `playbooks/n8n.yml`
+    mints one and prints it (n8n only ever shows the raw key once — paste it
+    back into `.env` or it mints a fresh one every run).
+    `openwebui_api_key` can't bootstrap itself — OpenWebUI is SSO-only
+    (`ENABLE_LOGIN_FORM=False`), so no password to script a login with;
+    generate it by hand once via the browser (Settings → Account → API
+    Keys) after logging in through Authentik.
