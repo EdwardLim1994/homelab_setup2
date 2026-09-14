@@ -19,20 +19,6 @@
       "webhookId": "7db0f826-0f31-4fec-8227-f03aebf9f7fb"
     },
     {
-      "id": "2415a06f-9c06-4674-84ed-dc46dd4c7790",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "11e4784a-ee4d-4c7e-873f-0a0ba9b37443",
       "name": "Notify: Release MR merged",
       "type": "n8n-nodes-base.httpRequest",
@@ -62,7 +48,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83c\udfaf Release MR merged \u2014 production CI building"
+              "value": "🎯 Release MR merged — production CI building"
             },
             {
               "name": "notes",
@@ -74,16 +60,11 @@
     }
   ],
   "connections": {
-    "e7dc2439-1c80-454e-9db2-eabb17349a26": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "2415a06f-9c06-4674-84ed-dc46dd4c7790",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "11e4784a-ee4d-4c7e-873f-0a0ba9b37443",
+            "node": "Notify: Release MR merged",
             "type": "main",
             "index": 0
           }

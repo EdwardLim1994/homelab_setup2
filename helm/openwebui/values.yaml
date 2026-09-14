@@ -32,6 +32,12 @@ env:
   ENABLE_LOGIN_FORM: "False"
   ENABLE_PERSISTENT_CONFIG: "False"
   RESET_CONFIG_ON_START: "True"
+  # ponytail: RESET_CONFIG_ON_START wipes any DB-stored config (incl. the
+  # Admin Settings "Enable API Key" toggle) back to OpenWebUI's own default
+  # (off) on every pod restart — silently breaking the admin-API-key auth
+  # that ansible/playbooks/openwebui.yml (and any Function install) depends
+  # on. Pin it here so the reset lands on "on" instead.
+  ENABLE_API_KEYS: "True"
 
   # ponytail: server-side OIDC calls go to Tailscale HTTPS; SSL_CERT_FILE
   # trusts the homelab self-signed CA mounted from the homelab-ca Secret.

@@ -19,20 +19,6 @@
       "webhookId": "bcb610f9-e1a2-4c87-a03e-4bf5c21acdf1"
     },
     {
-      "id": "b1afe7a6-695c-46ad-8894-3248afa71cbb",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "cc450105-e0a3-424e-b284-2b9ad3648881",
       "name": "Notify: Rollback initiated",
       "type": "n8n-nodes-base.httpRequest",
@@ -62,7 +48,7 @@
             },
             {
               "name": "message",
-              "value": "\u23ea Rollback initiated for {{ $json.body.version }}"
+              "value": "⏪ Rollback initiated for {{ $json.body.version }}"
             },
             {
               "name": "notes",
@@ -165,7 +151,7 @@
             },
             {
               "name": "message",
-              "value": "\u2705 Rollback complete \u2014 monitoring production, incident ticket opened"
+              "value": "✅ Rollback complete — monitoring production, incident ticket opened"
             },
             {
               "name": "notes",
@@ -177,49 +163,44 @@
     }
   ],
   "connections": {
-    "bfedf83a-74b1-4f36-95dc-8a1ff43b4fb7": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "b1afe7a6-695c-46ad-8894-3248afa71cbb",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "cc450105-e0a3-424e-b284-2b9ad3648881",
+            "node": "Notify: Rollback initiated",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "cc450105-e0a3-424e-b284-2b9ad3648881": {
+    "Notify: Rollback initiated": {
       "main": [
         [
           {
-            "node": "d1277724-73cf-477c-bff4-a4ccfb2402a5",
+            "node": "ArgoCD: Rollback Production",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "d1277724-73cf-477c-bff4-a4ccfb2402a5": {
+    "ArgoCD: Rollback Production": {
       "main": [
         [
           {
-            "node": "988fb99a-f4e9-454c-84c6-8ae4f212101a",
+            "node": "Open Incident Ticket",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "988fb99a-f4e9-454c-84c6-8ae4f212101a": {
+    "Open Incident Ticket": {
       "main": [
         [
           {
-            "node": "46478b12-9904-4aee-a771-78ac0cc68834",
+            "node": "Notify: Rollback complete",
             "type": "main",
             "index": 0
           }

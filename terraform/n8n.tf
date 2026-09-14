@@ -101,6 +101,17 @@ resource "helm_release" "n8n" {
   # ponytail: flow seeding + owner setup + API-key minting all moved to the
   # ansible runner — `scripts/ansible-run.sh n8n`.
 
+  # ponytail: the helm provider doesn't hash local chart template files (only
+  # values), so an edit to e.g. templates/omp-agent-rbac.yaml wouldn't
+  # redeploy on its own — tofu apply silently reports "no differences".
+  # Mirrors helm_release.ansible's identical fix.
+  set {
+    name = "chartHash"
+    value = sha1(join(",", [
+      for f in fileset("${path.module}/../helm/n8n", "**") : filesha1("${path.module}/../helm/n8n/${f}")
+    ]))
+  }
+
   # sdlc namespace must exist first — helm/n8n/templates/omp-agent-rbac.yaml
   # binds n8n's ServiceAccount to a Role in that namespace.
   depends_on = [kubernetes_namespace.n8n, kubernetes_config_map.n8n_oidc_hooks, kubernetes_secret.n8n_homelab_ca, helm_release.postgres, kubernetes_namespace.sdlc]

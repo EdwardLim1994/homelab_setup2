@@ -4,6 +4,29 @@ resource "kubernetes_namespace" "sonarqube" {
   }
 }
 
+# ponytail: SonarQube's OIDC plugin does discovery + token exchange
+# server-side against authentik.<tailnet> — same homelab-CA trust gap as
+# minio (see coredns.tf), but here it's a JVM truststore, not a generic
+# trustedCertsSecret mount.
+data "kubernetes_secret" "homelab_ca_sonarqube" {
+  metadata {
+    name      = "homelab-ca-secret"
+    namespace = kubernetes_namespace.cert_manager.metadata[0].name
+  }
+  depends_on = [null_resource.homelab_ca_ready]
+}
+
+resource "kubernetes_secret" "sonarqube_homelab_ca" {
+  metadata {
+    name      = "sonarqube-homelab-ca"
+    namespace = kubernetes_namespace.sonarqube.metadata[0].name
+  }
+  data = {
+    "ca.crt" = data.kubernetes_secret.homelab_ca_sonarqube.data["tls.crt"]
+  }
+  depends_on = [kubernetes_namespace.sonarqube, data.kubernetes_secret.homelab_ca_sonarqube]
+}
+
 resource "kubernetes_secret" "sonarqube_oidc" {
   metadata {
     name      = "sonarqube-oidc-secret"
@@ -30,11 +53,12 @@ resource "helm_release" "sonarqube" {
   dependency_update = true
 
   values = [
-    replace(replace(replace(
+    replace(replace(replace(replace(
       file("${path.module}/../helm/sonarqube/values.yaml"),
       "__TS_HOST__", var.ts_host),
       "__AUTHENTIK_URL__", local.authentik_url),
-    "__APP_URL__", local.app_url["sonarqube"]),
+      "__APP_URL__", local.app_url["sonarqube"]),
+    "__SONARQUBE_TRUSTED_CA_SECRET__", kubernetes_secret.sonarqube_homelab_ca.metadata[0].name),
   ]
 
   # shared postgres (helm/postgres)
@@ -48,5 +72,5 @@ resource "helm_release" "sonarqube" {
     value = var.sonarqube_monitoring_passcode
   }
 
-  depends_on = [kubernetes_namespace.sonarqube, kubernetes_secret.sonarqube_oidc, helm_release.postgres]
+  depends_on = [kubernetes_namespace.sonarqube, kubernetes_secret.sonarqube_oidc, kubernetes_secret.sonarqube_homelab_ca, helm_release.postgres]
 }

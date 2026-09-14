@@ -2,17 +2,22 @@
 """
 pod-openai — OpenAI-compatible shim that runs INSIDE each omp pod on :4096.
 
-omp has no HTTP server; it speaks newline-delimited JSON-RPC over stdio
-(`omp --mode rpc`, see oh-my-pi docs/rpc.md). This holds one long-running
-`omp --mode rpc` child and turns `POST /v1/chat/completions` into a `prompt`
-command on that persistent session, accumulating the assistant text_delta
-stream back into one reply.
+Backs onto one of two agent CLIs, picked by BACKEND env (default "omp"):
 
-ponytail: ONE rpc session per pod, requests serialized by a lock. That is the
+- omp: has no HTTP server, speaks newline-delimited JSON-RPC over stdio
+  (`omp --mode rpc`, see oh-my-pi docs/rpc.md). One long-running rpc child,
+  turns `POST /v1/chat/completions` into a `prompt` command on that
+  persistent session, accumulating the assistant text_delta stream back
+  into one reply.
+- claude: BACKEND=claude runs `claude -p` (Claude Code's headless print
+  mode) per turn instead, using `--continue` to keep the conversation going
+  in /workspace when the turn isn't a fresh session. Needs CLAUDE_CODE_OAUTH_TOKEN
+  (values.yaml's claudeAuth secret) in the pod env.
+
+ponytail: ONE session per pod, requests serialized by a lock. That is the
 "long-running session" model — turns on a pod accrete context. A short chat
-history (<=RESET_AT messages) is treated as a fresh conversation and gets a
-`new_session` first. Add a session pool keyed by conversation id if you ever
-need real concurrency on one pod.
+history (<=RESET_AT messages) is treated as a fresh conversation (omp:
+`new_session`, claude: drop `--continue`).
 
 ponytail: stdlib only. Mounted/baked as a plain script, run as the pod's PID 1.
 The LiteLLM adapter (helm/omp/adapter/server.py) proxies to this and handles
@@ -26,6 +31,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PORT = int(os.environ.get("PORT", "4096"))
+BACKEND = os.environ.get("BACKEND", "omp")
 MODEL_NAME = os.environ.get("OMP_MODEL_NAME", "omp")
 # ponytail: rpc mode does NOT honour config.yml's `model:` — it picks a default
 # off the catalog (often the wrong one). Pin it explicitly. OMP_MODEL overrides.
@@ -33,8 +39,42 @@ OMP_MODEL = os.environ.get("OMP_MODEL", "ollama/qwen3.8:27b")
 OMP_CMD = os.environ.get(
     "OMP_CMD", f"omp --mode rpc --model {OMP_MODEL}"
 ).split()
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "sonnet")
 TURN_TIMEOUT = int(os.environ.get("OMP_TURN_TIMEOUT", "900"))
 RESET_AT = int(os.environ.get("OMP_RESET_AT", "2"))
+
+
+class ClaudeBackend:
+    """BACKEND=claude: no persistent child, one `claude -p` per turn."""
+
+    def __init__(self, model):
+        self.model = model
+        self.lock = threading.Lock()
+        self.started = False
+
+    def alive(self):
+        return True  # stateless per-turn — nothing to keep alive between calls
+
+    def prompt(self, message, fresh):
+        with self.lock:
+            cmd = ["claude", "-p", message, "--output-format", "text"]
+            if self.model:
+                cmd += ["--model", self.model]
+            if not fresh and self.started:
+                cmd.append("--continue")
+            self.started = True
+            try:
+                r = subprocess.run(
+                    cmd, cwd="/workspace", capture_output=True, text=True,
+                    timeout=TURN_TIMEOUT,
+                )
+            except subprocess.TimeoutExpired:
+                raise TimeoutError(f"claude turn exceeded {TURN_TIMEOUT}s")
+            if r.returncode != 0:
+                raise RuntimeError(
+                    f"claude exited {r.returncode}: {r.stderr.strip()[:500]}"
+                )
+            return r.stdout.strip() or "(no assistant text)"
 
 
 class Rpc:
@@ -46,6 +86,9 @@ class Rpc:
             text=True, bufsize=1,
         )
         self._wait_for({"ready"})
+
+    def alive(self):
+        return self.p.poll() is None
 
     def _send(self, obj):
         self.p.stdin.write(json.dumps(obj) + "\n")
@@ -142,7 +185,7 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         p = self.path.rstrip("/")
         if p in ("/health", "/healthz"):
-            alive = RPC is not None and RPC.p.poll() is None
+            alive = RPC is not None and RPC.alive()
             return self._send(200 if alive else 503, {"status": "ok" if alive else "down"})
         if p == "/v1/models":
             now = int(time.time())
@@ -197,15 +240,19 @@ if __name__ == "__main__":
     if os.environ.get("SELFTEST"):
         _selftest()
         raise SystemExit(0)
-    # ponytail: the baked models.db has no entries (the image builds with no
-    # Ollama reachable). omp resolves the config.yml model off this catalog, so
-    # without a refresh the first rpc turn picks no model and returns empty.
-    # One blocking refresh at boot; non-fatal if it can't reach the backend.
-    try:
-        subprocess.run(["omp", "models", "refresh"], timeout=120,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
-    except Exception:
-        pass
-    RPC = Rpc(OMP_CMD)
-    print(f"pod-openai on :{PORT} model={MODEL_NAME} cmd={' '.join(OMP_CMD)}", flush=True)
+    if BACKEND == "claude":
+        RPC = ClaudeBackend(CLAUDE_MODEL)
+        print(f"pod-openai on :{PORT} backend=claude model={CLAUDE_MODEL}", flush=True)
+    else:
+        # ponytail: the baked models.db has no entries (the image builds with no
+        # Ollama reachable). omp resolves the config.yml model off this catalog, so
+        # without a refresh the first rpc turn picks no model and returns empty.
+        # One blocking refresh at boot; non-fatal if it can't reach the backend.
+        try:
+            subprocess.run(["omp", "models", "refresh"], timeout=120,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        except Exception:
+            pass
+        RPC = Rpc(OMP_CMD)
+        print(f"pod-openai on :{PORT} backend=omp cmd={' '.join(OMP_CMD)}", flush=True)
     ThreadingHTTPServer(("0.0.0.0", PORT), H).serve_forever()

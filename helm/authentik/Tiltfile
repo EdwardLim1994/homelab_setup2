@@ -77,6 +77,12 @@ local_resource(
 # already happened more than once), leaving every app's "Log in with
 # Authentik" broken until someone notices and re-runs the same ak shell
 # command manually. Fallback values match each app's own Tiltfile exactly.
+# ponytail: APP_DOMAIN is the tailnet suffix (script does
+# f'https://{slug}.{app_domain}'), not the full per-device TS_HOST — same
+# split list-urls.sh uses.
+_ts_host = os.getenv('TS_HOST', '')
+_app_domain = _ts_host.split('.', 1)[1] if '.' in _ts_host else _ts_host
+
 local_resource(
   'authentik-app-providers',
   cmd='''kubectl exec -i -n authentik deploy/authentik-server -- env \
@@ -89,7 +95,8 @@ ARGOCD_OIDC_CLIENT_ID=%s ARGOCD_OIDC_CLIENT_SECRET=%s \
 GRAFANA_OIDC_CLIENT_ID=%s GRAFANA_OIDC_CLIENT_SECRET=%s \
 MATTERMOST_OIDC_CLIENT_ID=%s MATTERMOST_OIDC_CLIENT_SECRET=%s \
 LITELLM_OIDC_CLIENT_ID=%s LITELLM_OIDC_CLIENT_SECRET=%s \
-ADMIN_EMAIL=%s TS_HOST=%s \
+OPENWEBUI_OIDC_CLIENT_ID=%s OPENWEBUI_OIDC_CLIENT_SECRET=%s \
+ADMIN_EMAIL=%s APP_DOMAIN=%s \
 ak shell < provision-app-providers.py''' % (
     os.getenv('TF_VAR_gitlab_oidc_client_id', 'dev-gitlab-oidc-client-id'),
     os.getenv('TF_VAR_gitlab_oidc_client_secret', 'dev-gitlab-oidc-client-secret-not-for-prod-use'),
@@ -109,8 +116,10 @@ ak shell < provision-app-providers.py''' % (
     os.getenv('TF_VAR_mattermost_oidc_client_secret', 'dev-mattermost-oidc-client-secret-not-for-prod-use'),
     os.getenv('TF_VAR_litellm_oidc_client_id', 'dev-litellm-oidc-client-id'),
     os.getenv('TF_VAR_litellm_oidc_client_secret', 'dev-litellm-oidc-client-secret-not-for-prod-use'),
+    os.getenv('TF_VAR_openwebui_oidc_client_id', 'dev-openwebui-oidc-client-id'),
+    os.getenv('TF_VAR_openwebui_oidc_client_secret', 'dev-openwebui-oidc-client-secret-not-for-prod-use'),
     os.getenv('TF_VAR_admin_email', 'edwardlimkoksiong1994@gmail.com'),
-    os.getenv('TS_HOST', ''),
+    _app_domain,
   ),
   deps=['provision-app-providers.py'],
   resource_deps=['authentik-server'],

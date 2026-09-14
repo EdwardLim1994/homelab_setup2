@@ -20,6 +20,9 @@
     pipe_id: sdlc_pipe
     pipe_name: "SDLC"
     pipe_content: "{{ lookup('file', '/pipe/sdlc_pipe.py') }}"
+    mcp_filter_id: mcp_tools_filter
+    mcp_filter_name: "MCP Tools"
+    mcp_filter_content: "{{ lookup('file', '/pipe/mcp_tools_filter.py') }}"
     auth_header:
       Authorization: "Bearer {{ admin_key }}"
   tasks:
@@ -107,3 +110,82 @@
         msg: >-
           SDLC pipe {{ 'created' if not pipe_exists else 'updated' }},
           {{ 'enabled' if toggled is not skipped else 'already active' }}.
+
+    - name: List existing functions (mcp filter check)
+      ansible.builtin.uri:
+        url: "{{ openwebui_url }}/api/v1/functions/"
+        headers: "{{ auth_header }}"
+        status_code: 200
+      register: mcp_funcs
+
+    - name: Check whether the mcp filter already exists
+      ansible.builtin.set_fact:
+        mcp_filter_exists: "{{ (mcp_funcs.json | selectattr('id', 'equalto', mcp_filter_id) | list | length) > 0 }}"
+
+    - name: Create the mcp filter (first run)
+      when: not mcp_filter_exists
+      ansible.builtin.uri:
+        url: "{{ openwebui_url }}/api/v1/functions/create"
+        method: POST
+        headers: "{{ auth_header }}"
+        body_format: json
+        body:
+          id: "{{ mcp_filter_id }}"
+          name: "{{ mcp_filter_name }}"
+          content: "{{ mcp_filter_content }}"
+          meta:
+            description: "Attaches LiteLLM's MCP tool bridge (gitlab, sonarqube, grafana, playwright, n8n) to every chat request by default."
+        status_code: [200, 201]
+      register: mcp_created
+
+    - name: Update the mcp filter (already exists — content may have changed)
+      when: mcp_filter_exists
+      ansible.builtin.uri:
+        url: "{{ openwebui_url }}/api/v1/functions/id/{{ mcp_filter_id }}/update"
+        method: POST
+        headers: "{{ auth_header }}"
+        body_format: json
+        body:
+          id: "{{ mcp_filter_id }}"
+          name: "{{ mcp_filter_name }}"
+          content: "{{ mcp_filter_content }}"
+          meta:
+            description: "Attaches LiteLLM's MCP tool bridge (gitlab, sonarqube, grafana, playwright, n8n) to every chat request by default."
+        status_code: 200
+      register: mcp_updated
+
+    - name: Re-check mcp filter state (need is_active/is_global, not returned by create/update)
+      ansible.builtin.uri:
+        url: "{{ openwebui_url }}/api/v1/functions/"
+        headers: "{{ auth_header }}"
+        status_code: 200
+      register: mcp_funcs_after
+
+    - name: Enable the mcp filter if it isn't active
+      vars:
+        mcp_current: "{{ (mcp_funcs_after.json | selectattr('id', 'equalto', mcp_filter_id) | list | first) }}"
+      when: not mcp_current.is_active
+      ansible.builtin.uri:
+        url: "{{ openwebui_url }}/api/v1/functions/id/{{ mcp_filter_id }}/toggle"
+        method: POST
+        headers: "{{ auth_header }}"
+        status_code: 200
+      register: mcp_toggled
+
+    - name: Make the mcp filter global if it isn't already (applies to every model, no per-model wiring)
+      vars:
+        mcp_current: "{{ (mcp_funcs_after.json | selectattr('id', 'equalto', mcp_filter_id) | list | first) }}"
+      when: not mcp_current.is_global
+      ansible.builtin.uri:
+        url: "{{ openwebui_url }}/api/v1/functions/id/{{ mcp_filter_id }}/toggle/global"
+        method: POST
+        headers: "{{ auth_header }}"
+        status_code: 200
+      register: mcp_globalized
+
+    - name: Report (mcp filter)
+      ansible.builtin.debug:
+        msg: >-
+          MCP tools filter {{ 'created' if not mcp_filter_exists else 'updated' }},
+          {{ 'enabled' if mcp_toggled is not skipped else 'already active' }},
+          {{ 'set global' if mcp_globalized is not skipped else 'already global' }}.

@@ -1,0 +1,44 @@
+{
+  "name": "F-30 Flow Progress Poll",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0030-4001-8001-000000000001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "path": "flow-progress-poll",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      },
+      "webhookId": "b7a1c5e2-0030-4001-8001-000000000001"
+    },
+    {
+      "id": "a1b2c3d4-0030-4001-8001-000000000002",
+      "name": "Select Progress Rows",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [460, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT message, notes, created_at FROM sdlc_flow_progress WHERE flow_id = $1 AND created_at > $2 ORDER BY created_at ASC",
+        "options": {
+          "queryReplacement": "={{ [$json.query.flow_id ?? '', $json.query.since ?? '1970-01-01T00:00:00Z'] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "fsyufCBhX6sCVQpV",
+          "name": "SDLC Progress Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Select Progress Rows", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {}
+}

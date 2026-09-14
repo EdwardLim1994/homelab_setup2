@@ -19,20 +19,6 @@
       "webhookId": "d554a772-19ed-4e7e-a1c4-5c3bef8c787f"
     },
     {
-      "id": "1a5245a6-9095-4e2a-928a-a37b934a2548",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "ded48d7b-dcbf-48a5-9967-98fd7004248d",
       "name": "Label story: Deferred",
       "type": "n8n-nodes-base.httpRequest",
@@ -100,7 +86,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udce6 Story deferred \u2014 re-triggering /uat"
+              "value": "📦 Story deferred — re-triggering /uat"
             },
             {
               "name": "notes",
@@ -112,7 +98,7 @@
     },
     {
       "id": "adf03156-16e4-45ad-9da1-fc042b79dcb6",
-      "name": "\u2192 F-10 /uat",
+      "name": "→ F-10 /uat",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -121,7 +107,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/uat",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/uat",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -135,38 +121,33 @@
     }
   ],
   "connections": {
-    "100e299c-6e9b-4521-82b8-7c5c00b2b416": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "1a5245a6-9095-4e2a-928a-a37b934a2548",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "ded48d7b-dcbf-48a5-9967-98fd7004248d",
+            "node": "Label story: Deferred",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "ded48d7b-dcbf-48a5-9967-98fd7004248d": {
+    "Label story: Deferred": {
       "main": [
         [
           {
-            "node": "65cdfa49-870a-40b9-800a-b689e6340f00",
+            "node": "Notify: Story deferred",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "65cdfa49-870a-40b9-800a-b689e6340f00": {
+    "Notify: Story deferred": {
       "main": [
         [
           {
-            "node": "adf03156-16e4-45ad-9da1-fc042b79dcb6",
+            "node": "→ F-10 /uat",
             "type": "main",
             "index": 0
           }

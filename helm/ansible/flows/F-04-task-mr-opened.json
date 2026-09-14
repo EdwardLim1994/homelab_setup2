@@ -19,20 +19,6 @@
       "webhookId": "1bedb63f-c0bb-4844-8ac9-f02ab71fd289"
     },
     {
-      "id": "19f5aa68-7bca-452d-9ac0-eb0148fb49a7",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "2af57f60-e829-44b7-86c2-c0b297b48990",
       "name": "Notify: Task MR opened",
       "type": "n8n-nodes-base.httpRequest",
@@ -62,7 +48,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udd0e Task MR opened \u2014 TL review + CI parallel"
+              "value": "🔎 Task MR opened — TL review + CI parallel"
             },
             {
               "name": "notes",
@@ -108,7 +94,9 @@
         300
       ],
       "parameters": {
-        "mode": "waitForAll"
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 2
       }
     },
     {
@@ -208,7 +196,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udd04 MR {{ $json.mr_iid }} needs changes \u2014 retry {{ $json.retry_count }}/3"
+              "value": "🔄 MR {{ $json.mr_iid }} needs changes — retry {{ $json.retry_count }}/3"
             },
             {
               "name": "notes",
@@ -220,7 +208,7 @@
     },
     {
       "id": "bca280de-b215-4aaf-b10b-4fb7c032d3bb",
-      "name": "\u2192 Escalate",
+      "name": "→ Escalate",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -229,7 +217,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/escalate",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/escalate",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -271,7 +259,7 @@
             },
             {
               "name": "message",
-              "value": "\u2705 Task MR {{ $json.mr_iid }} approved"
+              "value": "✅ Task MR {{ $json.mr_iid }} approved"
             },
             {
               "name": "notes",
@@ -283,112 +271,107 @@
     }
   ],
   "connections": {
-    "f7b685ac-b6b3-48a9-abbe-40447f4381d4": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "19f5aa68-7bca-452d-9ac0-eb0148fb49a7",
+            "node": "Notify: Task MR opened",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Task MR opened": {
+      "main": [
+        [
+          {
+            "node": "TL: MR Review",
             "type": "main",
             "index": 0
           },
           {
-            "node": "2af57f60-e829-44b7-86c2-c0b297b48990",
+            "node": "Wait CI Result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "2af57f60-e829-44b7-86c2-c0b297b48990": {
+    "TL: MR Review": {
       "main": [
         [
           {
-            "node": "daddf81f-124d-4c3d-9762-6b66c98649cf",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "a0f3dfde-0892-429f-9fc9-96f2d31289d5",
+            "node": "Merge TL+CI",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "daddf81f-124d-4c3d-9762-6b66c98649cf": {
+    "Wait CI Result": {
       "main": [
         [
           {
-            "node": "6d2aaa6d-9851-4042-afa4-ec3c7337ee11",
+            "node": "Merge TL+CI",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge TL+CI": {
+      "main": [
+        [
+          {
+            "node": "All Passed?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "a0f3dfde-0892-429f-9fc9-96f2d31289d5": {
+    "All Passed?": {
       "main": [
         [
           {
-            "node": "6d2aaa6d-9851-4042-afa4-ec3c7337ee11",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "6d2aaa6d-9851-4042-afa4-ec3c7337ee11": {
-      "main": [
-        [
-          {
-            "node": "e4024f3c-704d-498f-8ae0-e3a7c504191a",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "e4024f3c-704d-498f-8ae0-e3a7c504191a": {
-      "main": [
-        [
-          {
-            "node": "0005a06a-44ce-4e2e-a29f-72d5cf885594",
+            "node": "GitLab: Approve MR",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "d0a7a36e-9e01-4236-8b03-c4f4505130d7",
+            "node": "Retry < 3?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "0005a06a-44ce-4e2e-a29f-72d5cf885594": {
+    "GitLab: Approve MR": {
       "main": [
         [
           {
-            "node": "9f7b1556-3932-4a73-9cc3-c991ff062f64",
+            "node": "Notify: MR approved",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "d0a7a36e-9e01-4236-8b03-c4f4505130d7": {
+    "Retry < 3?": {
       "main": [
         [
           {
-            "node": "026275d2-92c9-4a4f-a9a8-888bbe28b92d",
+            "node": "Notify: Review feedback",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "bca280de-b215-4aaf-b10b-4fb7c032d3bb",
+            "node": "→ Escalate",
             "type": "main",
             "index": 0
           }

@@ -1,8 +1,13 @@
 namespace: sdlc
 
 image:
-  repository: registry.homelab/omp
-  tag: latest
+  # ponytail: reuses the image built for helm/omp's (now-decommissioned) standing
+  # chat pod — it already bakes in omp + opencode + claude CLIs and every role's
+  # skill dir (helm/omp/Dockerfile). registry.homelab/omp:latest was never built
+  # anywhere (no Dockerfile in this chart, no build step in terraform/omp-agent.tf)
+  # — any Job using it would ImagePullBackOff.
+  repository: k3d-registry:5111/omp-box
+  tag: dev
   pullPolicy: IfNotPresent
 
 ttlSecondsAfterFinished: 300

@@ -19,20 +19,6 @@
       "webhookId": "aa24848e-da89-4e4d-b81c-6b167ad2b6d2"
     },
     {
-      "id": "bf072095-3a82-4456-bd45-01a2f53dafb4",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "3e881a0f-4cee-4076-806c-97c39841b19f",
       "name": "Notify: Starting plan_release",
       "type": "n8n-nodes-base.httpRequest",
@@ -62,7 +48,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udd0d plan_release started \u2014 Arch+DE gate A running"
+              "value": "🔍 plan_release started — Arch+DE gate A running"
             },
             {
               "name": "notes",
@@ -73,29 +59,162 @@
       }
     },
     {
-      "id": "3a736ffc-34c4-4ee2-acc7-b4c34d0dc4fc",
-      "name": "Architect Analysis",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "b1000001-0000-0000-0000-000000000001",
+      "name": "Architect Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         900,
+        200
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "architect",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Analyse release scope for {{ $node['Webhook Trigger'].json.body.body.version }}. Output: components affected, risk surface, API contract changes.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3a736ffc-34c4-4ee2-acc7-b4c34d0dc4fc",
+      "name": "Architect Analysis",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
         240
       ],
       "parameters": {
-        "command": "omp --role architect --model slow --project {{ $env.REPO_DIR }} --prompt 'Analyse release scope for {{ $json.body.version }}. Output: components affected, risk surface, API contract changes.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b1000001-0000-0000-0000-000000000007",
+      "name": "PM Project Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        900,
+        560
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "pm",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "Using glab (hostname gitlab-webservice-default.gitlab.svc.cluster.local), ensure a GitLab group named 'sdlc' exists (create it if missing) and a project named 'hr-portal' exists inside that group (create it if missing — do not treat an already-existing group or project as an error). Whether or not the group was just created, ensure the user with email edwardlimkoksiong1994@gmail.com is a member of the 'sdlc' group with Owner access (look up their user id via `glab api users?search=edwardlimkoksiong1994@gmail.com`, then add/update membership via `glab api groups/sdlc/members --method POST -f user_id=<id> -f access_level=50`, ignoring a 409/already-a-member response as success) — a group recreated after deletion has no members but root, so this must run every time, not just on first creation. Report the project's full path, whether it was newly created or already existed, and whether the membership add succeeded.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "hr-portal",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b1000001-0000-0000-0000-000000000008",
+      "name": "PM: Ensure Project Exists",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
+        560
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b1000001-0000-0000-0000-000000000002",
+      "name": "DE Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        900,
+        400
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "data-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Analyse schema migration impact for {{ $node['Webhook Trigger'].json.body.body.version }}. Output: migrations needed, Apicurio schema changes.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
       "id": "e754cd32-92b1-4106-948c-6c959f268573",
       "name": "DE Schema Impact",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
-        900,
+        1080,
         360
       ],
       "parameters": {
-        "command": "omp --role data-engineer --model default --project {{ $env.REPO_DIR }} --prompt 'Analyse schema migration impact for {{ $json.body.version }}. Output: migrations needed, Apicurio schema changes.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
@@ -108,7 +227,9 @@
         300
       ],
       "parameters": {
-        "mode": "waitForAll"
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3
       }
     },
     {
@@ -141,7 +262,7 @@
             },
             {
               "name": "message",
-              "value": "\u2705 Gate A done \u2014 QA+Sec+UX gate B running"
+              "value": "✅ Gate A done — QA+Sec+UX gate B running"
             },
             {
               "name": "notes",
@@ -152,42 +273,162 @@
       }
     },
     {
-      "id": "a4375dcf-d046-4fb5-a1c9-7a50595e23da",
-      "name": "QA Risk Assessment",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "b1000001-0000-0000-0000-000000000003",
+      "name": "QA Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         1560,
+        160
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "qa-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Assess test strategy for {{ $node['Webhook Trigger'].json.body.body.version }} based on arch analysis.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a4375dcf-d046-4fb5-a1c9-7a50595e23da",
+      "name": "QA Risk Assessment",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1740,
         200
       ],
       "parameters": {
-        "command": "omp --role qa-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Assess test strategy for {{ $json.body.version }} based on arch analysis.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b1000001-0000-0000-0000-000000000004",
+      "name": "Security Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1560,
+        280
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "security-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Threat model for {{ $node['Webhook Trigger'].json.body.body.version }} based on arch analysis.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
       "id": "2983ca0a-24d8-4174-8d38-948ef19a2093",
       "name": "Security Threat Model",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
-        1560,
+        1740,
         320
       ],
       "parameters": {
-        "command": "omp --role security-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Threat model for {{ $json.body.version }} based on arch analysis.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b1000001-0000-0000-0000-000000000005",
+      "name": "UX Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1560,
+        400
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "ui-ux-designer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=UX impact review for {{ $node['Webhook Trigger'].json.body.body.version }}.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
       "id": "5ef55af3-7aea-4d65-9e56-69326096bf99",
       "name": "UX Review",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
-        1560,
+        1740,
         440
       ],
       "parameters": {
-        "command": "omp --role ui-ux-designer --model smol --project {{ $env.REPO_DIR }} --prompt 'UX impact review for {{ $json.body.version }}.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
@@ -200,7 +441,9 @@
         320
       ],
       "parameters": {
-        "mode": "waitForAll"
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3
       }
     },
     {
@@ -233,7 +476,7 @@
             },
             {
               "name": "message",
-              "value": "\u2705 Gate B done \u2014 PM PRD gate C running"
+              "value": "✅ Gate B done — PM PRD gate C running"
             },
             {
               "name": "notes",
@@ -244,16 +487,56 @@
       }
     },
     {
-      "id": "0fd57ab2-eb21-44b6-9ee1-813a61209de9",
-      "name": "PM PRD",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "b1000001-0000-0000-0000-000000000006",
+      "name": "PM Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         2220,
+        260
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "pm",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Generate a PRD for {{ $node['Webhook Trigger'].json.body.body.version }} using all gate outputs. Write it to docs/PRD-{{ $node['Webhook Trigger'].json.body.body.version }}.md in the project repo and commit+push it via glab/git (clone from http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/sdlc/hr-portal.git if not already present locally). Also create a GitLab milestone for it via glab (this GitLab is Community Edition — it has no Epics, do not attempt to create one).",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "0fd57ab2-eb21-44b6-9ee1-813a61209de9",
+      "name": "PM PRD",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2400,
         320
       ],
       "parameters": {
-        "command": "opencode --role pm --model haiku --prompt 'Generate PRD for {{ $json.body.version }} using all gate outputs. Create GitLab milestone and epic.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
@@ -286,7 +569,7 @@
             },
             {
               "name": "message",
-              "value": "\u2705 plan_release complete \u2014 PRD created, milestone ready"
+              "value": "✅ plan_release complete — PRD created, milestone ready"
             },
             {
               "name": "notes",
@@ -298,152 +581,240 @@
     }
   ],
   "connections": {
-    "640b5fba-4d3c-4c1e-9ca3-34b4278d83ad": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "bf072095-3a82-4456-bd45-01a2f53dafb4",
+            "node": "Notify: Starting plan_release",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Starting plan_release": {
+      "main": [
+        [
+          {
+            "node": "Architect Input",
             "type": "main",
             "index": 0
           },
           {
-            "node": "3e881a0f-4cee-4076-806c-97c39841b19f",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "3e881a0f-4cee-4076-806c-97c39841b19f": {
-      "main": [
-        [
-          {
-            "node": "3a736ffc-34c4-4ee2-acc7-b4c34d0dc4fc",
+            "node": "DE Input",
             "type": "main",
             "index": 0
           },
           {
-            "node": "e754cd32-92b1-4106-948c-6c959f268573",
+            "node": "PM Project Input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "3a736ffc-34c4-4ee2-acc7-b4c34d0dc4fc": {
+    "PM Project Input": {
       "main": [
         [
           {
-            "node": "deba9a4f-9194-455a-8c3e-2e35986f6ca8",
+            "node": "PM: Ensure Project Exists",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "e754cd32-92b1-4106-948c-6c959f268573": {
+    "PM: Ensure Project Exists": {
       "main": [
         [
           {
-            "node": "deba9a4f-9194-455a-8c3e-2e35986f6ca8",
+            "node": "Merge Gate A",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Architect Input": {
+      "main": [
+        [
+          {
+            "node": "Architect Analysis",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "deba9a4f-9194-455a-8c3e-2e35986f6ca8": {
+    "DE Input": {
       "main": [
         [
           {
-            "node": "3ba5b627-f598-4689-933f-ee277b51bc9e",
+            "node": "DE Schema Impact",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "3ba5b627-f598-4689-933f-ee277b51bc9e": {
+    "Architect Analysis": {
       "main": [
         [
           {
-            "node": "a4375dcf-d046-4fb5-a1c9-7a50595e23da",
+            "node": "Merge Gate A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DE Schema Impact": {
+      "main": [
+        [
+          {
+            "node": "Merge Gate A",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Gate A": {
+      "main": [
+        [
+          {
+            "node": "Notify: Gate A done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Gate A done": {
+      "main": [
+        [
+          {
+            "node": "QA Input",
             "type": "main",
             "index": 0
           },
           {
-            "node": "2983ca0a-24d8-4174-8d38-948ef19a2093",
+            "node": "Security Input",
             "type": "main",
             "index": 0
           },
           {
-            "node": "5ef55af3-7aea-4d65-9e56-69326096bf99",
+            "node": "UX Input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "a4375dcf-d046-4fb5-a1c9-7a50595e23da": {
+    "QA Input": {
       "main": [
         [
           {
-            "node": "a69927df-3116-4731-95ed-79aa3f40b649",
+            "node": "QA Risk Assessment",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "2983ca0a-24d8-4174-8d38-948ef19a2093": {
+    "Security Input": {
       "main": [
         [
           {
-            "node": "a69927df-3116-4731-95ed-79aa3f40b649",
+            "node": "Security Threat Model",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "5ef55af3-7aea-4d65-9e56-69326096bf99": {
+    "UX Input": {
       "main": [
         [
           {
-            "node": "a69927df-3116-4731-95ed-79aa3f40b649",
+            "node": "UX Review",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "a69927df-3116-4731-95ed-79aa3f40b649": {
+    "QA Risk Assessment": {
       "main": [
         [
           {
-            "node": "e99f836a-4301-4a11-95f2-baa44e891325",
+            "node": "Merge Gate B",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "e99f836a-4301-4a11-95f2-baa44e891325": {
+    "Security Threat Model": {
       "main": [
         [
           {
-            "node": "0fd57ab2-eb21-44b6-9ee1-813a61209de9",
+            "node": "Merge Gate B",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "UX Review": {
+      "main": [
+        [
+          {
+            "node": "Merge Gate B",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Gate B": {
+      "main": [
+        [
+          {
+            "node": "Notify: Gate B done",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "0fd57ab2-eb21-44b6-9ee1-813a61209de9": {
+    "Notify: Gate B done": {
       "main": [
         [
           {
-            "node": "f72e1772-9cba-4f16-be6e-dc7311443563",
+            "node": "PM Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PM Input": {
+      "main": [
+        [
+          {
+            "node": "PM PRD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PM PRD": {
+      "main": [
+        [
+          {
+            "node": "Notify: plan_release complete",
             "type": "main",
             "index": 0
           }

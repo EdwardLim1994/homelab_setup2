@@ -19,20 +19,6 @@
       "webhookId": "a4252b67-7ea8-4bfd-8894-e613a7b3c86c"
     },
     {
-      "id": "6d9be0a5-8fd1-4c8a-a586-30d43b4fc4e2",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "574de774-cf51-4be9-ad69-eedf5b6c17ce",
       "name": "UAT Safeguard",
       "type": "n8n-nodes-base.httpRequest",
@@ -106,7 +92,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udeab /release_staging blocked \u2014 UAT labels missing on release ticket"
+              "value": "🚫 /release_staging blocked — UAT labels missing on release ticket"
             },
             {
               "name": "notes",
@@ -117,16 +103,38 @@
       }
     },
     {
-      "id": "3ebdd3bd-7d83-4eff-a970-27c4e24e8a4e",
-      "name": "RM: Create Release Plan Ticket",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "b14000001-0000-0000-0000-000000000001",
+      "name": "RM Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         1120,
+        120
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "role", "value": "release-manager", "type": "string" },
+            { "id": "2", "name": "prompt", "value": "=Create a release-plan child ticket for {{ $env.RELEASE_VERSION }} under release ticket {{ $env.RELEASE_TICKET_ID }} via glab. Include a go-live checklist.", "type": "string" },
+            { "id": "3", "name": "story", "value": "={{ $env.RELEASE_VERSION }}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3ebdd3bd-7d83-4eff-a970-27c4e24e8a4e",
+      "name": "RM: Create Release Plan Ticket",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
         200
       ],
       "parameters": {
-        "command": "opencode --role release-manager --model sonnet --prompt 'Create release-plan child ticket for {{ $env.RELEASE_VERSION }} under release ticket {{ $env.RELEASE_TICKET_ID }}. Include go-live checklist.' --non-interactive"
+        "source": "database",
+        "workflowId": { "mode": "id", "value": "jAv16SAzGy9fA5G4" },
+        "mode": "once"
       }
     },
     {
@@ -161,7 +169,7 @@
           "parameters": [
             {
               "name": "__json",
-              "value": "{\"branch\":\"promote/{{ $env.RELEASE_VERSION }}\",\"ref\":\"release/{{ $env.RELEASE_VERSION }}\"}"
+              "value": "={\"branch\":\"promote/{{ $env.RELEASE_VERSION }}\",\"ref\":\"release/{{ $env.RELEASE_VERSION }}\"}"
             }
           ]
         }
@@ -197,7 +205,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\ude80 promote/ branch created \u2014 promotion CI triggered"
+              "value": "🚀 promote/ branch created — promotion CI triggered"
             },
             {
               "name": "notes",
@@ -209,67 +217,73 @@
     }
   ],
   "connections": {
-    "6be2386d-220c-416d-aa45-ff7597498aa3": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "6d9be0a5-8fd1-4c8a-a586-30d43b4fc4e2",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "574de774-cf51-4be9-ad69-eedf5b6c17ce",
+            "node": "UAT Safeguard",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "574de774-cf51-4be9-ad69-eedf5b6c17ce": {
+    "UAT Safeguard": {
       "main": [
         [
           {
-            "node": "94b7463d-558e-4d36-b9d0-4ebd90fda8a3",
+            "node": "All UAT Labels?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "94b7463d-558e-4d36-b9d0-4ebd90fda8a3": {
+    "All UAT Labels?": {
       "main": [
         [
           {
-            "node": "3ebdd3bd-7d83-4eff-a970-27c4e24e8a4e",
+            "node": "RM Input",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "2759c45d-c7cc-4400-86b1-b888794704b3",
+            "node": "Notify: Staging blocked",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "3ebdd3bd-7d83-4eff-a970-27c4e24e8a4e": {
+    "RM Input": {
       "main": [
         [
           {
-            "node": "ff579f3b-661a-417b-9ffe-bb6608d5d5cb",
+            "node": "RM: Create Release Plan Ticket",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "ff579f3b-661a-417b-9ffe-bb6608d5d5cb": {
+    "RM: Create Release Plan Ticket": {
       "main": [
         [
           {
-            "node": "5ffa83c3-ccf7-4d5f-b669-012b5aac7f72",
+            "node": "Create promote/ branch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create promote/ branch": {
+      "main": [
+        [
+          {
+            "node": "Notify: Staging CI triggered",
             "type": "main",
             "index": 0
           }

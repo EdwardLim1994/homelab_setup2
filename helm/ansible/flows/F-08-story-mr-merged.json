@@ -19,20 +19,6 @@
       "webhookId": "e1932c5d-0bc4-42c3-8723-236fccec563a"
     },
     {
-      "id": "4dec8f15-f4c5-4b25-8202-61ab91db2298",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "e9c0b402-3e0c-4df5-873f-2b9760d50ef2",
       "name": "Close Story Tickets",
       "type": "n8n-nodes-base.httpRequest",
@@ -81,7 +67,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/cluster-lifecycle",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/cluster-lifecycle",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -171,7 +157,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83c\udf89 All stories merged \u2014 release ready for /uat"
+              "value": "🎉 All stories merged — release ready for /uat"
             },
             {
               "name": "notes",
@@ -211,7 +197,7 @@
             },
             {
               "name": "message",
-              "value": "\u2705 Story merged \u2014 {{ $json.length }} stories still open"
+              "value": "=✅ Story merged — {{ $json.length }} stories still open"
             },
             {
               "name": "notes",
@@ -223,72 +209,67 @@
     }
   ],
   "connections": {
-    "ee6c5ffd-4374-4ef1-90b0-4397637f65ad": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "4dec8f15-f4c5-4b25-8202-61ab91db2298",
+            "node": "Close Story Tickets",
             "type": "main",
             "index": 0
           },
           {
-            "node": "e9c0b402-3e0c-4df5-873f-2b9760d50ef2",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "e4d9cac1-ca92-4e65-9c41-011e42d5ea7a",
+            "node": "Sleep QA Cluster",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "e9c0b402-3e0c-4df5-873f-2b9760d50ef2": {
+    "Close Story Tickets": {
       "main": [
         [
           {
-            "node": "ced58661-afae-44e6-a50f-a463c1ffd36d",
+            "node": "All Stories Merged?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "e4d9cac1-ca92-4e65-9c41-011e42d5ea7a": {
+    "Sleep QA Cluster": {
       "main": [
         [
           {
-            "node": "ced58661-afae-44e6-a50f-a463c1ffd36d",
+            "node": "All Stories Merged?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "ced58661-afae-44e6-a50f-a463c1ffd36d": {
+    "All Stories Merged?": {
       "main": [
         [
           {
-            "node": "d6a68429-049f-41bd-ae3d-0e73d63f725f",
+            "node": "All Done?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "d6a68429-049f-41bd-ae3d-0e73d63f725f": {
+    "All Done?": {
       "main": [
         [
           {
-            "node": "9d8cfb43-de7c-4cb9-b093-1568ada2507b",
+            "node": "Notify: All stories done",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "238b6c61-6e62-49b6-ae85-8bd3283a024a",
+            "node": "Notify: More stories pending",
             "type": "main",
             "index": 0
           }

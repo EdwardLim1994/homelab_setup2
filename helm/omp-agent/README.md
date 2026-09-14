@@ -28,6 +28,7 @@ this table is the single source of truth (n8n only picks the role):
 | qa-engineer | `omp-skill-qa-engineer` | `ollama/qwen3:1.7b` |
 | security-engineer | `omp-skill-security-engineer` | `ollama/qwen3:1.7b` |
 | product-manager | `omp-skill-product-manager` | `ollama/qwen3:1.7b` |
+| ui-ux-designer | `omp-skill-ui-ux-designer` | `ollama/qwen3:1.7b` |
 
 Must stay a subset of `helm/litellm/values.yaml`'s `ollamaModels` (what's
 actually pulled on the host — check with `ollama list`); LiteLLM only

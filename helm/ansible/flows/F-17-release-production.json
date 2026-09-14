@@ -19,20 +19,6 @@
       "webhookId": "3581e892-b9f9-4646-ac5a-c20a793c77f1"
     },
     {
-      "id": "f2693e1e-4c54-4993-a84d-ceac19fb6ebd",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "40bb0ef7-c057-436b-b123-c9de5c9d2271",
       "name": "rm:go Safeguard",
       "type": "n8n-nodes-base.httpRequest",
@@ -106,7 +92,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udeab /release_production blocked \u2014 rm:go label missing"
+              "value": "🚫 /release_production blocked — rm:go label missing"
             },
             {
               "name": "notes",
@@ -118,7 +104,7 @@
     },
     {
       "id": "0b27e754-868c-4d20-8a5a-147072921e7f",
-      "name": "Create promote\u2192main MR",
+      "name": "Create promote→main MR",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -184,7 +170,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udc64 Release MR ready \u2014 Edward please review and merge promote/{{ $env.RELEASE_VERSION }} \u2192 main"
+              "value": "👤 Release MR ready — Edward please review and merge promote/{{ $env.RELEASE_VERSION }} → main"
             },
             {
               "name": "notes",
@@ -196,56 +182,51 @@
     }
   ],
   "connections": {
-    "487cf1ce-c9d6-47c3-b053-558ffc6efc20": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "f2693e1e-4c54-4993-a84d-ceac19fb6ebd",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "40bb0ef7-c057-436b-b123-c9de5c9d2271",
+            "node": "rm:go Safeguard",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "40bb0ef7-c057-436b-b123-c9de5c9d2271": {
+    "rm:go Safeguard": {
       "main": [
         [
           {
-            "node": "457bfee4-1b22-4ab0-b34a-b6f18184f771",
+            "node": "rm:go label present?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "457bfee4-1b22-4ab0-b34a-b6f18184f771": {
+    "rm:go label present?": {
       "main": [
         [
           {
-            "node": "0b27e754-868c-4d20-8a5a-147072921e7f",
+            "node": "Create promote→main MR",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "3e5da2ec-23b6-4643-8d13-fa95a32f1c7f",
+            "node": "Notify: Production blocked",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "0b27e754-868c-4d20-8a5a-147072921e7f": {
+    "Create promote→main MR": {
       "main": [
         [
           {
-            "node": "ba4b70d7-09f3-40cc-bc27-a788cfc5ea07",
+            "node": "Notify: Production MR ready",
             "type": "main",
             "index": 0
           }

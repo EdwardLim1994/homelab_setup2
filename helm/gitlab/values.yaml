@@ -10,6 +10,17 @@ gitlab:
     initialRootPassword:
       secret: ""  # set via terraform
 
+    # ponytail: the top-level `registry:` component toggle (below, outside
+    # global) only skips deploying the registry pod — gitlab.yml still
+    # renders registry.enabled: true pointing at
+    # gitlab-registry.gitlab.svc:5000 unless global.registry is also told, so
+    # any project with container_registry_access_level enabled (the default)
+    # fails HARD on *deletion*: GitLab checks the registry for image tags to
+    # purge, DNS lookup for the nonexistent service fails
+    # (Faraday::ConnectionFailed), and the whole delete 500s with no UI error.
+    registry:
+      enabled: false
+
     # ponytail: shared postgres + redis (helm/postgres, helm/redis). db + role
     # `gitlab`/`gitlabhq_production` on the shared postgres (initdb also creates
     # the pg_trgm / btree_gist extensions GitLab needs). Redis: GitLab keeps its

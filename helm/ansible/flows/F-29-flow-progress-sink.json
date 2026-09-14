@@ -1,0 +1,45 @@
+{
+  "name": "F-29 Flow Progress Sink",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0029-4001-8001-000000000001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "path": "flow-progress",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "b7a1c5e2-0029-4001-8001-000000000001"
+    },
+    {
+      "id": "a1b2c3d4-0029-4001-8001-000000000002",
+      "name": "Insert Progress Row",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [460, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO sdlc_flow_progress (flow_id, message, notes) VALUES ($1, $2, $3)",
+        "options": {
+          "queryReplacement": "={{ [$json.body.flow_id ?? '', $json.body.message ?? '', $json.body.notes ?? ''] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "fsyufCBhX6sCVQpV",
+          "name": "SDLC Progress Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Insert Progress Row", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {}
+}

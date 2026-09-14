@@ -19,20 +19,6 @@
       "webhookId": "0ba3c35a-7646-4360-b4fd-d570efdb6283"
     },
     {
-      "id": "cf747eb0-70aa-4dfc-8b97-c5f79f92c548",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "d0342401-24c5-437f-a35c-d26606bdeba7",
       "name": "Query DAG State",
       "type": "n8n-nodes-base.httpRequest",
@@ -100,7 +86,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udcca DAG state {{ $env.RELEASE_VERSION }}: {{ $json.summary }} | paused={{ $json.dag_paused }}"
+              "value": "📊 DAG state {{ $env.RELEASE_VERSION }}: {{ $json.summary }} | paused={{ $json.dag_paused }}"
             },
             {
               "name": "notes",
@@ -112,38 +98,33 @@
     }
   ],
   "connections": {
-    "012cb2a3-5712-42eb-9cc7-d7bbe6112a6a": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "cf747eb0-70aa-4dfc-8b97-c5f79f92c548",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "d0342401-24c5-437f-a35c-d26606bdeba7",
+            "node": "Query DAG State",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "d0342401-24c5-437f-a35c-d26606bdeba7": {
+    "Query DAG State": {
       "main": [
         [
           {
-            "node": "7dc9f5b9-02e2-4b3d-9819-7e36e3cca501",
+            "node": "Build DAG Summary",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "7dc9f5b9-02e2-4b3d-9819-7e36e3cca501": {
+    "Build DAG Summary": {
       "main": [
         [
           {
-            "node": "d3ff71cd-fc3f-4906-b479-7c0a23df6e68",
+            "node": "Notify: DAG state",
             "type": "main",
             "index": 0
           }

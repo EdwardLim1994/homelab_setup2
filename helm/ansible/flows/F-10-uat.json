@@ -19,20 +19,6 @@
       "webhookId": "9d868882-f56c-4013-9e6c-aa09a62c9a2c"
     },
     {
-      "id": "ba849c78-367c-440c-a2b0-4ebe9402829b",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "bb687645-4875-4fbc-af27-97ea0a50318f",
       "name": "UAT Safeguard: All Stories Merged?",
       "type": "n8n-nodes-base.httpRequest",
@@ -106,7 +92,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udeab /uat blocked \u2014 {{ $json.length }} stories still open, not all merged to release"
+              "value": "🚫 /uat blocked — {{ $json.length }} stories still open, not all merged to release"
             },
             {
               "name": "notes",
@@ -127,7 +113,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/cluster-lifecycle",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/cluster-lifecycle",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -198,7 +184,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\ude80 UAT deployed \u2014 triggering QA stage F-11"
+              "value": "🚀 UAT deployed — triggering QA stage F-11"
             },
             {
               "name": "notes",
@@ -210,7 +196,7 @@
     },
     {
       "id": "eebeeb33-2386-4944-9bbf-2f6f57cfb60b",
-      "name": "\u2192 F-11 QA UAT",
+      "name": "→ F-11 QA UAT",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -219,7 +205,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/uat-qa",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/uat-qa",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -233,78 +219,73 @@
     }
   ],
   "connections": {
-    "4f688152-8908-4662-ba01-94fe7a4b59c3": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "ba849c78-367c-440c-a2b0-4ebe9402829b",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "bb687645-4875-4fbc-af27-97ea0a50318f",
+            "node": "UAT Safeguard: All Stories Merged?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "bb687645-4875-4fbc-af27-97ea0a50318f": {
+    "UAT Safeguard: All Stories Merged?": {
       "main": [
         [
           {
-            "node": "f5ccd427-0605-4317-b184-20232eca15bc",
+            "node": "Safeguard pass?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "f5ccd427-0605-4317-b184-20232eca15bc": {
+    "Safeguard pass?": {
       "main": [
         [
           {
-            "node": "9dda1bce-e5cc-4691-9d73-86e55e3aa0d8",
+            "node": "Wake UAT Cluster",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "ee7fb018-1448-478a-b84a-e5c941d4c299",
+            "node": "Notify: UAT blocked",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "9dda1bce-e5cc-4691-9d73-86e55e3aa0d8": {
+    "Wake UAT Cluster": {
       "main": [
         [
           {
-            "node": "dea28236-790c-4e23-9457-aa3686060a62",
+            "node": "ArgoCD: Sync UAT",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "dea28236-790c-4e23-9457-aa3686060a62": {
+    "ArgoCD: Sync UAT": {
       "main": [
         [
           {
-            "node": "bd6a2087-8ab3-43c3-b49d-addbf6929e31",
+            "node": "Notify: UAT deployed",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "bd6a2087-8ab3-43c3-b49d-addbf6929e31": {
+    "Notify: UAT deployed": {
       "main": [
         [
           {
-            "node": "eebeeb33-2386-4944-9bbf-2f6f57cfb60b",
+            "node": "→ F-11 QA UAT",
             "type": "main",
             "index": 0
           }

@@ -39,270 +39,20 @@
     },
     {
       "id": "3ff27062-0971-4209-b2de-9956be6a0348",
-      "name": "Route by Event+Branch",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
+      "name": "Is merge_request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
       "position": [
         680,
-        300
+        260
       ],
       "parameters": {
-        "mode": "rules",
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "leftValue": "={{ $json.object_kind }}",
-                  "operation": "equals",
-                  "rightValue": "merge_request"
-                }
-              },
-              "outputKey": "mr"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "leftValue": "={{ $json.object_kind }}",
-                  "operation": "equals",
-                  "rightValue": "pipeline"
-                }
-              },
-              "outputKey": "pipeline"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "7b3ff4c6-eb66-4d45-8c62-5c175c3122ea",
-      "name": "MR Open Branch Prefix",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
-      "position": [
-        900,
-        160
-      ],
-      "parameters": {
-        "mode": "rules",
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "leftValue": "={{ $json.object_attributes.source_branch }}",
-                  "operation": "startsWith",
-                  "rightValue": "task/"
-                }
-              },
-              "outputKey": "task"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "leftValue": "={{ $json.object_attributes.source_branch }}",
-                  "operation": "startsWith",
-                  "rightValue": "us/"
-                }
-              },
-              "outputKey": "story"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "a0120684-478f-46ba-843f-859098b7d210",
-      "name": "MR Merge Branch Prefix",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
-      "position": [
-        900,
-        360
-      ],
-      "parameters": {
-        "mode": "rules",
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "leftValue": "={{ $json.object_attributes.source_branch }}",
-                  "operation": "startsWith",
-                  "rightValue": "task/"
-                }
-              },
-              "outputKey": "task"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "leftValue": "={{ $json.object_attributes.source_branch }}",
-                  "operation": "startsWith",
-                  "rightValue": "us/"
-                }
-              },
-              "outputKey": "story"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "leftValue": "={{ $json.object_attributes.source_branch }}",
-                  "operation": "startsWith",
-                  "rightValue": "bugfix/"
-                }
-              },
-              "outputKey": "revert"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "leftValue": "={{ $json.object_attributes.source_branch }}",
-                  "operation": "startsWith",
-                  "rightValue": "promote/"
-                }
-              },
-              "outputKey": "promote"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "a87bc4a2-87f4-4982-9594-d03eb4bb5f28",
-      "name": "\u2192 F-04 Task MR Opened",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1120,
-        160
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-task-mr-opened",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "__passthrough",
-              "value": "={{ JSON.stringify($json) }}"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "fdd65090-3cbd-41ee-9f7d-7d5b54d135de",
-      "name": "\u2192 F-07 Story MR Opened",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1120,
-        240
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-story-mr-opened",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "__passthrough",
-              "value": "={{ JSON.stringify($json) }}"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "5151b54a-8ec8-480e-b605-8dabe194f962",
-      "name": "\u2192 F-05 Task MR Merged",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1120,
-        320
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-task-mr-merged",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "__passthrough",
-              "value": "={{ JSON.stringify($json) }}"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "4610489a-5bd5-4d0c-a1bd-11e6440d2e22",
-      "name": "\u2192 F-08 Story MR Merged",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1120,
-        400
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-story-mr-merged",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "__passthrough",
-              "value": "={{ JSON.stringify($json) }}"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "12ea3777-57b4-49f8-b954-fc5bef46c8e1",
-      "name": "\u2192 F-23 Revert Merged",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1120,
-        480
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-revert-merged",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "__passthrough",
-              "value": "={{ JSON.stringify($json) }}"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "50002362-72ec-45a0-899f-e1ab704f9954",
-      "name": "\u2192 F-18 Release MR Merged",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1120,
-        560
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-release-mr-merged",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "__passthrough",
-              "value": "={{ JSON.stringify($json) }}"
-            }
-          ]
+        "conditions": {
+          "options": {
+            "leftValue": "={{ $json.body.object_kind }}",
+            "operation": "equals",
+            "rightValue": "merge_request"
+          }
         }
       }
     },
@@ -312,142 +62,450 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1120,
-        640
+        900,
+        460
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/gitlab-pipeline",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/gitlab-pipeline",
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "__passthrough",
-              "value": "={{ JSON.stringify($json) }}"
-            }
-          ]
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}"
+      }
+    },
+    {
+      "id": "b00mr0001-0000-0000-0000-000000000001",
+      "name": "MR action = open?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        900,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "={{ $json.body.object_attributes.action }}",
+            "operation": "equals",
+            "rightValue": "open"
+          }
         }
       }
     },
     {
-      "id": "2ee0baa4-8845-4bc5-9bb9-15a2359cee3d",
-      "name": "Reject 401",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
+      "id": "b00mr0001-0000-0000-0000-000000000002",
+      "name": "Open: task/ prefix?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
       "position": [
-        680,
+        1120,
+        140
+      ],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.object_attributes.source_branch }}",
+              "rightValue": "task/",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "a87bc4a2-87f4-4982-9594-d03eb4bb5f28",
+      "name": "\u2192 F-04 Task MR Opened",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/gitlab-task-mr-opened",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}"
+      }
+    },
+    {
+      "id": "b00mr0001-0000-0000-0000-000000000003",
+      "name": "Open: us/ prefix?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        220
+      ],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.object_attributes.source_branch }}",
+              "rightValue": "us/",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "fdd65090-3cbd-41ee-9f7d-7d5b54d135de",
+      "name": "\u2192 F-07 Story MR Opened",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        220
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/story-mr-open",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}"
+      }
+    },
+    {
+      "id": "b00mr0002-0000-0000-0000-000000000001",
+      "name": "Merge: task/ prefix?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.object_attributes.source_branch }}",
+              "rightValue": "task/",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "5151b54a-8ec8-480e-b605-8dabe194f962",
+      "name": "\u2192 F-05 Task MR Merged",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        360
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/gitlab-task-mr-merged",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}"
+      }
+    },
+    {
+      "id": "b00mr0002-0000-0000-0000-000000000002",
+      "name": "Merge: us/ prefix?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        480
+      ],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.object_attributes.source_branch }}",
+              "rightValue": "us/",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "4610489a-5bd5-4d0c-a1bd-11e6440d2e22",
+      "name": "\u2192 F-08 Story MR Merged",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
         440
       ],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"error\":\"unauthorized\"}",
-        "options": {
-          "responseCode": 401
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/gitlab-story-mr-merged",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}"
+      }
+    },
+    {
+      "id": "b00mr0002-0000-0000-0000-000000000003",
+      "name": "Merge: bugfix/ prefix?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        560
+      ],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.object_attributes.source_branch }}",
+              "rightValue": "bugfix/",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
         }
+      }
+    },
+    {
+      "id": "12ea3777-57b4-49f8-b954-fc5bef46c8e1",
+      "name": "\u2192 F-23 Revert Merged",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        520
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/gitlab-revert-merged",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}"
+      }
+    },
+    {
+      "id": "b00mr0002-0000-0000-0000-000000000004",
+      "name": "Merge: promote/ prefix?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        640
+      ],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.object_attributes.source_branch }}",
+              "rightValue": "promote/",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "50002362-72ec-45a0-899f-e1ab704f9954",
+      "name": "\u2192 F-18 Release MR Merged",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        600
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/gitlab-release-mr-merged",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}"
       }
     }
   ],
   "connections": {
-    "947c03cc-3079-4f4a-ac72-3275192a12b1": {
+    "GitLab Webhook": {
       "main": [
         [
           {
-            "node": "76381f6a-c728-47ad-b2f5-36cb589a34da",
+            "node": "Verify Token",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "76381f6a-c728-47ad-b2f5-36cb589a34da": {
+    "Verify Token": {
       "main": [
         [
           {
-            "node": "3ff27062-0971-4209-b2de-9956be6a0348",
+            "node": "Is merge_request?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Is merge_request?": {
+      "main": [
+        [
+          {
+            "node": "MR action = open?",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "2ee0baa4-8845-4bc5-9bb9-15a2359cee3d",
+            "node": "\u2192 F-09 CI Pipeline",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "3ff27062-0971-4209-b2de-9956be6a0348": {
+    "MR action = open?": {
       "main": [
         [
           {
-            "node": "7b3ff4c6-eb66-4d45-8c62-5c175c3122ea",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "a0120684-478f-46ba-843f-859098b7d210",
+            "node": "Open: task/ prefix?",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "bf887a71-2a7c-4b8d-b8c0-8e348e2fc1d1",
+            "node": "Merge: task/ prefix?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "7b3ff4c6-eb66-4d45-8c62-5c175c3122ea": {
+    "Open: task/ prefix?": {
       "main": [
         [
           {
-            "node": "a87bc4a2-87f4-4982-9594-d03eb4bb5f28",
+            "node": "\u2192 F-04 Task MR Opened",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "fdd65090-3cbd-41ee-9f7d-7d5b54d135de",
+            "node": "Open: us/ prefix?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "a0120684-478f-46ba-843f-859098b7d210": {
+    "Open: us/ prefix?": {
       "main": [
         [
           {
-            "node": "5151b54a-8ec8-480e-b605-8dabe194f962",
+            "node": "\u2192 F-07 Story MR Opened",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Merge: task/ prefix?": {
+      "main": [
+        [
+          {
+            "node": "\u2192 F-05 Task MR Merged",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "4610489a-5bd5-4d0c-a1bd-11e6440d2e22",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "12ea3777-57b4-49f8-b954-fc5bef46c8e1",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "50002362-72ec-45a0-899f-e1ab704f9954",
+            "node": "Merge: us/ prefix?",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "Merge: us/ prefix?": {
+      "main": [
+        [
+          {
+            "node": "\u2192 F-08 Story MR Merged",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge: bugfix/ prefix?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge: bugfix/ prefix?": {
+      "main": [
+        [
+          {
+            "node": "\u2192 F-23 Revert Merged",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge: promote/ prefix?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge: promote/ prefix?": {
+      "main": [
+        [
+          {
+            "node": "\u2192 F-18 Release MR Merged",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     }
   },

@@ -24,6 +24,8 @@ helm/litellm/values.yaml's ollamaModels (what's actually pulled).
   (dict "role" "qa-engineer" "model" "ollama/qwen3:1.7b")
   (dict "role" "security-engineer" "model" "ollama/qwen3:1.7b")
   (dict "role" "product-manager" "model" "ollama/qwen3:1.7b")
+  (dict "role" "ui-ux-designer" "model" "ollama/qwen3:1.7b")
+  (dict "role" "product-owner" "model" "ollama/qwen3:1.7b")
 }}
 ---
 apiVersion: v1

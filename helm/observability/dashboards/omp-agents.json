@@ -1,0 +1,230 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "title": "OMP Agents",
+  "uid": "omp-agents",
+  "tags": ["homelab", "omp"],
+  "links": [
+    { "type": "dashboards", "tags": ["homelab"], "title": "Homelab", "asDropdown": true, "keepTime": true, "icon": "apps" }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "search",
+        "label": "Log filter",
+        "type": "textbox",
+        "query": ""
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "",
+      "type": "text",
+      "transparent": true,
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
+      "options": { "mode": "markdown", "content": "[Homelab Overview](/d/homelab-overview/homelab-overview) &nbsp;&rsaquo;&nbsp; **OMP Agents** — covers both the always-on/role `omp` Deployments (namespace `omp`) and the ephemeral per-story `omp-agent` Jobs (namespace `sdlc`)." }
+    },
+
+    { "title": "omp — always-on + role Deployments (scale-to-zero)", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 2 } },
+    {
+      "title": "Deployments awake",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 3 },
+      "fieldConfig": { "defaults": { "unit": "none", "thresholds": { "steps": [ { "color": "text", "value": null }, { "color": "green", "value": 1 } ] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [ { "refId": "A", "expr": "sum(clamp_max(kube_deployment_status_replicas_available{namespace=\"omp\"}, 1)) or vector(0)" } ]
+    },
+    {
+      "title": "Deployments total (asleep is normal)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 3 },
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [ { "refId": "A", "expr": "count(kube_deployment_spec_replicas{namespace=\"omp\"})" } ]
+    },
+    {
+      "title": "Restarts (1h)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 3 },
+      "fieldConfig": { "defaults": { "unit": "none", "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 } ] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [ { "refId": "A", "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"omp\"}[1h])) or vector(0)" } ]
+    },
+    {
+      "title": "omp Deployments",
+      "type": "table",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 8 },
+      "description": "Every omp Deployment (role pods, spawn slots, adapter, base). Wake one: kubectl -n omp scale deploy/<name> --replicas=1",
+      "targets": [
+        { "refId": "DESIRED", "instant": true, "format": "table", "expr": "sum by (deployment) (kube_deployment_spec_replicas{namespace=\"omp\"})" },
+        { "refId": "AVAIL", "instant": true, "format": "table", "expr": "sum by (deployment) (kube_deployment_status_replicas_available{namespace=\"omp\"})" },
+        { "refId": "STATE", "instant": true, "format": "table", "expr": "clamp_max(sum by (deployment) (kube_deployment_status_replicas_available{namespace=\"omp\"}), 1)" },
+        { "refId": "RESTARTS", "instant": true, "format": "table", "expr": "sum by (deployment) (label_replace(increase(kube_pod_container_status_restarts_total{namespace=\"omp\"}[1h]), \"deployment\", \"$1\", \"pod\", \"(.+)-[a-z0-9]+-[a-z0-9]+\")) or (sum by (deployment) (kube_deployment_spec_replicas{namespace=\"omp\"}) * 0)" }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true, "namespace": true, "container": true, "pod": true, "uid": true, "endpoint": true },
+            "renameByName": { "deployment": "Deployment", "Value #DESIRED": "Desired", "Value #AVAIL": "Available", "Value #STATE": "State", "Value #RESTARTS": "Restarts (1h)" },
+            "indexByName": { "deployment": 0, "Value #STATE": 1, "Value #DESIRED": 2, "Value #AVAIL": 3, "Value #RESTARTS": 4 }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "left" } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Deployment" },
+            "properties": [ { "id": "links", "value": [ { "title": "Open omp detail (logs filtered to ${__value.text})", "url": "/d/homelab-app-detail/homelab-app-detail?var-namespace=omp&var-search=${__value.text}&${__url_time_range}", "targetBlank": true } ] } ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "State" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "mappings", "value": [ { "type": "value", "options": { "0": { "text": "asleep", "color": "text" }, "1": { "text": "awake", "color": "green" } } } ] },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "transparent", "value": null }, { "color": "green", "value": 1 } ] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Available" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "thresholds", "value": { "steps": [ { "color": "text", "value": null }, { "color": "green", "value": 1 } ] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Restarts (1h)" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "thresholds", "value": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 } ] } }
+            ]
+          }
+        ]
+      }
+    },
+
+    { "title": "omp-agent — ephemeral per-story Jobs (namespace sdlc)", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 20 } },
+    {
+      "title": "Agent pods running now",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 21 },
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [ { "refId": "A", "expr": "count(kube_pod_owner{namespace=\"sdlc\", owner_kind=\"Job\"}) or vector(0)" } ]
+    },
+    {
+      "title": "Jobs active",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 21 },
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [ { "refId": "A", "expr": "sum(kube_job_status_active{namespace=\"sdlc\"}) or vector(0)" } ]
+    },
+    {
+      "title": "Jobs failed (1h)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 21 },
+      "fieldConfig": { "defaults": { "unit": "none", "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [ { "refId": "A", "expr": "sum(increase(kube_job_status_failed{namespace=\"sdlc\"}[1h])) or vector(0)" } ]
+    },
+    {
+      "title": "omp-agent pods (currently running — Jobs TTL-reap 5min after finishing)",
+      "type": "table",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 26 },
+      "description": "Pods are named omp-<role>-<story>-<timestamp> by n8n at Job-creation time (see helm/omp-agent/README.md). Role/story aren't split into their own columns here — that needs a kube-state-metrics label allowlist for omp-role/sdlc-story (see helm/omp-agent's role ConfigMaps), not done yet. Pod name carries that info in the meantime.",
+      "targets": [
+        { "refId": "OWNER", "instant": true, "format": "table", "expr": "kube_pod_owner{namespace=\"sdlc\", owner_kind=\"Job\"}" },
+        { "refId": "PHASE", "instant": true, "format": "table", "expr": "kube_pod_status_phase{namespace=\"sdlc\"} == 1" },
+        { "refId": "RESTARTS", "instant": true, "format": "table", "expr": "sum by (pod) (kube_pod_container_status_restarts_total{namespace=\"sdlc\"})" },
+        { "refId": "STARTED", "instant": true, "format": "table", "expr": "kube_pod_start_time{namespace=\"sdlc\"}" }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true, "namespace": true, "owner_kind": true, "owner_is_controller": true, "uid": true, "endpoint": true },
+            "renameByName": { "pod": "Pod", "owner_name": "Job", "phase": "Phase", "Value #RESTARTS": "Restarts", "Value #STARTED": "Started (unix)" },
+            "indexByName": { "pod": 0, "phase": 1, "owner_name": 2, "Value #RESTARTS": 3, "Value #STARTED": 4 }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "left" } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Pod" },
+            "properties": [ { "id": "links", "value": [ { "title": "Open sdlc detail (logs filtered to ${__value.text})", "url": "/d/homelab-app-detail/homelab-app-detail?var-namespace=sdlc&var-search=${__value.text}&${__url_time_range}", "targetBlank": true } ] } ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Phase" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "mappings", "value": [ { "type": "value", "options": {
+                "Running": { "color": "green" },
+                "Pending": { "color": "yellow" },
+                "Succeeded": { "color": "text" },
+                "Failed": { "color": "red" }
+              } } ] }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Restarts" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "thresholds", "value": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 3 } ] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Started (unix)" },
+            "properties": [ { "id": "unit", "value": "dateTimeFromNow" } ]
+          }
+        ]
+      }
+    },
+
+    { "title": "CPU / Memory (both)", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 38 } },
+    {
+      "title": "CPU usage (cores) by pod",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 39 },
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "targets": [ { "refId": "A", "legendFormat": "{{namespace}}/{{pod}}", "expr": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{namespace=~\"omp|sdlc\", container!=\"\", pod!=\"\"}[5m]))" } ]
+    },
+    {
+      "title": "Memory working set by pod",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 39 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "targets": [ { "refId": "A", "legendFormat": "{{namespace}}/{{pod}}", "expr": "sum by (namespace, pod) (container_memory_working_set_bytes{namespace=~\"omp|sdlc\", container!=\"\"})" } ]
+    },
+
+    { "title": "Logs", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 47 } },
+    {
+      "title": "Logs — omp + sdlc",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 48 },
+      "options": { "showTime": true, "wrapLogMessage": true, "enableLogDetails": true, "dedupStrategy": "none", "sortOrder": "Descending" },
+      "targets": [ { "refId": "A", "expr": "{namespace=~\"omp|sdlc\"} |~ \"$search\"" } ]
+    }
+  ],
+  "schemaVersion": 39
+}

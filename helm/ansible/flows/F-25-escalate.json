@@ -19,20 +19,6 @@
       "webhookId": "d0831192-d92b-4838-aa02-b20f4636d72b"
     },
     {
-      "id": "550c519d-e536-4f5c-83a4-3363457998a9",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "8b9c6c31-d424-4a9f-b994-460b9bfeb90d",
       "name": "Pause DAG State",
       "type": "n8n-nodes-base.set",
@@ -96,7 +82,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udea8 ESCALATION \u2014 DAG paused. Reason: {{ $json.body.reason }}. Human intervention required."
+              "value": "🚨 ESCALATION — DAG paused. Reason: {{ $json.body.reason }}. Human intervention required."
             },
             {
               "name": "notes",
@@ -146,38 +132,33 @@
     }
   ],
   "connections": {
-    "eb6d990b-6de1-4945-a1dc-17515ee5e874": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "550c519d-e536-4f5c-83a4-3363457998a9",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "8b9c6c31-d424-4a9f-b994-460b9bfeb90d",
+            "node": "Pause DAG State",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "8b9c6c31-d424-4a9f-b994-460b9bfeb90d": {
+    "Pause DAG State": {
       "main": [
         [
           {
-            "node": "a61db17a-ed2b-4dbe-b255-db74242ab93d",
+            "node": "Notify: ESCALATION",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "a61db17a-ed2b-4dbe-b255-db74242ab93d": {
+    "Notify: ESCALATION": {
       "main": [
         [
           {
-            "node": "c32fa87a-b132-416a-b3db-0aa7d00728fb",
+            "node": "Open Escalation Ticket",
             "type": "main",
             "index": 0
           }

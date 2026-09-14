@@ -66,6 +66,12 @@ n8n:
     # server-side discovery fetch and the browser redirect agree on the
     # same authority — same reasoning as minio/gitlab's OIDC wiring.
     extraEnvVars:
+      # ponytail: unbounded execution history was piling up (191 rows found
+      # manually cleaned once) — prune anything finished older than 7 days,
+      # capped at 10k rows regardless of age.
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "168"
+      EXECUTIONS_DATA_PRUNE_MAX_COUNT: "10000"
       # ponytail: n8n 2.0 disables executeCommand + localFileTrigger by default
       # (NODES_EXCLUDE defaults to that pair). The SDLC flows are built on
       # executeCommand — without this, seeded flows fail to activate and a
@@ -79,6 +85,16 @@ n8n:
       # /v1/chat/completions against the `omp` model (always-on omp pod via
       # omp-adapter). LITELLM_MASTER_KEY injected by terraform set_sensitive.
       LITELLM_BASE: "http://litellm.litellm.svc.cluster.local:4000"
+      # ponytail: every SDLC flow's "Notify: ..." nodes POST progress here.
+      # NOT OpenWebUI directly — OpenWebUI Functions can't register custom
+      # FastAPI routes (confirmed against its function loader source), so
+      # sdlc_pipe.py's old push-callback design (/api/v1/pipe/callback) was
+      # dead code and never worked. Instead this posts to n8n's own F-29 sink
+      # flow (self-call, matching N8N_WEBHOOK_BASE below), which inserts into
+      # the sdlc_flow_progress Postgres table; sdlc_pipe.py polls F-30 to read
+      # it back. Var name kept as-is — every flow's Notify node reads it, a
+      # rename would mean touching all of them for no benefit.
+      OPENWEBUI_CALLBACK_URL: "http://localhost:5678/webhook/flow-progress"
       # the SDLC flows + F-28 read config from $env in expressions; n8n blocks
       # that by default.
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"

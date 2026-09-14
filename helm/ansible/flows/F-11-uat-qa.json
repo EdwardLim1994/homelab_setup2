@@ -6,10 +6,7 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        240,
-        300
-      ],
+      "position": [240, 300],
       "parameters": {
         "path": "uat-qa",
         "httpMethod": "POST",
@@ -19,55 +16,41 @@
       "webhookId": "abea6881-749a-4a6c-b109-427679374864"
     },
     {
-      "id": "b178e8e5-e45f-4200-b826-38c2a36d7bf9",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "2b46b876-4e1a-4d45-99f0-4f6504a77106",
       "name": "Notify: UAT QA running",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        680,
-        300
-      ],
+      "position": [680, 300],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            {
-              "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
-            },
-            {
-              "name": "message",
-              "value": "\ud83e\uddea UAT QA stage running"
-            },
-            {
-              "name": "notes",
-              "value": ""
-            }
+            { "name": "flow_id", "value": "={{ $json.flow_id ?? '' }}" },
+            { "name": "message", "value": "🧪 UAT QA stage running" },
+            { "name": "notes", "value": "" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b11000001-0000-0000-0000-000000000001",
+      "name": "QA Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 300],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "role", "value": "qa-engineer", "type": "string" },
+            { "id": "2", "name": "prompt", "value": "=Run the full UAT test suite against the UAT environment for {{ $node['Webhook Trigger'].json.body.version }}. Output JSON only: {\"pass\": true|false, \"coverage\": \"string\"}", "type": "string" },
+            { "id": "3", "name": "story", "value": "={{ $node['Webhook Trigger'].json.body.version }}", "type": "string" }
           ]
         }
       }
@@ -75,14 +58,13 @@
     {
       "id": "db07fada-4a52-4a73-837e-954b1ab5db37",
       "name": "QA: UAT Test Suite",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        900,
-        300
-      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1080, 300],
       "parameters": {
-        "command": "omp --role qa-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Run full UAT test suite against UAT environment for {{ $json.body.version }}. Output: pass/fail + coverage report.' --non-interactive"
+        "source": "database",
+        "workflowId": { "mode": "id", "value": "jAv16SAzGy9fA5G4" },
+        "mode": "once"
       }
     },
     {
@@ -90,14 +72,11 @@
       "name": "QA Pass?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        1120,
-        300
-      ],
+      "position": [1300, 300],
       "parameters": {
         "conditions": {
           "options": {
-            "leftValue": "={{ JSON.parse($json.stdout).pass }}",
+            "leftValue": "={{ $json.output.includes('\"pass\"') && $json.output.includes('true') }}",
             "operation": "equals",
             "rightValue": "true"
           }
@@ -109,10 +88,7 @@
       "name": "Label: qa:uat-approved",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1340,
-        200
-      ],
+      "position": [1520, 200],
       "parameters": {
         "method": "PUT",
         "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $env.RELEASE_TICKET_ID }}",
@@ -121,46 +97,29 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "PRIVATE-TOKEN", "value": "={{ $env.GITLAB_TOKEN }}" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "bodyParameters": {
-          "parameters": [
-            {
-              "name": "__json",
-              "value": "{\"add_labels\":\"qa:uat-approved\"}"
-            }
-          ]
+          "parameters": [{ "name": "__json", "value": "={\"add_labels\":\"qa:uat-approved\"}" }]
         }
       }
     },
     {
       "id": "03d59e9f-a54f-462e-8baa-ef1d0002026b",
-      "name": "\u2192 F-12 Security UAT",
+      "name": "→ F-12 Security UAT",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1560,
-        200
-      ],
+      "position": [1740, 200],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/uat-security",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/uat-security",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            {
-              "name": "version",
-              "value": "={{ $json.body.version }}"
-            }
+            { "name": "version", "value": "={{ $node['Webhook Trigger'].json.body.version }}" }
           ]
         }
       }
@@ -170,109 +129,46 @@
       "name": "Notify: QA UAT failed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1340,
-        400
-      ],
+      "position": [1520, 400],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            {
-              "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
-            },
-            {
-              "name": "message",
-              "value": "\u274c UAT QA failed \u2014 review test report"
-            },
-            {
-              "name": "notes",
-              "value": ""
-            }
+            { "name": "flow_id", "value": "={{ $node['Webhook Trigger'].json.body.flow_id ?? '' }}" },
+            { "name": "message", "value": "=❌ UAT QA failed — {{ $node['QA: UAT Test Suite'].json.output }}" },
+            { "name": "notes", "value": "" }
           ]
         }
       }
     }
   ],
   "connections": {
-    "8975bd3f-7fd8-4900-acde-b52363f289aa": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Notify: UAT QA running", "type": "main", "index": 0 }]]
+    },
+    "Notify: UAT QA running": {
+      "main": [[{ "node": "QA Input", "type": "main", "index": 0 }]]
+    },
+    "QA Input": {
+      "main": [[{ "node": "QA: UAT Test Suite", "type": "main", "index": 0 }]]
+    },
+    "QA: UAT Test Suite": {
+      "main": [[{ "node": "QA Pass?", "type": "main", "index": 0 }]]
+    },
+    "QA Pass?": {
       "main": [
-        [
-          {
-            "node": "b178e8e5-e45f-4200-b826-38c2a36d7bf9",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "2b46b876-4e1a-4d45-99f0-4f6504a77106",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Label: qa:uat-approved", "type": "main", "index": 0 }],
+        [{ "node": "Notify: QA UAT failed", "type": "main", "index": 0 }]
       ]
     },
-    "2b46b876-4e1a-4d45-99f0-4f6504a77106": {
-      "main": [
-        [
-          {
-            "node": "db07fada-4a52-4a73-837e-954b1ab5db37",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "db07fada-4a52-4a73-837e-954b1ab5db37": {
-      "main": [
-        [
-          {
-            "node": "c77b337c-e632-467b-8904-bac2f22bb6b7",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "c77b337c-e632-467b-8904-bac2f22bb6b7": {
-      "main": [
-        [
-          {
-            "node": "de10fdda-5f2c-492e-9499-bbc2217ec54c",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "7e12f7b9-659c-423b-8590-61c4f1f9f7d7",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "de10fdda-5f2c-492e-9499-bbc2217ec54c": {
-      "main": [
-        [
-          {
-            "node": "03d59e9f-a54f-462e-8baa-ef1d0002026b",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Label: qa:uat-approved": {
+      "main": [[{ "node": "→ F-12 Security UAT", "type": "main", "index": 0 }]]
     }
   },
   "active": true,

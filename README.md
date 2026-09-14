@@ -17,6 +17,78 @@ Two deployment paths exist side by side:
 
 Both read secrets from the same root `.env` file so they never drift apart.
 
+## Autonomous SDLC
+
+This repo runs a fully autonomous SDLC. Edward is the sole human in the loop and approves at 4 gates only:
+1. Reviews openspec + pseudocode before `/develop`
+2. Merges story MRs
+3. Merges release MR to main
+4. Makes go/no-go decisions on NO-GO outcomes and production incidents
+
+Everything else is autonomous: agent pods write code, run tests, open MRs, deploy to environments, and monitor production.
+
+### How to trigger
+
+All SDLC commands are chat messages to the **SDLC** model in OpenWebUI — the
+`sdlc_pipe.py` Function (`playbooks/openwebui.yml` installs it) parses the
+slash command, POSTs to the matching n8n webhook, and streams progress back
+into the chat.
+
+| Command | Phase | What it triggers |
+|---|---|---|
+| `/plan_release` | 0 — Planning | Multi-agent planning: Arch+DE gate A → QA+Sec+UX gate B → PM PRD gate C |
+| `/kickoff` | 0 — Kickoff | 3 parallel tracks: TL branches+pseudocode (omp) · PM GitLab artifacts (omp) · DevOps infra+webhook (omp) |
+| `/develop` | 2 — Development | Gates A (DevOps) → B (Data Engineer) → C (TL pseudocode) → developer pods fan out |
+| `/uat` | 3 — UAT | Milestone safeguard → manual CI → UAT deploy → QA → Security → PO stages |
+| `/release_staging` | 4 — Staging | UAT safeguard → RM release-plan ticket + promote/ branch → promotion CI |
+| `/release_production` | 5 — Production | rm:go safeguard → promote→main MR → Edward reviews + merges |
+| `/rollback` | 5 — Production | ArgoCD rollback + incident ticket + RM monitoring |
+| `/rollback_story` | 5 — Production | Dependency check → revert MR → TL reviews → Edward merges → story Deferred → /uat re-triggered |
+| `/retro` | 6 — Retrospective | 4 pods compile in parallel (TL+QA+Sec+RM) → PM synthesises 11-section report |
+| `/projects` | Any | Instant DAG state query — no agent pod spawned |
+| `/escalate` | Any | Pause DAG, post alert to OpenWebUI immediately |
+
+### What it does
+
+Each command triggers an n8n flow (28 flows total). SDLC pipe flows ack
+within seconds via the pipe's SSE stream, then post progress updates
+asynchronously as n8n notify nodes callback to `/api/v1/pipe/callback`.
+GitLab events (MR opened, MR merged, pipeline built) are routed through a
+single group-level webhook at `/webhook/gitlab-events` (F-00 router) and
+dispatched to the relevant downstream flow.
+
+Agent pods run on **omp** — every role (Tech Lead, Backend Developer,
+Frontend Developer, QA Engineer, Security Engineer, Data Engineer, DevOps
+Engineer, Architect, Release Manager, Product Manager). Uses LSP, hashline
+edits, DAP debugger, hindsight memory, and isolated worktrees per subagent.
+
+### Branch hierarchy
+
+```
+release/v{X}.{Y}.{Z}
+  └── us/GL-{N}
+        ├── api/GL-{N}      ← Data Engineer, merges first, blocks all
+        ├── task/GL-{N}     ← Backend/Frontend
+        ├── qa/GL-{N}
+        ├── security/GL-{N}
+        ├── devops/GL-{N}
+        └── bugfix/GL-{N}
+promote/v{X}.{Y}.{Z}        ← created at /release_staging
+→ main                      ← Edward merges at /release_production
+```
+
+### Ticket hierarchy
+
+```
+Sprint Milestone v{X}.{Y}.{Z}
+  ├── [user-story] GL-{N}  (type:user-story, priority:must-ship|should-ship|nice-to-have)
+  │     └── [task] GL-{N}  (type:task, role:api|backend|frontend|qa|security|devops)
+  ├── [release] v{X}.{Y}.{Z}
+  │     ├── [release-plan] (RM creates during UAT)
+  │     └── [qa] smoke test plan (QA creates during dev)
+  └── backlog issues from retro (never auto-assigned to sprint)
+```
+
 ## Prerequisites
 
 - Docker Desktop (or another Docker engine)

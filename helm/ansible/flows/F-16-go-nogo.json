@@ -19,20 +19,6 @@
       "webhookId": "29d43455-5a2c-487c-8985-91a20aa4edb3"
     },
     {
-      "id": "201d4074-bdbd-465b-a87a-2f600ef124b7",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "e1c93f14-a8c2-465a-975a-4387f7790798",
       "name": "RM: Go/No-Go Decision",
       "type": "n8n-nodes-base.executeCommand",
@@ -132,7 +118,7 @@
             },
             {
               "name": "message",
-              "value": "\u2705 GO \u2014 {{ $env.RELEASE_VERSION }} cleared for /release_production"
+              "value": "✅ GO — {{ $env.RELEASE_VERSION }} cleared for /release_production"
             },
             {
               "name": "notes",
@@ -172,7 +158,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udea8 NO-GO \u2014 {{ $env.RELEASE_VERSION }} blocked. Options: 1) fix & re-stage 2) rollback story 3) defer release. Details: {{ JSON.parse($json.stdout).reason }}"
+              "value": "🚨 NO-GO — {{ $env.RELEASE_VERSION }} blocked. Options: 1) fix & re-stage 2) rollback story 3) defer release. Details: {{ JSON.parse($json.stdout).reason }}"
             },
             {
               "name": "notes",
@@ -184,56 +170,51 @@
     }
   ],
   "connections": {
-    "fef63188-40c7-4a14-a411-0aad71b25dce": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "201d4074-bdbd-465b-a87a-2f600ef124b7",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "e1c93f14-a8c2-465a-975a-4387f7790798",
+            "node": "RM: Go/No-Go Decision",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "e1c93f14-a8c2-465a-975a-4387f7790798": {
+    "RM: Go/No-Go Decision": {
       "main": [
         [
           {
-            "node": "33f03cb9-dccf-499d-b346-6e6c074bbd1e",
+            "node": "GO?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "33f03cb9-dccf-499d-b346-6e6c074bbd1e": {
+    "GO?": {
       "main": [
         [
           {
-            "node": "7a44622a-d6c8-4a4f-8b10-23a776c9a275",
+            "node": "Label: rm:go",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "b9f6e564-bf48-4afd-baf6-2113f9d9445e",
+            "node": "Notify: NO-GO options",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "7a44622a-d6c8-4a4f-8b10-23a776c9a275": {
+    "Label: rm:go": {
       "main": [
         [
           {
-            "node": "301ba7b5-f5f8-43fa-ac96-df8a4e380f5f",
+            "node": "Notify: GO",
             "type": "main",
             "index": 0
           }

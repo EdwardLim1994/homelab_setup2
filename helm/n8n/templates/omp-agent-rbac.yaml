@@ -14,6 +14,14 @@ rules:
   - apiGroups: ["batch"]
     resources: ["jobs"]
     verbs: ["create", "get"]
+  # ponytail: needed to find the Job's pod and read its output once finished —
+  # the Job resource itself doesn't carry the omp/opencode CLI's stdout.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

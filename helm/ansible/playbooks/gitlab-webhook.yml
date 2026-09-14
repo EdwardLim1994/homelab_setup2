@@ -34,6 +34,7 @@
          | default('http://n8n.n8n.svc.cluster.local:5678/webhook', true) }}
     gitlab_api_base: "{{ gitlab_url }}/api/v4"
     webhook_secret: "{{ lookup('env', 'gitlab_webhook_secret') }}"
+    admin_email: "{{ lookup('env', 'n8n_owner_email') }}"
     group_ref: "{{ lookup('env', 'gitlab_group_id') | default('sdlc', true) }}"
     webhook_url: "{{ n8n_webhook_base }}/gitlab-events"
     deregister_confirmed: false
@@ -124,6 +125,34 @@
     - name: Resolve group id
       ansible.builtin.set_fact:
         group_id: "{{ made_group.json.id if group_get.status == 404 else group_get.json.id }}"
+
+    # ponytail: root creates every sdlc project (omp-agent Jobs use root's
+    # PAT), which leaves the real human account with no membership on the
+    # group at all — projects exist but are invisible to them. One-time
+    # fix-up became a recurring one after a DB wipe, so make it idempotent
+    # and re-run it every time instead.
+    - name: Look up the admin's GitLab user
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/users?search={{ admin_email | urlencode }}"
+        method: GET
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        return_content: true
+        status_code: [200]
+      register: admin_gl_user
+      no_log: true
+
+    - name: Add the admin as group Owner
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_id }}/members"
+        method: POST
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: form-urlencoded
+        body:
+          user_id: "{{ admin_gl_user.json[0].id }}"
+          access_level: 50
+        status_code: [201, 409]
+      no_log: true
+      when: admin_gl_user.json | length > 0
 
     # --- projects in the group ---
     - name: List projects in the group

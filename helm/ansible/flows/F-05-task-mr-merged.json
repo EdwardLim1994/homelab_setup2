@@ -19,20 +19,6 @@
       "webhookId": "be0ec9eb-7225-4d1e-a824-eff2f4c1e226"
     },
     {
-      "id": "4d76d901-f096-468b-bedc-83354eeb0ab9",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "b453a6f3-c578-401c-a8cd-4bc72e4dc3c1",
       "name": "Update DAG State",
       "type": "n8n-nodes-base.set",
@@ -112,7 +98,7 @@
     },
     {
       "id": "c16a2450-10cf-4cfa-8ff6-b0f3e72d09a9",
-      "name": "\u2192 F-06 DoD Check",
+      "name": "→ F-06 DoD Check",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -121,7 +107,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/dod-check",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/dod-check",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -163,7 +149,7 @@
             },
             {
               "name": "message",
-              "value": "\u2705 Task MR merged \u2014 more tasks pending"
+              "value": "✅ Task MR merged — more tasks pending"
             },
             {
               "name": "notes",
@@ -175,56 +161,51 @@
     }
   ],
   "connections": {
-    "f6d90ca8-33d9-4d9d-9dc9-85e3accbf919": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "4d76d901-f096-468b-bedc-83354eeb0ab9",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "b453a6f3-c578-401c-a8cd-4bc72e4dc3c1",
+            "node": "Update DAG State",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "b453a6f3-c578-401c-a8cd-4bc72e4dc3c1": {
+    "Update DAG State": {
       "main": [
         [
           {
-            "node": "2ba76ce2-cdb6-4d7b-92ba-a9a2b10d3726",
+            "node": "All Story Tasks Done?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "2ba76ce2-cdb6-4d7b-92ba-a9a2b10d3726": {
+    "All Story Tasks Done?": {
       "main": [
         [
           {
-            "node": "9b62d1f1-9a5a-40ee-b9a0-859966ac85e5",
+            "node": "Tasks Remaining?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "9b62d1f1-9a5a-40ee-b9a0-859966ac85e5": {
+    "Tasks Remaining?": {
       "main": [
         [
           {
-            "node": "c16a2450-10cf-4cfa-8ff6-b0f3e72d09a9",
+            "node": "→ F-06 DoD Check",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "8894680b-c5a1-4500-ad0c-85ae9b1ed167",
+            "node": "Notify: Task merged",
             "type": "main",
             "index": 0
           }

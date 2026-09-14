@@ -19,20 +19,6 @@
       "webhookId": "cf9059c5-1dae-409b-b3e0-650168406fce"
     },
     {
-      "id": "e4239007-5910-4c82-8ae6-7e6ab426dee4",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "a35ccb4d-33f5-476c-ae0a-874ee366d5ba",
       "name": "Notify: Monitoring window open",
       "type": "n8n-nodes-base.httpRequest",
@@ -62,7 +48,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udd2d Monitoring window open for {{ $json.body.version }} \u2014 30 min"
+              "value": "=🔭 Monitoring window open for {{ $json.body.version }} — 30 min"
             },
             {
               "name": "notes",
@@ -88,16 +74,38 @@
       }
     },
     {
+      "id": "b20000001-0000-0000-0000-000000000001",
+      "name": "RM Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "role", "value": "release-manager", "type": "string" },
+            { "id": "2", "name": "prompt", "value": "=Check Grafana/Prometheus for {{ $node['Webhook Trigger'].json.body.body.version }}: error rate, latency p95, pod restarts. Output JSON only: {\"status\": \"clean\"|\"incident\", \"findings\": \"string\"}", "type": "string" },
+            { "id": "3", "name": "story", "value": "={{ $node['Webhook Trigger'].json.body.body.version }}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
       "id": "98993320-da0e-4a00-bcdd-f52cb3d9a37c",
       "name": "RM: Health Check",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
         1120,
         300
       ],
       "parameters": {
-        "command": "omp --role release-manager --model default --project {{ $env.REPO_DIR }} --prompt 'Check Grafana/Prometheus for {{ $json.body.version }}: error rate, latency p95, pod restarts. Output JSON: {status: clean|incident, findings: string}' --non-interactive"
+        "source": "database",
+        "workflowId": { "mode": "id", "value": "jAv16SAzGy9fA5G4" },
+        "mode": "once"
       }
     },
     {
@@ -112,9 +120,9 @@
       "parameters": {
         "conditions": {
           "options": {
-            "leftValue": "={{ JSON.parse($json.stdout).status }}",
+            "leftValue": "={{ $json.output.includes('\"status\"') && $json.output.includes('\"clean\"') }}",
             "operation": "equals",
-            "rightValue": "clean"
+            "rightValue": "true"
           }
         }
       }
@@ -149,7 +157,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83c\udf89 {{ $env.RELEASE_VERSION }} production confirmed clean \u2014 release complete"
+              "value": "=🎉 {{ $env.RELEASE_VERSION }} production confirmed clean — release complete"
             },
             {
               "name": "notes",
@@ -160,16 +168,38 @@
       }
     },
     {
-      "id": "79aa36f9-d463-4b94-9e2b-cc58d4064815",
-      "name": "PM: Release Comms",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "b20000001-0000-0000-0000-000000000002",
+      "name": "PM Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         1780,
+        140
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "role", "value": "pm", "type": "string" },
+            { "id": "2", "name": "prompt", "value": "=Post release comms for {{ $node['Webhook Trigger'].json.body.body.version }}: changelog summary, what changed, who to contact.", "type": "string" },
+            { "id": "3", "name": "story", "value": "={{ $node['Webhook Trigger'].json.body.body.version }}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "79aa36f9-d463-4b94-9e2b-cc58d4064815",
+      "name": "PM: Release Comms",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1960,
         200
       ],
       "parameters": {
-        "command": "opencode --role pm --model haiku --prompt 'Post release comms for {{ $json.body.version }}: changelog summary, what changed, who to contact.' --non-interactive"
+        "source": "database",
+        "workflowId": { "mode": "id", "value": "jAv16SAzGy9fA5G4" },
+        "mode": "once"
       }
     },
     {
@@ -183,7 +213,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/cluster-lifecycle",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/cluster-lifecycle",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -229,7 +259,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udea8 Incident detected post-deploy for {{ $env.RELEASE_VERSION }} \u2014 escalating"
+              "value": "=🚨 Incident detected post-deploy for {{ $env.RELEASE_VERSION }} — escalating"
             },
             {
               "name": "notes",
@@ -241,7 +271,7 @@
     },
     {
       "id": "c11d69d0-24b7-4449-a6b8-d6387ed60585",
-      "name": "\u2192 Escalate Incident",
+      "name": "→ Escalate Incident",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -250,13 +280,13 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/escalate",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/escalate",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
               "name": "reason",
-              "value": "Post-deploy incident: {{ JSON.parse($json.stdout).findings }}"
+              "value": "=Post-deploy incident: {{ $node['RM: Health Check'].json.output }}"
             }
           ]
         }
@@ -264,100 +294,117 @@
     }
   ],
   "connections": {
-    "db6dd6c8-77ef-44e2-95d5-50b767b747c2": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "e4239007-5910-4c82-8ae6-7e6ab426dee4",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "a35ccb4d-33f5-476c-ae0a-874ee366d5ba",
+            "node": "Notify: Monitoring window open",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "a35ccb4d-33f5-476c-ae0a-874ee366d5ba": {
+    "Notify: Monitoring window open": {
       "main": [
         [
           {
-            "node": "8704c10e-889a-433d-a3aa-d81992f0ac4e",
+            "node": "Wait 30 min",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "8704c10e-889a-433d-a3aa-d81992f0ac4e": {
+    "Wait 30 min": {
       "main": [
         [
           {
-            "node": "98993320-da0e-4a00-bcdd-f52cb3d9a37c",
+            "node": "RM Input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "98993320-da0e-4a00-bcdd-f52cb3d9a37c": {
+    "RM Input": {
       "main": [
         [
           {
-            "node": "4518fc25-58b0-4850-b0aa-9d76359a1eb5",
+            "node": "RM: Health Check",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "4518fc25-58b0-4850-b0aa-9d76359a1eb5": {
+    "RM: Health Check": {
       "main": [
         [
           {
-            "node": "efd21463-12b5-4e0e-bbcd-26cd50c3f334",
+            "node": "Clean?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean?": {
+      "main": [
+        [
+          {
+            "node": "Notify: Release confirmed",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "2a2e3751-6b2e-42b1-96dd-3ae59acc461d",
+            "node": "Notify: Incident detected",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "efd21463-12b5-4e0e-bbcd-26cd50c3f334": {
+    "Notify: Release confirmed": {
       "main": [
         [
           {
-            "node": "79aa36f9-d463-4b94-9e2b-cc58d4064815",
+            "node": "PM Input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "79aa36f9-d463-4b94-9e2b-cc58d4064815": {
+    "PM Input": {
       "main": [
         [
           {
-            "node": "92d4e149-dcac-4fd2-8901-6200e8a17f2e",
+            "node": "PM: Release Comms",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "2a2e3751-6b2e-42b1-96dd-3ae59acc461d": {
+    "PM: Release Comms": {
       "main": [
         [
           {
-            "node": "c11d69d0-24b7-4449-a6b8-d6387ed60585",
+            "node": "Sleep Staging Cluster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Incident detected": {
+      "main": [
+        [
+          {
+            "node": "→ Escalate Incident",
             "type": "main",
             "index": 0
           }

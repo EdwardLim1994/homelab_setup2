@@ -63,10 +63,6 @@ data:
         auth_type: "bearer_token"
         auth_value: {{ .Values.mcpN8nAuthToken | quote }}
 
-    general_settings:
-      pass_through_endpoints:
-        - path: "/omp"
-          target: "http://omp.omp.svc.cluster.local:4096"
-          include_subpath: true
-          forward_headers: true
-          methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+    # ponytail: the /omp pass-through (helm/omp's standing chat pod) is gone —
+    # that chart was removed. OpenWebUI talks to Ollama models directly now;
+    # SDLC execution goes through omp-agent's ephemeral Jobs, not this proxy.

@@ -1,0 +1,408 @@
+{
+  "name": "F-31 Spawn Agent Role",
+  "nodes": [
+    {
+      "id": "f31-0001-0000-0000-000000000001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "f31-0001-0000-0000-000000000002",
+      "name": "Build Job Manifest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const role = $json.role;\nconst prompt = $json.prompt;\nconst story = (($json.story) || 'adhoc').toString().toLowerCase().replace(/[^a-z0-9-]/g, '-');\nconst ts = new Date().toISOString().replace(/[-:.]/g, '').replace('Z', '').slice(0, 14);\nlet jobName = `claude-${role}-${story}-${ts}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');\nconst rand = Math.random().toString(36).slice(2, 6);\njobName = (jobName + '-' + rand).slice(0, 63).replace(/-+$/, '');\nconst promptEscaped = String(prompt).replace(/'/g, \"'\\\\''\");\n\nconst GITLAB_HOST = 'gitlab-webservice-default.gitlab.svc.cluster.local';\nconst GITLAB_API_HOST = `${GITLAB_HOST}:8181`;\n// ponytail: glab treats a bare GITLAB_TOKEN env var as a global override for\n// EVERY host (including defaulting to gitlab.com), which 401s there instead\n// of using our in-cluster instance. Feed the secret in as GL_TOKEN_RAW,\n// consume it once into glab's own config via `auth login`, then unset it.\nconst glabLogin = `glab auth login --hostname ${GITLAB_HOST} --token \\\"$GL_TOKEN_RAW\\\" --api-host ${GITLAB_API_HOST} --api-protocol http --git-protocol http >/dev/null 2>&1; unset GL_TOKEN_RAW`;\n\nconst manifest = {\n  apiVersion: 'batch/v1',\n  kind: 'Job',\n  metadata: {\n    name: jobName,\n    namespace: 'sdlc',\n    labels: { 'app.kubernetes.io/name': 'omp-agent', 'omp-role': role }\n  },\n  spec: {\n    ttlSecondsAfterFinished: 300,\n    backoffLimit: 1,\n    template: {\n      metadata: { labels: { 'app.kubernetes.io/name': 'omp-agent', 'omp-role': role, 'job-name': jobName } },\n      spec: {\n        restartPolicy: 'Never',\n        serviceAccountName: 'omp-agent',\n        containers: [{\n      name: 'claude',\n      image: 'k3d-registry:5111/omp-box:dev',\n      command: ['sh', '-c'],\n      args: [`${glabLogin}; claude -p '${promptEscaped}' --model haiku --allowedTools 'Bash,Edit,Write,Read,Glob,Grep' --permission-mode acceptEdits --no-session-persistence`],\n      env: [\n        { name: 'CLAUDE_CODE_OAUTH_TOKEN', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'claude_code_token' } } },\n        { name: 'GL_TOKEN_RAW', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'gitlab_token' } } }\n      ]\n    }]\n      }\n    }\n  }\n};\n\nreturn [{ json: { jobName, manifest } }];"
+      }
+    },
+    {
+      "id": "f31-0001-0000-0000-000000000003",
+      "name": "Read SA Token",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "command": "cat /var/run/secrets/kubernetes.io/serviceaccount/token"
+      }
+    },
+    {
+      "id": "f31-0001-0000-0000-000000000004",
+      "name": "Create Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://kubernetes.default.svc/apis/batch/v1/namespaces/sdlc/jobs",
+        "authentication": "none",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $node[\"Read SA Token\"].json.stdout.trim() }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $node[\"Build Job Manifest\"].json.manifest }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      }
+    },
+    {
+      "id": "f31-0001-0000-0000-00000000000b",
+      "name": "Set Deadline",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1010,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ponytail: single wall-clock deadline set once, looked up by node name\n// from every loop iteration below (not carried through item json, which\n// Get Job Status overwrites each pass with the raw k8s API response).\nreturn [{ json: { deadline: Date.now() + 20 * 60 * 1000 } }];"
+      }
+    },
+    {
+      "id": "f31-0001-0000-0000-000000000005",
+      "name": "Wait For Job",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 15,
+        "unit": "seconds"
+      },
+      "webhookId": "f31wait0-0000-0000-0000-000000000001"
+    },
+    {
+      "id": "f31-0001-0000-0000-000000000006",
+      "name": "Get Job Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://kubernetes.default.svc/apis/batch/v1/namespaces/sdlc/jobs/{{ $node[\"Build Job Manifest\"].json.jobName }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $node[\"Read SA Token\"].json.stdout.trim() }}"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      }
+    },
+    {
+      "id": "f31-0001-0000-0000-00000000000c",
+      "name": "Job Done or Timed Out?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1450,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "leftValue": "={{ ($json.status.succeeded || 0) >= 1 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "leftValue": "={{ ($json.status.failed || 0) > 1 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "leftValue": "={{ Date.now() > $node[\"Set Deadline\"].json.deadline }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f31-0001-0000-0000-000000000007",
+      "name": "List Job Pods",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://kubernetes.default.svc/api/v1/namespaces/sdlc/pods?labelSelector=job-name={{ $node[\"Build Job Manifest\"].json.jobName }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $node[\"Read SA Token\"].json.stdout.trim() }}"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      }
+    },
+    {
+      "id": "f31-0001-0000-0000-000000000008",
+      "name": "Extract Pod Name",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = ($json.items) || [];\nconst podName = items.length ? items[0].metadata.name : '';\nreturn [{ json: { podName } }];"
+      }
+    },
+    {
+      "id": "f31-0001-0000-0000-000000000009",
+      "name": "Get Pod Logs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://kubernetes.default.svc/api/v1/namespaces/sdlc/pods/{{ $json.podName }}/log",
+        "authentication": "none",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $node[\"Read SA Token\"].json.stdout.trim() }}"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "f31-0001-0000-0000-00000000000a",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2220,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const status = $node[\"Get Job Status\"].json.status || {};\nconst succeeded = (status.succeeded || 0) >= 1;\nconst failed = (status.failed || 0) >= 1;\nconst jobName = $node[\"Build Job Manifest\"].json.jobName;\nconst output = $json.data !== undefined ? $json.data : ($json.body !== undefined ? $json.body : JSON.stringify($json));\nreturn [{ json: { jobName, succeeded, failed, output } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Build Job Manifest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Job Manifest": {
+      "main": [
+        [
+          {
+            "node": "Read SA Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read SA Token": {
+      "main": [
+        [
+          {
+            "node": "Create Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Job": {
+      "main": [
+        [
+          {
+            "node": "Set Deadline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Deadline": {
+      "main": [
+        [
+          {
+            "node": "Wait For Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait For Job": {
+      "main": [
+        [
+          {
+            "node": "Get Job Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Job Status": {
+      "main": [
+        [
+          {
+            "node": "Job Done or Timed Out?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Done or Timed Out?": {
+      "main": [
+        [
+          {
+            "node": "List Job Pods",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait For Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Job Pods": {
+      "main": [
+        [
+          {
+            "node": "Extract Pod Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Pod Name": {
+      "main": [
+        [
+          {
+            "node": "Get Pod Logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pod Logs": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

@@ -53,6 +53,24 @@ sonarqube:
     sonar.auth.oidc.issuerUri: "__AUTHENTIK_URL__/application/o/sonarqube/"
     # sonar.auth.oidc.clientId.secured set via Tiltfile/terraform (.env)
     sonar.auth.oidc.loginButtonText: "Log in with Authentik"
+    # ponytail: Authentik's "groups" scope claim (provision-app-providers.py)
+    # returns ["sonar-administrators"] for admin_email, ["sonar-users"] for
+    # everyone else — plugin syncs the user into the matching built-in
+    # SonarQube group on every login, no manual add_user step needed.
+    sonar.auth.oidc.groupsSync: "true"
+    # ponytail: plugin only requests "openid email profile" by default —
+    # groupsSync above is a no-op unless "groups" is also in the requested
+    # scope list.
+    sonar.auth.oidc.scopes: "openid email profile groups"
+
+  # ponytail: OIDC discovery/token calls happen server-side from this pod
+  # against authentik.<tailnet> — coredns.tf rewrites that name to traefik
+  # in-cluster, which serves it with a homelab-CA cert the JVM doesn't trust
+  # by default (PKIX path building failed). Chart's caCerts mechanism adds it
+  # to cacerts via SONARQUBE_WEB_JVM_OPTS/SONAR_CE_JAVAOPTS automatically.
+  caCerts:
+    enabled: true
+    secret: __SONARQUBE_TRUSTED_CA_SECRET__
 
   # ponytail: sonarSecretProperties is a *reference* to an existing Secret
   # (key "secret.properties"), not inline content — the chart concatenates

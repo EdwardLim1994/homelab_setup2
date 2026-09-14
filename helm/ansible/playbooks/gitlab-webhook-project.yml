@@ -19,6 +19,24 @@
     msg: "{{ p_match | length }} hooks with URL {{ webhook_url }} on {{ project.path_with_namespace }} — remove extras and re-run."
   when: p_match | length > 1
 
+# ponytail: helm/gitlab/values.yaml has registry.enabled: false (no registry
+# pod deployed), but new projects still default container_registry_access_level
+# to "enabled" — GitLab then tries to reach gitlab-registry.gitlab.svc:5000 on
+# project *deletion* (checking for image tags to purge) and the delete fails
+# with an unhandled Faraday::ConnectionFailed (DNS lookup fails, no UI error
+# shown). Disable it here so it can never bite a project again.
+- name: "{{ project.path_with_namespace }} — disable container registry"
+  ansible.builtin.uri:
+    url: "{{ gitlab_api_base }}/projects/{{ project.id }}"
+    method: PUT
+    headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+    body_format: form-urlencoded
+    body:
+      container_registry_access_level: disabled
+    status_code: [200]
+  no_log: true
+  when: wh_action == 'register' and project.container_registry_access_level != 'disabled'
+
 - name: "{{ project.path_with_namespace }} — create webhook"
   ansible.builtin.uri:
     url: "{{ gitlab_api_base }}/projects/{{ project.id }}/hooks"

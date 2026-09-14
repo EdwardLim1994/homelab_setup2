@@ -16,7 +16,12 @@ port: 4096
 command: ["python3"]
 args: ["/opt/pod-openai.py"]
 
-env: {}
+# ponytail: BACKEND selects the agent CLI pod-openai.py drives — "omp" (default,
+# Ollama-backed) or "claude" (Claude Code print-mode, needs claudeAuth below).
+# e.g. env: {BACKEND: "claude", CLAUDE_MODEL: "sonnet"}
+env:
+  BACKEND: "claude"
+  CLAUDE_MODEL: "sonnet"
 
 # ponytail: Secret (key CLAUDE_CODE_OAUTH_TOKEN) mounted as envFrom into every
 # omp pod — used when a pod runs the `claude` CLI instead of omp. The Tiltfile

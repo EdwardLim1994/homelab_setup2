@@ -19,20 +19,6 @@
       "webhookId": "4e7e56cf-aa7d-4a0a-9c87-94ff20e0153f"
     },
     {
-      "id": "ba5062e9-336c-4106-a59e-d53c31cd68c6",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "4482e1db-09f7-4db2-bab7-cfbf0d8e3ae6",
       "name": "Notify: Story MR opening",
       "type": "n8n-nodes-base.httpRequest",
@@ -62,7 +48,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udccb Story MR opening \u2014 TL + QA parallel"
+              "value": "📋 Story MR opening — TL + QA parallel"
             },
             {
               "name": "notes",
@@ -73,29 +59,109 @@
       }
     },
     {
-      "id": "15610405-e40d-45b1-bc0a-c5124fd42a9e",
-      "name": "TL: Open Story MR",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "b7000001-0000-0000-0000-000000000001",
+      "name": "TL Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         900,
         200
       ],
       "parameters": {
-        "command": "opencode --role tech-lead --model sonnet --prompt 'Open MR from us/{{ $json.body.story_id }} \u2192 release/{{ $json.body.version }} via glab. Set reviewers.' --non-interactive"
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "tech-lead",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Open an MR from us/{{ $node['Webhook Trigger'].json.body.body.story_id }} into release/{{ $node['Webhook Trigger'].json.body.body.version }} via glab. Set reviewers.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.story_id }}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
-      "id": "d93ceb5e-24c0-466b-a4a4-102ad7f2b1d6",
-      "name": "QA: Story Integration Tests",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "15610405-e40d-45b1-bc0a-c5124fd42a9e",
+      "name": "TL: Open Story MR",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
+        200
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b7000001-0000-0000-0000-000000000002",
+      "name": "QA Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         900,
         400
       ],
       "parameters": {
-        "command": "omp --role qa-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Run integration test suite for story {{ $json.body.story_id }}. Report pass/fail with coverage.' --non-interactive"
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "qa-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Run the integration test suite for story {{ $node['Webhook Trigger'].json.body.body.story_id }}. Report pass/fail with coverage.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.story_id }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "d93ceb5e-24c0-466b-a4a4-102ad7f2b1d6",
+      "name": "QA: Story Integration Tests",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
+        400
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
@@ -104,11 +170,13 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        1120,
+        1300,
         300
       ],
       "parameters": {
-        "mode": "waitForAll"
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 2
       }
     },
     {
@@ -117,7 +185,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1340,
+        1520,
         300
       ],
       "parameters": {
@@ -137,11 +205,11 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $node['Webhook Trigger'].json.body.flow_id ?? '' }}"
             },
             {
               "name": "message",
-              "value": "\ud83d\udc64 Story MR ready \u2014 Edward please review and merge us/{{ $json.body.story_id }}"
+              "value": "=👤 Story MR ready — Edward please review and merge us/{{ $node['Webhook Trigger'].json.body.body.story_id }}"
             },
             {
               "name": "notes",
@@ -153,65 +221,82 @@
     }
   ],
   "connections": {
-    "df96bafb-4aa1-4c90-9f46-5f7ba30126d3": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "ba5062e9-336c-4106-a59e-d53c31cd68c6",
+            "node": "Notify: Story MR opening",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Story MR opening": {
+      "main": [
+        [
+          {
+            "node": "TL Input",
             "type": "main",
             "index": 0
           },
           {
-            "node": "4482e1db-09f7-4db2-bab7-cfbf0d8e3ae6",
+            "node": "QA Input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "4482e1db-09f7-4db2-bab7-cfbf0d8e3ae6": {
+    "TL Input": {
       "main": [
         [
           {
-            "node": "15610405-e40d-45b1-bc0a-c5124fd42a9e",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "d93ceb5e-24c0-466b-a4a4-102ad7f2b1d6",
+            "node": "TL: Open Story MR",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "15610405-e40d-45b1-bc0a-c5124fd42a9e": {
+    "QA Input": {
       "main": [
         [
           {
-            "node": "f1eaf118-e763-4983-a61e-992b0a37376c",
+            "node": "QA: Story Integration Tests",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "d93ceb5e-24c0-466b-a4a4-102ad7f2b1d6": {
+    "TL: Open Story MR": {
       "main": [
         [
           {
-            "node": "f1eaf118-e763-4983-a61e-992b0a37376c",
+            "node": "Merge TL+QA",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "f1eaf118-e763-4983-a61e-992b0a37376c": {
+    "QA: Story Integration Tests": {
       "main": [
         [
           {
-            "node": "b9e6b8aa-39d6-45fc-9ec0-b76c443c0415",
+            "node": "Merge TL+QA",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge TL+QA": {
+      "main": [
+        [
+          {
+            "node": "Notify: Story MR ready for Edward",
             "type": "main",
             "index": 0
           }

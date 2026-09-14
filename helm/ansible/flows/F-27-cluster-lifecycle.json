@@ -19,20 +19,6 @@
       "webhookId": "8ae0992e-3a28-46f4-91e8-01d980907f1b"
     },
     {
-      "id": "3577a959-a560-4bf1-9492-d9b6075873b7",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "e39e2cb4-1ffd-4765-b6a4-950d36a4a3a0",
       "name": "Action?",
       "type": "n8n-nodes-base.switch",
@@ -144,7 +130,7 @@
             },
             {
               "name": "message",
-              "value": "\u2600\ufe0f {{ $json.body.cluster }} cluster woken"
+              "value": "☀️ {{ $json.body.cluster }} cluster woken"
             },
             {
               "name": "notes",
@@ -184,7 +170,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83c\udf19 {{ $json.body.cluster }} cluster sleeping"
+              "value": "🌙 {{ $json.body.cluster }} cluster sleeping"
             },
             {
               "name": "notes",
@@ -196,56 +182,51 @@
     }
   ],
   "connections": {
-    "7bbb5a9d-514f-4fcd-a13d-5a5096eb05bc": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "3577a959-a560-4bf1-9492-d9b6075873b7",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "e39e2cb4-1ffd-4765-b6a4-950d36a4a3a0",
+            "node": "Action?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "e39e2cb4-1ffd-4765-b6a4-950d36a4a3a0": {
+    "Action?": {
       "main": [
         [
           {
-            "node": "79e04b85-1fa7-40b2-b7f3-044e08807cf6",
+            "node": "ArgoCD: Scale Up",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "ba42f8d6-7b37-40f0-94aa-1c024c22f67c",
+            "node": "kubectl: Scale Down",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "79e04b85-1fa7-40b2-b7f3-044e08807cf6": {
+    "ArgoCD: Scale Up": {
       "main": [
         [
           {
-            "node": "a5c05c09-27ae-4c83-b4f4-7269e29d94a7",
+            "node": "Notify: Cluster woken",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "ba42f8d6-7b37-40f0-94aa-1c024c22f67c": {
+    "kubectl: Scale Down": {
       "main": [
         [
           {
-            "node": "af49003d-1c6a-488a-85be-342cb7b386df",
+            "node": "Notify: Cluster sleeping",
             "type": "main",
             "index": 0
           }

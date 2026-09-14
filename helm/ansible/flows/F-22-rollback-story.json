@@ -6,10 +6,7 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        240,
-        300
-      ],
+      "position": [240, 300],
       "parameters": {
         "path": "rollback-story",
         "httpMethod": "POST",
@@ -19,55 +16,41 @@
       "webhookId": "a4896378-3cae-46f1-863a-2e798a4879d8"
     },
     {
-      "id": "9e00da93-455c-423e-9e11-d7f91658e720",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "09ac856d-3d58-4321-b07d-ce705b364c9a",
       "name": "Notify: Story rollback started",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        680,
-        300
-      ],
+      "position": [680, 300],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            {
-              "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
-            },
-            {
-              "name": "message",
-              "value": "\u23ea Story rollback initiated for {{ $json.body.story_id }}"
-            },
-            {
-              "name": "notes",
-              "value": ""
-            }
+            { "name": "flow_id", "value": "={{ $json.flow_id ?? '' }}" },
+            { "name": "message", "value": "=⏪ Story rollback initiated for {{ $json.body.story_id }}" },
+            { "name": "notes", "value": "" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b22000001-0000-0000-0000-000000000001",
+      "name": "TL Dep Check Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 300],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "role", "value": "tech-lead", "type": "string" },
+            { "id": "2", "name": "prompt", "value": "=Check if story {{ $node['Webhook Trigger'].json.body.body.story_id }} has downstream dependents already merged. Output JSON only: {\"status\": \"safe\"|\"blocked\", \"list\": \"string\"}", "type": "string" },
+            { "id": "3", "name": "story", "value": "={{ $node['Webhook Trigger'].json.body.body.story_id }}", "type": "string" }
           ]
         }
       }
@@ -75,14 +58,13 @@
     {
       "id": "47c483dc-4cf8-4115-87b0-c692f9512572",
       "name": "TL: Dependency Check",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        900,
-        300
-      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1080, 300],
       "parameters": {
-        "command": "omp --role tech-lead --model slow --project {{ $env.REPO_DIR }} --prompt 'Check if story {{ $json.body.story_id }} has downstream dependents already merged. Output: safe/blocked with list.' --non-interactive"
+        "source": "database",
+        "workflowId": { "mode": "id", "value": "jAv16SAzGy9fA5G4" },
+        "mode": "once"
       }
     },
     {
@@ -90,31 +72,44 @@
       "name": "Safe to Revert?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        1120,
-        300
-      ],
+      "position": [1300, 300],
       "parameters": {
         "conditions": {
           "options": {
-            "leftValue": "={{ JSON.parse($json.stdout).status }}",
+            "leftValue": "={{ $json.output.includes('\"status\"') && $json.output.includes('\"safe\"') }}",
             "operation": "equals",
-            "rightValue": "safe"
+            "rightValue": "true"
           }
+        }
+      }
+    },
+    {
+      "id": "b22000001-0000-0000-0000-000000000002",
+      "name": "TL Revert MR Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1520, 200],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "role", "value": "tech-lead", "type": "string" },
+            { "id": "2", "name": "prompt", "value": "=Open a revert MR for us/{{ $node['Webhook Trigger'].json.body.body.story_id }} via glab. Notify Edward for merge.", "type": "string" },
+            { "id": "3", "name": "story", "value": "={{ $node['Webhook Trigger'].json.body.body.story_id }}", "type": "string" }
+          ]
         }
       }
     },
     {
       "id": "6eec7698-ac02-4554-b95e-15786702d88e",
       "name": "TL: Open Revert MR",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        1340,
-        200
-      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1700, 200],
       "parameters": {
-        "command": "opencode --role tech-lead --model sonnet --prompt 'Open revert MR for us/{{ $json.body.story_id }} via glab. Notify Edward for merge.' --non-interactive"
+        "source": "database",
+        "workflowId": { "mode": "id", "value": "jAv16SAzGy9fA5G4" },
+        "mode": "once"
       }
     },
     {
@@ -122,37 +117,20 @@
       "name": "Notify: Revert MR ready",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1560,
-        200
-      ],
+      "position": [1900, 200],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            {
-              "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
-            },
-            {
-              "name": "message",
-              "value": "\ud83d\udc64 Revert MR ready \u2014 Edward please merge to complete rollback"
-            },
-            {
-              "name": "notes",
-              "value": ""
-            }
+            { "name": "flow_id", "value": "={{ $node['Webhook Trigger'].json.body.flow_id ?? '' }}" },
+            { "name": "message", "value": "👤 Revert MR ready — Edward please merge to complete rollback" },
+            { "name": "notes", "value": "" }
           ]
         }
       }
@@ -162,109 +140,49 @@
       "name": "Notify: Rollback blocked",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1340,
-        400
-      ],
+      "position": [1520, 420],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            {
-              "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
-            },
-            {
-              "name": "message",
-              "value": "\ud83d\udeab Story rollback blocked \u2014 dependents found: {{ JSON.parse($node['TL: Dependency Check'].json.stdout).list }}"
-            },
-            {
-              "name": "notes",
-              "value": ""
-            }
+            { "name": "flow_id", "value": "={{ $node['Webhook Trigger'].json.body.flow_id ?? '' }}" },
+            { "name": "message", "value": "=🚫 Story rollback blocked — dependents found: {{ $node['TL: Dependency Check'].json.output }}" },
+            { "name": "notes", "value": "" }
           ]
         }
       }
     }
   ],
   "connections": {
-    "fad1f1c4-8a4f-4088-8a6f-09f0aa09e331": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Notify: Story rollback started", "type": "main", "index": 0 }]]
+    },
+    "Notify: Story rollback started": {
+      "main": [[{ "node": "TL Dep Check Input", "type": "main", "index": 0 }]]
+    },
+    "TL Dep Check Input": {
+      "main": [[{ "node": "TL: Dependency Check", "type": "main", "index": 0 }]]
+    },
+    "TL: Dependency Check": {
+      "main": [[{ "node": "Safe to Revert?", "type": "main", "index": 0 }]]
+    },
+    "Safe to Revert?": {
       "main": [
-        [
-          {
-            "node": "9e00da93-455c-423e-9e11-d7f91658e720",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "09ac856d-3d58-4321-b07d-ce705b364c9a",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "TL Revert MR Input", "type": "main", "index": 0 }],
+        [{ "node": "Notify: Rollback blocked", "type": "main", "index": 0 }]
       ]
     },
-    "09ac856d-3d58-4321-b07d-ce705b364c9a": {
-      "main": [
-        [
-          {
-            "node": "47c483dc-4cf8-4115-87b0-c692f9512572",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "TL Revert MR Input": {
+      "main": [[{ "node": "TL: Open Revert MR", "type": "main", "index": 0 }]]
     },
-    "47c483dc-4cf8-4115-87b0-c692f9512572": {
-      "main": [
-        [
-          {
-            "node": "26772671-af9c-4ef6-b1cb-86213621a230",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "26772671-af9c-4ef6-b1cb-86213621a230": {
-      "main": [
-        [
-          {
-            "node": "6eec7698-ac02-4554-b95e-15786702d88e",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "f7e91a1d-f23f-450b-81f7-f2dc6a064ed8",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "6eec7698-ac02-4554-b95e-15786702d88e": {
-      "main": [
-        [
-          {
-            "node": "18aa5a88-e841-418f-ac64-474d92749e96",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "TL: Open Revert MR": {
+      "main": [[{ "node": "Notify: Revert MR ready", "type": "main", "index": 0 }]]
     }
   },
   "active": true,

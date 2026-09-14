@@ -19,20 +19,6 @@
       "webhookId": "61ec943e-86b1-4118-b28b-fda8049c924d"
     },
     {
-      "id": "d277cfaa-f9ce-4419-852c-ad0eea13f7ca",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "90948b75-fde9-49d4-8339-dbf4dd3edd4a",
       "name": "Notify: Kickoff started",
       "type": "n8n-nodes-base.httpRequest",
@@ -62,7 +48,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\ude80 kickoff started \u2014 3 parallel tracks"
+              "value": "🚀 kickoff started — 3 parallel tracks"
             },
             {
               "name": "notes",
@@ -73,42 +59,162 @@
       }
     },
     {
-      "id": "b02da329-9a7e-45ca-a098-30860e5e762d",
-      "name": "TL: Branches + Pseudocode",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "b2000001-0000-0000-0000-000000000001",
+      "name": "TL Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         900,
+        120
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "tech-lead",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Kickoff for {{ $node['Webhook Trigger'].json.body.body.version }}. Create story branches from release/{{ $node['Webhook Trigger'].json.body.body.version }}, write openspec pseudocode per task, label openspec:ready.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b02da329-9a7e-45ca-a098-30860e5e762d",
+      "name": "TL: Branches + Pseudocode",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
         160
       ],
       "parameters": {
-        "command": "omp --role tech-lead --model slow --project {{ $env.REPO_DIR }} --prompt 'Kickoff for {{ $json.body.version }}. Create story branches from release/{{ $json.body.version }}, write openspec pseudocode per task, label openspec:ready.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b2000001-0000-0000-0000-000000000002",
+      "name": "PM Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        900,
+        280
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "pm",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Create GitLab user-story issues and task issues for the {{ $node['Webhook Trigger'].json.body.body.version }} milestone via glab.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
       "id": "e1dc6899-3754-4706-ade7-ae3a5bc076ac",
       "name": "PM: GitLab Artifacts",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
-        900,
+        1080,
         320
       ],
       "parameters": {
-        "command": "opencode --role pm --model haiku --prompt 'Create GitLab user-story issues and task issues for {{ $json.body.version }} milestone.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b2000001-0000-0000-0000-000000000003",
+      "name": "DevOps Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        900,
+        440
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "devops-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Register the GitLab group webhook (idempotent), set CI env vars, and verify the SIT cluster is healthy for {{ $node['Webhook Trigger'].json.body.body.version }}.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
       "id": "e80b2745-2d8d-4624-b99d-17eba1e6cddd",
       "name": "DevOps: Infra + Webhook",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
-        900,
+        1080,
         480
       ],
       "parameters": {
-        "command": "omp --role devops-engineer --model default --project {{ $env.REPO_DIR }} --prompt 'Register GitLab group webhook (idempotent), set CI env vars, verify SIT cluster healthy for {{ $json.body.version }}.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
@@ -117,11 +223,13 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        1120,
+        1300,
         320
       ],
       "parameters": {
-        "mode": "waitForAll"
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3
       }
     },
     {
@@ -130,7 +238,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1340,
+        1520,
         320
       ],
       "parameters": {
@@ -154,7 +262,7 @@
             },
             {
               "name": "message",
-              "value": "\u2705 kickoff complete \u2014 branches created, tickets open, infra ready"
+              "value": "✅ kickoff complete — branches created, tickets open, infra ready"
             },
             {
               "name": "notes",
@@ -166,81 +274,109 @@
     }
   ],
   "connections": {
-    "516ef61b-d041-49ae-824a-d528608d6980": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "d277cfaa-f9ce-4419-852c-ad0eea13f7ca",
+            "node": "Notify: Kickoff started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Kickoff started": {
+      "main": [
+        [
+          {
+            "node": "TL Input",
             "type": "main",
             "index": 0
           },
           {
-            "node": "90948b75-fde9-49d4-8339-dbf4dd3edd4a",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "90948b75-fde9-49d4-8339-dbf4dd3edd4a": {
-      "main": [
-        [
-          {
-            "node": "b02da329-9a7e-45ca-a098-30860e5e762d",
+            "node": "PM Input",
             "type": "main",
             "index": 0
           },
           {
-            "node": "e1dc6899-3754-4706-ade7-ae3a5bc076ac",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "e80b2745-2d8d-4624-b99d-17eba1e6cddd",
+            "node": "DevOps Input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "b02da329-9a7e-45ca-a098-30860e5e762d": {
+    "TL Input": {
       "main": [
         [
           {
-            "node": "190355fa-88b0-41e7-ba40-da302eecf355",
+            "node": "TL: Branches + Pseudocode",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "e1dc6899-3754-4706-ade7-ae3a5bc076ac": {
+    "PM Input": {
       "main": [
         [
           {
-            "node": "190355fa-88b0-41e7-ba40-da302eecf355",
+            "node": "PM: GitLab Artifacts",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "e80b2745-2d8d-4624-b99d-17eba1e6cddd": {
+    "DevOps Input": {
       "main": [
         [
           {
-            "node": "190355fa-88b0-41e7-ba40-da302eecf355",
+            "node": "DevOps: Infra + Webhook",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "190355fa-88b0-41e7-ba40-da302eecf355": {
+    "TL: Branches + Pseudocode": {
       "main": [
         [
           {
-            "node": "c6510faf-ce27-45a1-a886-63f8d1e8e394",
+            "node": "Merge 3 Tracks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PM: GitLab Artifacts": {
+      "main": [
+        [
+          {
+            "node": "Merge 3 Tracks",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "DevOps: Infra + Webhook": {
+      "main": [
+        [
+          {
+            "node": "Merge 3 Tracks",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge 3 Tracks": {
+      "main": [
+        [
+          {
+            "node": "Notify: Kickoff complete",
             "type": "main",
             "index": 0
           }

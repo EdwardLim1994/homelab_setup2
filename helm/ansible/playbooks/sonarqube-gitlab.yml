@@ -1,0 +1,137 @@
+# Configure SonarQube's GitLab DevOps Platform Integration (instance-level
+# ALM setting) so MR decoration / project import from GitLab works.
+#
+#   scripts/{linux,windows}/ansible-run.* sonarqube-gitlab
+#   scripts/{linux,windows}/ansible-run.* sonarqube-gitlab --syntax-check
+#
+# ponytail: same PAT-minting pattern as gitlab-webhook.yml (PATs don't survive
+# a GitLab DB wipe, so mint fresh each run instead of storing one in .env).
+# Separate token name ('sonarqube-integration') so the two playbooks don't
+# fight over the same PAT's expiry/scopes. Not in site.yml / ansible-run.sh's
+# default fan-out — bootstrap / disaster-recovery, same as gitlab-webhook.
+#
+# SonarQube reached via in-cluster Service (no tailnet hop, no TLS trust
+# needed — see helm/sonarqube's caCerts fix for why that matters here).
+# Admin creds default to the (documented, dev-only) admin/admin; override via
+# TF_VAR_sonarqube_admin_password if you've changed it.
+- name: SonarQube GitLab DevOps Platform Integration
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    gitlab_ns: gitlab
+    gitlab_url: >-
+      {{ lookup('env', 'GITLAB_URL')
+         | default('http://gitlab-webservice-default.gitlab.svc.cluster.local:8181', true) }}
+    gitlab_api_base: "{{ gitlab_url }}/api/v4"
+    sonarqube_url: >-
+      {{ lookup('env', 'SONARQUBE_URL')
+         | default('http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000', true) }}
+    # ponytail: prefer the existing sonarqube_mcp_token (a real SonarQube user
+    # token, TF_VAR_sonarqube_mcp_token in .env -> ansible-secrets Secret ->
+    # this env var) over the default admin/admin — the default creds are
+    # fragile (got invalidated by SonarQube itself under conditions we
+    # haven't nailed down). Token auth = token as username, blank password.
+    sonarqube_admin_user: "{{ lookup('env', 'sonarqube_mcp_token') | default('admin', true) }}"
+    sonarqube_admin_password: >-
+      {{ '' if lookup('env', 'sonarqube_mcp_token') | length > 0
+         else (lookup('env', 'sonarqube_admin_password') | default('admin', true)) }}
+    # ponytail: an "Internal Project" GitLab ALM setting already exists on
+    # this instance (created outside this playbook, same URL) — reuse that
+    # key so we update it instead of creating a duplicate.
+    alm_key: "{{ lookup('env', 'sonarqube_alm_key') | default('Internal Project', true) }}"
+
+  tasks:
+    - name: Find the gitlab webservice pod
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ gitlab_ns }}"
+        label_selectors: ["app=webservice"]
+        field_selectors: ["status.phase=Running"]
+      register: gl_pods
+      until: gl_pods.resources | length > 0
+      retries: 20
+      delay: 15
+
+    - name: Mint a fresh sonarqube-integration API token via rails
+      kubernetes.core.k8s_exec:
+        namespace: "{{ gitlab_ns }}"
+        pod: "{{ gl_pods.resources[0].metadata.name }}"
+        container: webservice
+        command: >-
+          /bin/sh -c "cd /srv/gitlab && bundle exec rails runner \"
+            u = User.find_by(username: 'root') or abort 'no root user';
+            u.personal_access_tokens.where(name: 'sonarqube-integration').delete_all;
+            t = u.personal_access_tokens.create!(name: 'sonarqube-integration', scopes: [:api], expires_at: 1.year.from_now);
+            puts %(PAT=#{t.token})
+          \""
+      register: pat_out
+      until: "'PAT=' in (pat_out.stdout | default(''))"
+      retries: 4
+      delay: 20
+      no_log: true
+
+    - name: Extract the token
+      ansible.builtin.set_fact:
+        gitlab_token: "{{ pat_out.stdout | regex_search('PAT=(\\S+)', '\\1') | first }}"
+      no_log: true
+
+    - name: List existing SonarQube DevOps Platform settings
+      ansible.builtin.uri:
+        url: "{{ sonarqube_url }}/api/alm_settings/list_definitions"
+        method: GET
+        url_username: "{{ sonarqube_admin_user }}"
+        url_password: "{{ sonarqube_admin_password }}"
+        force_basic_auth: true
+        return_content: true
+        status_code: [200]
+      register: alm_defs
+      no_log: true
+
+    - name: Resolve whether the 'gitlab' ALM setting already exists
+      ansible.builtin.set_fact:
+        alm_exists: >-
+          {{ (alm_defs.json.gitlab | default([]))
+             | selectattr('key', 'equalto', alm_key) | list | length > 0 }}
+
+    - name: Create the GitLab DevOps Platform setting
+      ansible.builtin.uri:
+        url: "{{ sonarqube_url }}/api/alm_settings/create_gitlab"
+        method: POST
+        url_username: "{{ sonarqube_admin_user }}"
+        url_password: "{{ sonarqube_admin_password }}"
+        force_basic_auth: true
+        body_format: form-urlencoded
+        body:
+          key: "{{ alm_key }}"
+          url: "{{ gitlab_api_base }}"
+          personalAccessToken: "{{ gitlab_token }}"
+        status_code: [204]
+      no_log: true
+      when: not alm_exists
+
+    - name: Update the GitLab DevOps Platform setting
+      ansible.builtin.uri:
+        url: "{{ sonarqube_url }}/api/alm_settings/update_gitlab"
+        method: POST
+        url_username: "{{ sonarqube_admin_user }}"
+        url_password: "{{ sonarqube_admin_password }}"
+        force_basic_auth: true
+        body_format: form-urlencoded
+        body:
+          key: "{{ alm_key }}"
+          url: "{{ gitlab_api_base }}"
+          personalAccessToken: "{{ gitlab_token }}"
+        status_code: [204]
+      no_log: true
+      when: alm_exists
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: >-
+          SonarQube GitLab ALM setting '{{ alm_key }}' -> {{ gitlab_api_base }}
+          ({{ 'updated' if alm_exists else 'created' }}). Per-project binding
+          (Project Settings > DevOps Platform Integrations) is still a
+          one-time step per SonarQube project — this only wires the
+          instance-level connection.

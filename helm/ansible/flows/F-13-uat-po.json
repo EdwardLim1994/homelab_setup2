@@ -6,10 +6,7 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        240,
-        300
-      ],
+      "position": [240, 300],
       "parameters": {
         "path": "uat-po",
         "httpMethod": "POST",
@@ -19,55 +16,41 @@
       "webhookId": "40bc3ed3-4f21-4728-9a24-0a35f3156c7f"
     },
     {
-      "id": "48f56846-0558-423c-aac6-7d120c3bef59",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "62bdc645-e1d2-428a-9b39-2b1221c85a84",
       "name": "Notify: UAT PO review",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        680,
-        300
-      ],
+      "position": [680, 300],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            {
-              "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
-            },
-            {
-              "name": "message",
-              "value": "\ud83d\udce6 UAT PO sign-off stage"
-            },
-            {
-              "name": "notes",
-              "value": ""
-            }
+            { "name": "flow_id", "value": "={{ $json.flow_id ?? '' }}" },
+            { "name": "message", "value": "📦 UAT PO sign-off stage" },
+            { "name": "notes", "value": "" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b13000001-0000-0000-0000-000000000001",
+      "name": "PO Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 300],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "role", "value": "product-owner", "type": "string" },
+            { "id": "2", "name": "prompt", "value": "=Review the UAT results for {{ $node['Webhook Trigger'].json.body.version }}. Verify all acceptance criteria are met. Output JSON only: {\"status\": \"approved\"|\"rejected\", \"notes\": \"string\"}", "type": "string" },
+            { "id": "3", "name": "story", "value": "={{ $node['Webhook Trigger'].json.body.version }}", "type": "string" }
           ]
         }
       }
@@ -75,14 +58,13 @@
     {
       "id": "44a34d9c-38a8-4db9-b1da-4548dec02614",
       "name": "PO: UAT Acceptance",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        900,
-        300
-      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1080, 300],
       "parameters": {
-        "command": "omp --role product-owner --model smol --project {{ $env.REPO_DIR }} --prompt 'Review UAT results for {{ $json.body.version }}. Verify all acceptance criteria met. Output: approved/rejected with notes.' --non-interactive"
+        "source": "database",
+        "workflowId": { "mode": "id", "value": "jAv16SAzGy9fA5G4" },
+        "mode": "once"
       }
     },
     {
@@ -90,16 +72,13 @@
       "name": "PO Approved?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        1120,
-        300
-      ],
+      "position": [1300, 300],
       "parameters": {
         "conditions": {
           "options": {
-            "leftValue": "={{ JSON.parse($json.stdout).status }}",
+            "leftValue": "={{ $json.output.includes('\"status\"') && $json.output.includes('\"approved\"') }}",
             "operation": "equals",
-            "rightValue": "approved"
+            "rightValue": "true"
           }
         }
       }
@@ -109,10 +88,7 @@
       "name": "Label: po:uat-approved",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1340,
-        200
-      ],
+      "position": [1520, 200],
       "parameters": {
         "method": "PUT",
         "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $env.RELEASE_TICKET_ID }}",
@@ -121,24 +97,13 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "PRIVATE-TOKEN", "value": "={{ $env.GITLAB_TOKEN }}" },
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "bodyParameters": {
-          "parameters": [
-            {
-              "name": "__json",
-              "value": "{\"add_labels\":\"po:uat-approved\"}"
-            }
-          ]
+          "parameters": [{ "name": "__json", "value": "={\"add_labels\":\"po:uat-approved\"}" }]
         }
       }
     },
@@ -147,37 +112,20 @@
       "name": "Notify: UAT complete",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1560,
-        200
-      ],
+      "position": [1740, 200],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            {
-              "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
-            },
-            {
-              "name": "message",
-              "value": "\u2705 UAT complete \u2014 all stages approved. Ready for /release_staging"
-            },
-            {
-              "name": "notes",
-              "value": ""
-            }
+            { "name": "flow_id", "value": "={{ $node['Webhook Trigger'].json.body.flow_id ?? '' }}" },
+            { "name": "message", "value": "✅ UAT complete — all stages approved. Ready for /release_staging" },
+            { "name": "notes", "value": "" }
           ]
         }
       }
@@ -187,109 +135,46 @@
       "name": "Notify: PO rejected UAT",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1340,
-        400
-      ],
+      "position": [1520, 400],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            {
-              "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
-            },
-            {
-              "name": "message",
-              "value": "\u274c PO rejected UAT \u2014 review acceptance criteria gaps"
-            },
-            {
-              "name": "notes",
-              "value": ""
-            }
+            { "name": "flow_id", "value": "={{ $node['Webhook Trigger'].json.body.flow_id ?? '' }}" },
+            { "name": "message", "value": "=❌ PO rejected UAT — {{ $node['PO: UAT Acceptance'].json.output }}" },
+            { "name": "notes", "value": "" }
           ]
         }
       }
     }
   ],
   "connections": {
-    "1d8a6901-e45b-4cb1-b75b-ee1001277fd0": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Notify: UAT PO review", "type": "main", "index": 0 }]]
+    },
+    "Notify: UAT PO review": {
+      "main": [[{ "node": "PO Input", "type": "main", "index": 0 }]]
+    },
+    "PO Input": {
+      "main": [[{ "node": "PO: UAT Acceptance", "type": "main", "index": 0 }]]
+    },
+    "PO: UAT Acceptance": {
+      "main": [[{ "node": "PO Approved?", "type": "main", "index": 0 }]]
+    },
+    "PO Approved?": {
       "main": [
-        [
-          {
-            "node": "48f56846-0558-423c-aac6-7d120c3bef59",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "62bdc645-e1d2-428a-9b39-2b1221c85a84",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Label: po:uat-approved", "type": "main", "index": 0 }],
+        [{ "node": "Notify: PO rejected UAT", "type": "main", "index": 0 }]
       ]
     },
-    "62bdc645-e1d2-428a-9b39-2b1221c85a84": {
-      "main": [
-        [
-          {
-            "node": "44a34d9c-38a8-4db9-b1da-4548dec02614",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "44a34d9c-38a8-4db9-b1da-4548dec02614": {
-      "main": [
-        [
-          {
-            "node": "0b98ca9f-5b6c-4acc-aef8-3af92dc4171d",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "0b98ca9f-5b6c-4acc-aef8-3af92dc4171d": {
-      "main": [
-        [
-          {
-            "node": "8494549e-9d8f-44ca-b852-a008f9bae0f1",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "d1cac5de-4fed-4046-b992-21e9dce8171b",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "8494549e-9d8f-44ca-b852-a008f9bae0f1": {
-      "main": [
-        [
-          {
-            "node": "e377a389-6e7f-4146-9d8d-170c4522bee7",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Label: po:uat-approved": {
+      "main": [[{ "node": "Notify: UAT complete", "type": "main", "index": 0 }]]
     }
   },
   "active": true,

@@ -97,38 +97,6 @@ resource "kubernetes_role_binding" "ansible_mcp_patch" {
   }
 }
 
-# ponytail: same deal for the omp namespace — omp.yml pushes the
-# GitLab token into every omp Deployment's env.
-resource "kubernetes_role" "ansible_omp_patch" {
-  metadata {
-    name      = "ansible-omp-patch"
-    namespace = "omp"
-  }
-  rule {
-    api_groups = ["apps"]
-    resources  = ["deployments"]
-    verbs      = ["get", "list", "patch"]
-  }
-  depends_on = [kubernetes_namespace.omp]
-}
-
-resource "kubernetes_role_binding" "ansible_omp_patch" {
-  metadata {
-    name      = "ansible-omp-patch"
-    namespace = "omp"
-  }
-  role_ref {
-    api_group = "rbac.authorization.k8s.io"
-    kind      = "Role"
-    name      = kubernetes_role.ansible_omp_patch.metadata[0].name
-  }
-  subject {
-    kind      = "ServiceAccount"
-    name      = "ansible-runner"
-    namespace = kubernetes_namespace.ansible.metadata[0].name
-  }
-}
-
 # ponytail: gitlab-webhook.yml runs `rails runner` inside the webservice pod to
 # mint a fresh PAT (PATs die with the DB) — needs pod read + exec in `gitlab`.
 resource "kubernetes_role" "ansible_gitlab_exec" {

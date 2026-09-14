@@ -70,7 +70,15 @@ if not sm_owui_created:
 
 print('openwebui roles mapping ready, created=', sm_owui_created)
 
-scope_map = {'policy': sm_minio, 'litellm_role': sm_llm, 'openwebui_roles': sm_owui}
+sonar_expr = 'if request.user.email == "' + admin_email + '":\n    return {"groups": ["sonar-administrators"]}\nreturn {"groups": ["sonar-users"]}'
+sm_sonar, sm_sonar_created = ScopeMapping.objects.get_or_create(name='SonarQube groups claim', defaults=dict(scope_name='groups', expression=sonar_expr))
+if not sm_sonar_created:
+    sm_sonar.expression = sonar_expr
+    sm_sonar.save()
+
+print('sonarqube groups mapping ready, created=', sm_sonar_created)
+
+scope_map = {'policy': sm_minio, 'litellm_role': sm_llm, 'openwebui_roles': sm_owui, 'groups': sm_sonar}
 
 apps = [
     dict(name='GitLab', slug='gitlab',
@@ -84,7 +92,7 @@ apps = [
          redirect_uris=[app_url('n8n') + '/auth/oidc/callback']),
     dict(name='SonarQube', slug='sonarqube',
          client_id=os.environ['SONARQUBE_OIDC_CLIENT_ID'], client_secret=os.environ['SONARQUBE_OIDC_CLIENT_SECRET'],
-         redirect_uris=[app_url('sonarqube') + '/oauth2/callback/oidc']),
+         redirect_uris=[app_url('sonarqube') + '/oauth2/callback/oidc'], extra_scopes=['groups']),
     dict(name='Nextcloud', slug='nextcloud',
          client_id=os.environ['NEXTCLOUD_OIDC_CLIENT_ID'], client_secret=os.environ['NEXTCLOUD_OIDC_CLIENT_SECRET'],
          redirect_uris=[app_url('nextcloud') + '/apps/sociallogin/custom_oidc/authentik']),

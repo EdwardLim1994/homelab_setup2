@@ -19,20 +19,6 @@
       "webhookId": "3f19b4ff-d160-418a-b7ff-8abf858c47ae"
     },
     {
-      "id": "a4d16171-010d-4298-ad7e-b5fa03796943",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "dc53460c-f74e-44a3-b874-beab93430f8e",
       "name": "Notify: Develop started",
       "type": "n8n-nodes-base.httpRequest",
@@ -62,7 +48,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udee0\ufe0f develop started \u2014 Gate A DevOps"
+              "value": "🛠️ develop started — Gate A DevOps"
             },
             {
               "name": "notes",
@@ -115,7 +101,7 @@
             },
             {
               "name": "message",
-              "value": "\u2705 Gate A done \u2014 Gate B Data Engineer"
+              "value": "✅ Gate A done — Gate B Data Engineer"
             },
             {
               "name": "notes",
@@ -168,7 +154,7 @@
             },
             {
               "name": "message",
-              "value": "\u2705 Gate B done \u2014 Gate C TL pseudocode review"
+              "value": "✅ Gate B done — Gate C TL pseudocode review"
             },
             {
               "name": "notes",
@@ -221,7 +207,7 @@
             },
             {
               "name": "message",
-              "value": "\u2705 Gate C done \u2014 dev pods fanning out"
+              "value": "✅ Gate C done — dev pods fanning out"
             },
             {
               "name": "notes",
@@ -241,7 +227,7 @@
         160
       ],
       "parameters": {
-        "command": "omp --role backend-developer --model smol --project {{ $env.REPO_DIR }} --prompt 'Implement backend tasks for {{ $json.body.version }} from pseudocode. No design reasoning \u2014 translate only.' --non-interactive"
+        "command": "omp --role backend-developer --model smol --project {{ $env.REPO_DIR }} --prompt 'Implement backend tasks for {{ $json.body.version }} from pseudocode. No design reasoning — translate only.' --non-interactive"
       }
     },
     {
@@ -293,7 +279,9 @@
         360
       ],
       "parameters": {
-        "mode": "waitForAll"
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 4
       }
     },
     {
@@ -326,7 +314,7 @@
             },
             {
               "name": "message",
-              "value": "\u2705 develop complete \u2014 all pods done, MRs opened"
+              "value": "✅ develop complete — all pods done, MRs opened"
             },
             {
               "name": "notes",
@@ -338,163 +326,158 @@
     }
   ],
   "connections": {
-    "7c170cce-8d64-45c1-a94a-801cdf2da165": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "a4d16171-010d-4298-ad7e-b5fa03796943",
+            "node": "Notify: Develop started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Develop started": {
+      "main": [
+        [
+          {
+            "node": "Gate A: DevOps preflight",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate A: DevOps preflight": {
+      "main": [
+        [
+          {
+            "node": "Notify: Gate A done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Gate A done": {
+      "main": [
+        [
+          {
+            "node": "Gate B: Data Engineer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate B: Data Engineer": {
+      "main": [
+        [
+          {
+            "node": "Notify: Gate B done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Gate B done": {
+      "main": [
+        [
+          {
+            "node": "Gate C: TL Pseudocode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate C: TL Pseudocode": {
+      "main": [
+        [
+          {
+            "node": "Notify: Fanning out dev pods",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Fanning out dev pods": {
+      "main": [
+        [
+          {
+            "node": "Backend Developer",
             "type": "main",
             "index": 0
           },
           {
-            "node": "dc53460c-f74e-44a3-b874-beab93430f8e",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "dc53460c-f74e-44a3-b874-beab93430f8e": {
-      "main": [
-        [
-          {
-            "node": "dd6553b5-1c7c-4578-941d-3ed60f516ca0",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "dd6553b5-1c7c-4578-941d-3ed60f516ca0": {
-      "main": [
-        [
-          {
-            "node": "efa3b262-8e0a-4670-bfc5-1738207a7cf1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "efa3b262-8e0a-4670-bfc5-1738207a7cf1": {
-      "main": [
-        [
-          {
-            "node": "f0545535-45d5-4a11-a37a-a8fd8cb51521",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "f0545535-45d5-4a11-a37a-a8fd8cb51521": {
-      "main": [
-        [
-          {
-            "node": "1cabde1d-6cf7-479d-bda4-f8d95f8f3e12",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "1cabde1d-6cf7-479d-bda4-f8d95f8f3e12": {
-      "main": [
-        [
-          {
-            "node": "cc2cf0c2-8da6-4e50-9ae5-00186e7ca6b7",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "cc2cf0c2-8da6-4e50-9ae5-00186e7ca6b7": {
-      "main": [
-        [
-          {
-            "node": "324c08a1-b841-4e0f-b22f-0173df9d5b8b",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "324c08a1-b841-4e0f-b22f-0173df9d5b8b": {
-      "main": [
-        [
-          {
-            "node": "95b3b524-ad23-4843-aec0-d90688264fa6",
+            "node": "Frontend Developer",
             "type": "main",
             "index": 0
           },
           {
-            "node": "8e105bcc-5ee0-409c-92a1-21994617786a",
+            "node": "QA: Write Tests",
             "type": "main",
             "index": 0
           },
           {
-            "node": "0c0438f2-1867-4ab7-a43d-31ee8184c056",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "e1c6efed-804b-40fb-8da6-9ebf6ed8dabc",
+            "node": "Security: SAST",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "95b3b524-ad23-4843-aec0-d90688264fa6": {
+    "Backend Developer": {
       "main": [
         [
           {
-            "node": "e575fa2d-4e42-41a3-86f9-eea4accfe52b",
+            "node": "Merge Dev Pods",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "8e105bcc-5ee0-409c-92a1-21994617786a": {
+    "Frontend Developer": {
       "main": [
         [
           {
-            "node": "e575fa2d-4e42-41a3-86f9-eea4accfe52b",
+            "node": "Merge Dev Pods",
             "type": "main",
-            "index": 0
+            "index": 1
           }
         ]
       ]
     },
-    "0c0438f2-1867-4ab7-a43d-31ee8184c056": {
+    "QA: Write Tests": {
       "main": [
         [
           {
-            "node": "e575fa2d-4e42-41a3-86f9-eea4accfe52b",
+            "node": "Merge Dev Pods",
             "type": "main",
-            "index": 0
+            "index": 2
           }
         ]
       ]
     },
-    "e1c6efed-804b-40fb-8da6-9ebf6ed8dabc": {
+    "Security: SAST": {
       "main": [
         [
           {
-            "node": "e575fa2d-4e42-41a3-86f9-eea4accfe52b",
+            "node": "Merge Dev Pods",
             "type": "main",
-            "index": 0
+            "index": 3
           }
         ]
       ]
     },
-    "e575fa2d-4e42-41a3-86f9-eea4accfe52b": {
+    "Merge Dev Pods": {
       "main": [
         [
           {
-            "node": "ed0bd710-9731-4377-b7a1-c4225424ce01",
+            "node": "Notify: Develop complete",
             "type": "main",
             "index": 0
           }

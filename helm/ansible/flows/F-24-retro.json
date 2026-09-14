@@ -19,20 +19,6 @@
       "webhookId": "24ebe495-943d-482b-9d32-c57d92cb11ca"
     },
     {
-      "id": "42754aeb-fe7c-44e5-ba70-6bc0314df99c",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "9bd2dfa9-1743-4d85-ad08-83329e3dc5cd",
       "name": "Notify: Retro started",
       "type": "n8n-nodes-base.httpRequest",
@@ -62,11 +48,46 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udd04 Retro started \u2014 4 pods compiling in parallel"
+              "value": "🔄 Retro started — 4 pods compiling in parallel"
             },
             {
               "name": "notes",
               "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b24000001-0000-0000-0000-000000000001",
+      "name": "TL Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        900,
+        100
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "tech-lead",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Compile a technical retrospective for {{ $node['Webhook Trigger'].json.body.body.version }}: code quality, architecture decisions, technical debt incurred, pseudocode accuracy.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
             }
           ]
         }
@@ -75,53 +96,178 @@
     {
       "id": "0c7322e9-f26b-4356-a4f6-76e9ccc579a3",
       "name": "TL: Tech Retro",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
-        900,
-        160
+        1080,
+        100
       ],
       "parameters": {
-        "command": "omp --role tech-lead --model slow --project {{ $env.REPO_DIR }} --prompt 'Compile technical retrospective for {{ $json.body.version }}: code quality, architecture decisions, technical debt incurred, pseudocode accuracy.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b24000001-0000-0000-0000-000000000002",
+      "name": "QA Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        900,
+        260
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "qa-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Compile a QA retrospective for {{ $node['Webhook Trigger'].json.body.body.version }}: test coverage, defect escape rate, UAT findings.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
       "id": "298c9e5c-59ae-4481-9264-a11cc043a469",
       "name": "QA: Quality Retro",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
-        900,
-        300
+        1080,
+        260
       ],
       "parameters": {
-        "command": "omp --role qa-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Compile QA retrospective for {{ $json.body.version }}: test coverage, defect escape rate, UAT findings.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b24000001-0000-0000-0000-000000000003",
+      "name": "Security Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        900,
+        420
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "security-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Compile a security retrospective for {{ $node['Webhook Trigger'].json.body.body.version }}: vulnerabilities found, SAST/DAST findings, remediation time.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
       "id": "4587422c-f0a2-4819-81e8-aa34af664a0a",
       "name": "Sec: Security Retro",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
-        900,
-        440
+        1080,
+        420
       ],
       "parameters": {
-        "command": "omp --role security-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Compile security retrospective for {{ $json.body.version }}: vulnerabilities found, SAST/DAST findings, remediation time.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
-      "id": "dca7ebc4-641e-4a8f-86d5-c93c6c7ae414",
-      "name": "RM: Process Retro",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "b24000001-0000-0000-0000-000000000004",
+      "name": "RM Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         900,
         580
       ],
       "parameters": {
-        "command": "omp --role release-manager --model default --project {{ $env.REPO_DIR }} --prompt 'Compile release process retrospective for {{ $json.body.version }}: timeline, gate durations, go/no-go history.' --non-interactive"
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "release-manager",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Compile a release process retrospective for {{ $node['Webhook Trigger'].json.body.body.version }}: timeline, gate durations, go/no-go history.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dca7ebc4-641e-4a8f-86d5-c93c6c7ae414",
+      "name": "RM: Process Retro",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
+        580
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
@@ -130,11 +276,13 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        1120,
-        360
+        1300,
+        340
       ],
       "parameters": {
-        "mode": "waitForAll"
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 4
       }
     },
     {
@@ -143,8 +291,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1340,
-        360
+        1520,
+        340
       ],
       "parameters": {
         "method": "POST",
@@ -163,11 +311,11 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $node['Webhook Trigger'].json.body.flow_id ?? '' }}"
             },
             {
               "name": "message",
-              "value": "\ud83d\udcdd All retro inputs gathered \u2014 PM synthesising 11-section report"
+              "value": "📝 All retro inputs gathered — PM synthesising 11-section report"
             },
             {
               "name": "notes",
@@ -178,16 +326,56 @@
       }
     },
     {
-      "id": "2bbbccbc-3a9f-40eb-a4cc-d8b4e71b554b",
-      "name": "PM: Synthesise Report",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "b24000001-0000-0000-0000-000000000005",
+      "name": "PM Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
-        1560,
-        360
+        1740,
+        340
       ],
       "parameters": {
-        "command": "opencode --role pm --model haiku --prompt 'Synthesise 11-section retrospective report for {{ $json.body.version }} from TL, QA, Security, RM inputs. Create GitLab wiki page and post summary.' --non-interactive"
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "pm",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Synthesise an 11-section retrospective report for {{ $node['Webhook Trigger'].json.body.body.version }} from these inputs, then create a GitLab wiki page and post a summary via glab.\n\n--- Tech Lead retro ---\n{{ $node['TL: Tech Retro'].json.output }}\n\n--- QA retro ---\n{{ $node['QA: Quality Retro'].json.output }}\n\n--- Security retro ---\n{{ $node['Sec: Security Retro'].json.output }}\n\n--- Release Manager retro ---\n{{ $node['RM: Process Retro'].json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "2bbbccbc-3a9f-40eb-a4cc-d8b4e71b554b",
+      "name": "PM: Synthesise Report",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1960,
+        340
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
@@ -196,8 +384,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1780,
-        360
+        2180,
+        340
       ],
       "parameters": {
         "method": "POST",
@@ -216,11 +404,11 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $node['Webhook Trigger'].json.body.flow_id ?? '' }}"
             },
             {
               "name": "message",
-              "value": "\u2705 Retro complete \u2014 report published to wiki"
+              "value": "✅ Retro complete — report published to wiki"
             },
             {
               "name": "notes",
@@ -232,119 +420,169 @@
     }
   ],
   "connections": {
-    "01128661-b98e-41e0-8695-c091872ecb72": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "42754aeb-fe7c-44e5-ba70-6bc0314df99c",
+            "node": "Notify: Retro started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Retro started": {
+      "main": [
+        [
+          {
+            "node": "TL Input",
             "type": "main",
             "index": 0
           },
           {
-            "node": "9bd2dfa9-1743-4d85-ad08-83329e3dc5cd",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "9bd2dfa9-1743-4d85-ad08-83329e3dc5cd": {
-      "main": [
-        [
-          {
-            "node": "0c7322e9-f26b-4356-a4f6-76e9ccc579a3",
+            "node": "QA Input",
             "type": "main",
             "index": 0
           },
           {
-            "node": "298c9e5c-59ae-4481-9264-a11cc043a469",
+            "node": "Security Input",
             "type": "main",
             "index": 0
           },
           {
-            "node": "4587422c-f0a2-4819-81e8-aa34af664a0a",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "dca7ebc4-641e-4a8f-86d5-c93c6c7ae414",
+            "node": "RM Input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "0c7322e9-f26b-4356-a4f6-76e9ccc579a3": {
+    "TL Input": {
       "main": [
         [
           {
-            "node": "1ebfe007-62ed-4fa7-bd56-a1262b89fc35",
+            "node": "TL: Tech Retro",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "298c9e5c-59ae-4481-9264-a11cc043a469": {
+    "QA Input": {
       "main": [
         [
           {
-            "node": "1ebfe007-62ed-4fa7-bd56-a1262b89fc35",
+            "node": "QA: Quality Retro",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "4587422c-f0a2-4819-81e8-aa34af664a0a": {
+    "Security Input": {
       "main": [
         [
           {
-            "node": "1ebfe007-62ed-4fa7-bd56-a1262b89fc35",
+            "node": "Sec: Security Retro",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "dca7ebc4-641e-4a8f-86d5-c93c6c7ae414": {
+    "RM Input": {
       "main": [
         [
           {
-            "node": "1ebfe007-62ed-4fa7-bd56-a1262b89fc35",
+            "node": "RM: Process Retro",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "1ebfe007-62ed-4fa7-bd56-a1262b89fc35": {
+    "TL: Tech Retro": {
       "main": [
         [
           {
-            "node": "9c4eda4e-da49-464d-b76c-64a4a310f4e9",
+            "node": "Merge 4 Retros",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "9c4eda4e-da49-464d-b76c-64a4a310f4e9": {
+    "QA: Quality Retro": {
       "main": [
         [
           {
-            "node": "2bbbccbc-3a9f-40eb-a4cc-d8b4e71b554b",
+            "node": "Merge 4 Retros",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Sec: Security Retro": {
+      "main": [
+        [
+          {
+            "node": "Merge 4 Retros",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "RM: Process Retro": {
+      "main": [
+        [
+          {
+            "node": "Merge 4 Retros",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Merge 4 Retros": {
+      "main": [
+        [
+          {
+            "node": "Notify: Synthesising",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "2bbbccbc-3a9f-40eb-a4cc-d8b4e71b554b": {
+    "Notify: Synthesising": {
       "main": [
         [
           {
-            "node": "c5c0189c-3622-493b-8c22-8580b88558bf",
+            "node": "PM Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PM Input": {
+      "main": [
+        [
+          {
+            "node": "PM: Synthesise Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PM: Synthesise Report": {
+      "main": [
+        [
+          {
+            "node": "Notify: Retro complete",
             "type": "main",
             "index": 0
           }

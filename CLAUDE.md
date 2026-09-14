@@ -5,6 +5,21 @@ read it first. This file adds Claude-Code-specific notes.
 
 @AGENT.md
 
+## SDLC Context
+
+homelab_setup2 is the infra that **runs** the autonomous SDLC (n8n flows +
+omp/opencode agent pods) — it is not the target application the pods edit.
+Agent pods clone that separate application repo into `$REPO_DIR` (the
+`--project` flag in every `omp`/`opencode` invocation); none of that repo's
+code, generated artifacts, or build tooling live here.
+
+Per-role instructions for agent pods are `helm/omp/roles/<role>/SKILL.md` in
+this chart, baked into the omp image and linked into both
+`~/.omp/agent/skills/<role>` and `~/.claude/skills/<role>` (see
+`helm/omp/Dockerfile`). See **[AGENTS.md](./AGENTS.md)** for the full n8n
+flow map, SDLC command reference, agent runtime split, and human approval
+gates.
+
 ## Working here
 
 - **Tilt path and Terraform path must stay in sync.** If you touch

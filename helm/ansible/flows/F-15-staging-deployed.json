@@ -19,20 +19,6 @@
       "webhookId": "0551be02-7279-4189-b7d2-adb2392094d9"
     },
     {
-      "id": "9718ffb5-80fe-4e0b-ab06-f6ffbf326a7b",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"accepted\"}"
-      }
-    },
-    {
       "id": "0227f7d2-760f-4aba-84df-cd0fda58f870",
       "name": "Notify: Staging up",
       "type": "n8n-nodes-base.httpRequest",
@@ -62,7 +48,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\ude80 Staging deployed \u2014 k6 + ZAP parallel"
+              "value": "🚀 Staging deployed — k6 + ZAP parallel"
             },
             {
               "name": "notes",
@@ -108,7 +94,9 @@
         300
       ],
       "parameters": {
-        "mode": "waitForAll"
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 2
       }
     },
     {
@@ -141,7 +129,7 @@
             },
             {
               "name": "message",
-              "value": "\ud83d\udcca Load + DAST done \u2014 RM evaluating go/no-go"
+              "value": "📊 Load + DAST done — RM evaluating go/no-go"
             },
             {
               "name": "notes",
@@ -153,7 +141,7 @@
     },
     {
       "id": "87b68cc1-0f96-4b80-86b5-8ed7f3acf01f",
-      "name": "\u2192 F-16 Go/No-Go",
+      "name": "→ F-16 Go/No-Go",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -162,7 +150,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/webhook/go-nogo",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/go-nogo",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -184,76 +172,71 @@
     }
   ],
   "connections": {
-    "554ea05d-2cf1-494d-a971-be89d557c8e9": {
+    "Webhook Trigger": {
       "main": [
         [
           {
-            "node": "9718ffb5-80fe-4e0b-ab06-f6ffbf326a7b",
+            "node": "Notify: Staging up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Staging up": {
+      "main": [
+        [
+          {
+            "node": "QA: k6 Load Test",
             "type": "main",
             "index": 0
           },
           {
-            "node": "0227f7d2-760f-4aba-84df-cd0fda58f870",
+            "node": "Security: ZAP DAST",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "0227f7d2-760f-4aba-84df-cd0fda58f870": {
+    "QA: k6 Load Test": {
       "main": [
         [
           {
-            "node": "c3a8c289-761d-467d-8990-5bff750ac79f",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "d1b2ff7f-47bb-4554-8e6c-dc4d7cede9c6",
+            "node": "Merge QA+Sec",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "c3a8c289-761d-467d-8990-5bff750ac79f": {
+    "Security: ZAP DAST": {
       "main": [
         [
           {
-            "node": "3d3b1485-fae6-4ed9-a1c6-eebad98c4db1",
+            "node": "Merge QA+Sec",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge QA+Sec": {
+      "main": [
+        [
+          {
+            "node": "Notify: Tests done, RM deciding",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "d1b2ff7f-47bb-4554-8e6c-dc4d7cede9c6": {
+    "Notify: Tests done, RM deciding": {
       "main": [
         [
           {
-            "node": "3d3b1485-fae6-4ed9-a1c6-eebad98c4db1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "3d3b1485-fae6-4ed9-a1c6-eebad98c4db1": {
-      "main": [
-        [
-          {
-            "node": "71dc2e21-be43-45b6-9d8f-482ab7074ee7",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "71dc2e21-be43-45b6-9d8f-482ab7074ee7": {
-      "main": [
-        [
-          {
-            "node": "87b68cc1-0f96-4b80-86b5-8ed7f3acf01f",
+            "node": "→ F-16 Go/No-Go",
             "type": "main",
             "index": 0
           }
