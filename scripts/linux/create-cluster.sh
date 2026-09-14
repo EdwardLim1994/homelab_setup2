@@ -3,10 +3,16 @@
 # data under /var/lib/rancher/k3s/storage inside the k3d node container.
 # k3d normally backs that path with a Docker-managed volume, which survives
 # a container restart — but NOT a `k3d cluster delete` (delete removes its
-# volumes by design). Bind-mounting a real host directory to that path
-# means PVC data survives even a deliberate cluster delete+recreate, not
-# just a container restart. This is what actually happened once already in
+# volumes by design). We back it with a NAMED Docker volume instead (not
+# owned by the node's lifecycle, so it survives delete+recreate same as a
+# host bind-mount would) — this is what actually happened once already in
 # this repo's history (all app data + Authentik's config wiped).
+#
+# ponytail: was a bind-mount to ./k3d-storage on the Windows host. Docker
+# Desktop's Windows<->WSL2 9p filesystem boundary is flaky across host
+# sleep/restart — postgres hit "Input/output error" on its data files after
+# a Docker Desktop restart, cascading down every app sharing that DB. A
+# named Docker volume lives inside the Desktop VM's own disk, no 9p hop.
 set -euo pipefail
 
 # ponytail: cd to repo root so a relative K3D_STORAGE_PATH (default or from
@@ -16,7 +22,9 @@ cd "$(dirname "$0")/../.."
 
 # Cluster name: first arg > $K3D_CLUSTER_NAME env > "internal".
 K3D_CLUSTER_NAME="${1:-${K3D_CLUSTER_NAME:-internal}}"
-: "${K3D_STORAGE_PATH:=./k3d-storage}"
+# ponytail: named Docker volume, not a host path — one per cluster name so
+# separate clusters don't share storage. Override via $K3D_STORAGE_VOLUME.
+: "${K3D_STORAGE_VOLUME:=k3d-${K3D_CLUSTER_NAME}-storage}"
 
 # ponytail: `k3d cluster list <name>` exits 0 even when only the shared
 # k3d-registry node is left (a bare `k3d cluster delete` removes the server
@@ -29,11 +37,11 @@ cluster_servers() {
 
 if [ "$(cluster_servers)" -gt 0 ] 2>/dev/null; then
   echo "k3d cluster '$K3D_CLUSTER_NAME' already exists — use 'k3d cluster start $K3D_CLUSTER_NAME' to resume it, or 'k3d cluster delete $K3D_CLUSTER_NAME' first if you really want to recreate it."
-  # ponytail: the running cluster bind-mounts $K3D_STORAGE_PATH. If it's gone or
-  # empty while the cluster is up, something (usually `git clean -fdx`) deleted
-  # it and every PVC mount is now broken — say so instead of looking fine.
-  if [ ! -d "$K3D_STORAGE_PATH" ] || [ -z "$(ls -A "$K3D_STORAGE_PATH" 2>/dev/null | grep -v '^\.gitkeep$')" ]; then
-    echo "WARNING: '$K3D_STORAGE_PATH' is missing/empty but the cluster is running —"
+  # ponytail: the running cluster backs storage with $K3D_STORAGE_VOLUME. If
+  # the volume is gone while the cluster is up, something deleted it and
+  # every PVC mount is now broken — say so instead of looking fine.
+  if ! docker volume inspect "$K3D_STORAGE_VOLUME" &>/dev/null; then
+    echo "WARNING: docker volume '$K3D_STORAGE_VOLUME' is missing but the cluster is running —"
     echo "         PVC data is likely lost and pods will fail on restart. Recreate:"
     echo "         k3d cluster delete $K3D_CLUSTER_NAME && $0 $K3D_CLUSTER_NAME"
   fi
@@ -46,8 +54,7 @@ if k3d cluster list "$K3D_CLUSTER_NAME" &>/dev/null; then
   k3d cluster delete "$K3D_CLUSTER_NAME" &>/dev/null || true
 fi
 
-mkdir -p "$K3D_STORAGE_PATH"
-storage_path_abs="$(cd "$K3D_STORAGE_PATH" && pwd)"
+docker volume create "$K3D_STORAGE_VOLUME" >/dev/null
 
 # ponytail: the shared k3d-registry survives `k3d cluster delete` but stays
 # tagged to the deleted cluster — and `k3d cluster create` refuses the name
@@ -67,7 +74,7 @@ else
 fi
 
 MSYS_NO_PATHCONV=1 k3d cluster create "$K3D_CLUSTER_NAME" \
-  --volume "${storage_path_abs}://var/lib/rancher/k3s/storage@server:0" \
+  --volume "${K3D_STORAGE_VOLUME}://var/lib/rancher/k3s/storage@server:0" \
   --volume "/var/run/docker.sock:/var/run/docker.sock@server:0" \
   "${registry_arg[@]}"
 
@@ -76,5 +83,5 @@ MSYS_NO_PATHCONV=1 k3d cluster create "$K3D_CLUSTER_NAME" \
 docker update --restart unless-stopped k3d-registry >/dev/null
 
 echo
-echo "Cluster '$K3D_CLUSTER_NAME' created. PVC data persists at: $storage_path_abs"
+echo "Cluster '$K3D_CLUSTER_NAME' created. PVC data persists in docker volume: $K3D_STORAGE_VOLUME"
 echo "Next: source .env (copy from .env.example if you haven't), then run 'tilt up'."
