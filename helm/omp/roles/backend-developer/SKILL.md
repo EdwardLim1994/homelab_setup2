@@ -78,7 +78,22 @@ nx affected -t test,lint,typecheck --base=main
 
 Fix any failures — do not open MR with failing tests.
 
-### Step 4 — Bump package.json version
+### Step 4 — Check against SonarQube before committing
+
+For every file you changed or created, call the `sonarqube` MCP server's
+`analyze_code_snippet` tool with that file's full content (`fileContent`),
+its `language`, and `scope: MAIN` (or `TEST` for test files) — this runs
+SonarQube's real analyzers against your uncommitted code, not just a
+post-merge CI scan. If you don't already know the project key, resolve it
+first with `search_my_sonarqube_projects`. Fix any `BLOCKER`/`HIGH`
+severity issue it reports before moving on; for anything lower-severity,
+use judgement — fix it if it's a quick, obviously-correct change, otherwise
+leave it (CI's own `sonarqube` stage is the final gate, this step is to
+catch things early, not to achieve a zero-issue diff). If `show_rule`'s
+explanation for a flagged rule doesn't make sense for this specific case,
+say so in the MR description rather than silently suppressing it.
+
+### Step 5 — Bump package.json version
 
 Per-app, not root — this monorepo has no meaningful root version (see
 AGENTS.md's "Generated repo structure"):
@@ -96,7 +111,7 @@ Edit `apps/backend/{project}/package.json`:
 }
 ```
 
-### Step 5 — Update CHANGELOG
+### Step 6 — Update CHANGELOG
 
 Append to `apps/backend/{project}/CHANGELOG.md` — per-app, same as the version above:
 
@@ -113,7 +128,7 @@ Append to `apps/backend/{project}/CHANGELOG.md` — per-app, same as the version
 - {what was fixed}
 ```
 
-### Step 6 — Open task MR
+### Step 7 — Open task MR
 
 ```bash
 git add -A
@@ -204,6 +219,11 @@ These apply regardless of framework. The framework is defined in `CLAUDE.md` —
 - Service: business logic only — no HTTP/gRPC primitives, no DB queries
 - Repository: DB access only — no business logic
 - Never mix layers
+- **This is mechanically enforced in CI, not just convention** — a
+  `dependency-cruiser` pass (devops-engineer's `architecture` CI stage,
+  config committed by solution-architect at kickoff) fails the pipeline if
+  a controller imports the ORM/a repository directly, or anything imports
+  a controller. A boundary violation is a CI failure, not a review comment.
 
 ### Error handling
 - Validate at the service boundary — never trust input from outside the service

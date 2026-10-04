@@ -112,7 +112,22 @@ Follow the pseudocode step by step:
 nx affected -t test,lint,typecheck --base=main
 ```
 
-### Step 4 — Bump package.json version
+### Step 4 — Check against SonarQube before committing
+
+For every file you changed or created, call the `sonarqube` MCP server's
+`analyze_code_snippet` tool with that file's full content (`fileContent`),
+its `language`, and `scope: MAIN` (or `TEST` for test files) — this runs
+SonarQube's real analyzers against your uncommitted code, not just a
+post-merge CI scan. If you don't already know the project key, resolve it
+first with `search_my_sonarqube_projects`. Fix any `BLOCKER`/`HIGH`
+severity issue it reports before moving on; for anything lower-severity,
+use judgement — fix it if it's a quick, obviously-correct change, otherwise
+leave it (CI's own `sonarqube` stage is the final gate, this step is to
+catch things early, not to achieve a zero-issue diff). If `show_rule`'s
+explanation for a flagged rule doesn't make sense for this specific case,
+say so in the MR description rather than silently suppressing it.
+
+### Step 5 — Bump package.json version
 
 Per-app, not root — edit `apps/frontend/{project}/package.json` (see
 AGENTS.md's "Generated repo structure"):
@@ -121,7 +136,7 @@ AGENTS.md's "Generated repo structure"):
 # Bump to rc: e.g. 1.1.3 → 1.2.0-rc1
 ```
 
-### Step 5 — Update CHANGELOG
+### Step 6 — Update CHANGELOG
 
 Append to `apps/frontend/{project}/CHANGELOG.md`:
 
@@ -135,7 +150,7 @@ Append to `apps/frontend/{project}/CHANGELOG.md`:
 - {what changed in UI}
 ```
 
-### Step 6 — Open task MR
+### Step 7 — Open task MR
 
 ```bash
 git add -A

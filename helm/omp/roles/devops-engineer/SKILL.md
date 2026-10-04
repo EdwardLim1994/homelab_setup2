@@ -172,6 +172,7 @@ apps `nx affected` reports for this commit range (see AGENTS.md's
 stages:
   - secrets-scan
   - lint
+  - architecture
   - test
   - sonarqube
   - dependency-scan
@@ -214,6 +215,21 @@ lint:
     # (see AGENTS.md). Same rule backend/frontend-developer already follow
     # for their own local pre-MR checks — CI isn't a looser/separate rule.
     - bunx nx affected -t typecheck,lint --base=main
+
+# ponytail: mechanical enforcement of backend-developer/SKILL.md's
+# "Separation of concerns" rule (controller -> service -> repository,
+# never skipped/reversed) -- without this the layering is prose convention
+# only, nothing actually fails if an agent (or a human) violates it.
+# dependency-cruiser walks the real import graph; biome/eslint have no
+# equivalent cross-file architecture-boundary rule. Not nx-affected-scoped
+# (depcruise isn't nx-integrated) -- checks the whole repo every run, which
+# is fine, it's fast and this is a repo-wide invariant, not per-project work.
+architecture:
+  stage: architecture
+  image: oven/bun:latest
+  script:
+    - bun install --frozen-lockfile
+    - bunx depcruise apps --config .dependency-cruiser.cjs
 
 # ponytail: `bunx nx affected -t test` runs real Jest's source (correctly
 # bun-installed) but executed BY the Bun runtime, not Node — Bun isn't 100%

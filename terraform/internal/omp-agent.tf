@@ -98,6 +98,11 @@ resource "helm_release" "omp_agent" {
     value = var.taiga_mcp_auth_token
   }
 
+  set_sensitive {
+    name  = "secrets.sonarqubeMcpAuthToken"
+    value = var.sonarqube_mcp_token
+  }
+
   # ponytail: in-cluster address, admin login reused (same account
   # terraform/internal/nextcloud.tf sets nextcloud.nextcloud.password with) —
   # no separate robot account, homelab-scoped like Harbor's admin reuse.

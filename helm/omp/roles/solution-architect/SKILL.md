@@ -233,6 +233,57 @@ directories for coding tools we don't use — delete `.codex`, `.cursor`,
 `.gitkeep` until QA populates them — see AGENTS.md's structure and
 qa-engineer/SKILL.md) — not per-app, these are cross-app suites.
 
+When the stack is TypeScript (NestJS or otherwise), add `dependency-cruiser`
+as a dev dependency and commit a root `.dependency-cruiser.cjs` that
+mechanically enforces backend-developer/SKILL.md's "Separation of concerns"
+rule (controller -> service -> repository, never skipped or reversed) —
+devops-engineer/SKILL.md's `architecture` CI stage runs it, but THIS is
+where the config itself is authored and committed:
+
+```js
+// .dependency-cruiser.cjs
+module.exports = {
+  forbidden: [
+    {
+      name: 'controller-no-direct-orm',
+      comment: 'Controllers must go through a service, never call the ORM/DB client directly',
+      severity: 'error',
+      from: { path: '\\.controller\\.ts$' },
+      to: { path: '(typeorm|@nestjs/typeorm|@prisma/client|^prisma$|mongoose|^pg$|mysql2|knex)' },
+    },
+    {
+      name: 'controller-no-direct-repository',
+      comment: 'Controllers must call the service, not a repository directly',
+      severity: 'error',
+      from: { path: '\\.controller\\.ts$' },
+      to: { path: '\\.repository\\.ts$' },
+    },
+    {
+      name: 'no-upward-imports',
+      comment: 'Services/repositories must never import a controller -- layering is one-directional',
+      severity: 'error',
+      from: { path: '\\.(service|repository)\\.ts$' },
+      to: { path: '\\.controller\\.ts$' },
+    },
+    {
+      name: 'repository-no-service-import',
+      comment: 'Repositories are DB access only, must not call back into business logic',
+      severity: 'error',
+      from: { path: '\\.repository\\.ts$' },
+      to: { path: '\\.service\\.ts$' },
+    },
+  ],
+  options: { doNotFollow: { path: 'node_modules' } },
+};
+```
+
+This is the only mechanical check for that layering rule — without it, the
+controller/service/repository split is prose convention only. For a
+non-TypeScript stack, pick that ecosystem's equivalent architecture-
+boundary tool (e.g. ArchUnit for Java/Spring; Laravel has no widely-used
+one — a grep-based CI check is an acceptable fallback there) rather than
+skipping the check entirely.
+
 Wire CI docker-build + npm-registry: a Dockerfile per deployable app
 (multi-stage node:20) alongside its `package.json` under
 `apps/{backend|frontend}/{name}/`, a root `.npmrc` scoping the workspace at

@@ -24,6 +24,11 @@ secrets:
   # per-caller bearer into the taiga MCP server (mcp-servers-taiga's
   # AUTH_TOKEN) — lets omp pods build an --mcp-config pointing at it.
   taigaMcpAuthToken: ""
+  # per-caller bearer into the sonarqube MCP server — same token value as
+  # the server's own SONARQUBE_TOKEN (var.sonarqube_mcp_token), SonarQube's
+  # HTTP-mode MCP reads auth from the caller's own header, not a separate
+  # per-client secret.
+  sonarqubeMcpAuthToken: ""
   nextcloudUrl: ""
   nextcloudUser: ""
   nextcloudPassword: ""
