@@ -1,9 +1,10 @@
 #!/bin/sh
-# render-mermaid.sh <output.png> <mermaid-source-file>
+# render-mermaid.sh <output.svg> <mermaid-source-file>
 #
-# Renders a Mermaid diagram to PNG via the scale-to-zero mermaid-render
+# Renders a Mermaid diagram to SVG (true vector, no resolution ceiling —
+# see helm/mermaid-render/server.js) via the scale-to-zero mermaid-render
 # microservice: scales it 0 -> 1, waits for ready, POSTs the Mermaid
-# source, saves the PNG response, then ALWAYS scales it back to 0 — same
+# source, saves the SVG response, then ALWAYS scales it back to 0 — same
 # PATCH-the-/scale-subresource technique as helm/omp/adapter/server.py's
 # waker, but this script also does the scale-down (the adapter never
 # does), since this is a single synchronous call, not a shared long-lived

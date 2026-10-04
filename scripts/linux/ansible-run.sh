@@ -14,6 +14,55 @@
 # Pass a playbook name explicitly (or `site`) to run just that one.
 set -euo pipefail
 
+usage() {
+  cat <<'EOF'
+Usage: scripts/linux/ansible-run.sh [playbook] [ansible-args...]
+       scripts/linux/ansible-run.sh --help | -h
+
+Clones a one-shot Job from the suspended ansible-runner CronJob (helm/ansible),
+streams its logs, lets k8s reap the pod when done.
+
+With no argument: runs every playbook in the default fan-out, in parallel.
+Pass "site" to run the same set serially instead. Pass a playbook name to
+run just that one (including bootstrap/DR-only ones, never run by default).
+
+Common ansible-args: --syntax-check (parse-only, no changes), --tags <tag>,
+-e key=value (extra vars).
+
+DEFAULT FAN-OUT (no arg runs all of these, in parallel):
+  n8n                   n8n post-deploy: owner setup, mint/reuse API key, seed the SDLC flows
+  omp                   Push a GitLab token into every omp pod's env
+  litellm               Wait for the LiteLLM proxy, confirm models loaded
+  mcp-servers           Push access tokens from .env into each MCP server Deployment
+  openwebui             Install the SDLC pipe as an OpenWebUI Function (idempotent)
+
+  site                  Run the exact same set SERIALLY instead of in parallel
+
+BOOTSTRAP / DISASTER-RECOVERY (not in the default fan-out — run explicitly):
+  gitlab-webhook        Register/verify/deregister the n8n SDLC router webhook (F-00) on
+                        every sdlc-group project (--tags verify | --tags deregister
+                        -e deregister_confirmed=true)
+  taiga-gitlab-webhook  Register Taiga's own GitLab integration webhook (compliance
+                        trail — separate from gitlab-webhook's F-00 router hook)
+  sonarqube-gitlab      Configure SonarQube's GitLab DevOps Platform Integration
+  argocd-clusters       Register the phase k3d clusters (sit/uat/qa/staging/production) with ArgoCD
+  role-accounts         Create one GitLab + Taiga service account per SDLC role
+                        (idempotent, re-run-safe — see AGENTS.md's "Ticket assignee")
+
+Examples:
+  scripts/linux/ansible-run.sh
+  scripts/linux/ansible-run.sh n8n
+  scripts/linux/ansible-run.sh n8n --syntax-check
+  scripts/linux/ansible-run.sh gitlab-webhook --tags verify
+  scripts/linux/ansible-run.sh role-accounts
+EOF
+}
+
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+  usage
+  exit 0
+fi
+
 : "${NS:=ansible}"
 : "${CRONJOB:=ansible-runner}"
 

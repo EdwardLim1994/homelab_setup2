@@ -1,8 +1,14 @@
 // Minimal HTTP wrapper around mermaid-cli's `mmdc`, mirroring
 // helm/omp/adapter/server.py's plain-stdlib style. POST raw Mermaid source
-// to /render, get a PNG back. No framework, no persistence — this pod only
+// to /render, get an SVG back. No framework, no persistence — this pod only
 // exists while something is actively rendering (see
 // helm/omp/scripts/render-mermaid.sh, which scales it 0 -> 1 -> 0).
+//
+// ponytail: SVG, not PNG -- a fixed-pixel raster made diagram text
+// illegible once embedded in the PDF at print scale. mmdc renders true
+// vector SVG just as easily (same -o extension-detection), and the PDF
+// pipeline already has rsvg-convert on PATH (confirmed in pandoc/extra) to
+// embed it losslessly via xelatex -- no resolution ceiling either way.
 const http = require('http');
 const { execFile } = require('child_process');
 const fs = require('fs');
@@ -25,7 +31,7 @@ http.createServer((req, res) => {
     const mermaidSrc = Buffer.concat(chunks).toString('utf8');
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const inFile = path.join(os.tmpdir(), `${id}.mmd`);
-    const outFile = path.join(os.tmpdir(), `${id}.png`);
+    const outFile = path.join(os.tmpdir(), `${id}.svg`);
     fs.writeFileSync(inFile, mermaidSrc);
 
     const args = ['-i', inFile, '-o', outFile, '-b', 'white'];
@@ -42,9 +48,9 @@ http.createServer((req, res) => {
           res.end(`mmdc failed: ${err.message}\n${stderr}`);
           return;
         }
-        const png = fs.readFileSync(outFile);
-        res.writeHead(200, { 'Content-Type': 'image/png' });
-        res.end(png);
+        const svg = fs.readFileSync(outFile);
+        res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
+        res.end(svg);
       } finally {
         fs.unlink(inFile, () => {});
         fs.unlink(outFile, () => {});

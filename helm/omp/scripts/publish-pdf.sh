@@ -85,7 +85,13 @@ print(json.dumps({
                     # ponytail: pdflatex (pandoc's default engine) chokes on
                     # non-ASCII (arrows, bullets, checkmarks — agents write
                     # these routinely). xelatex handles Unicode natively.
-                    "command": ["pandoc", "/input/combined.md", "--pdf-engine=xelatex", "--toc", "--toc-depth=2", "-o", "/output/development-plan.pdf"],
+                    # --resource-path=/input is NOT optional: pandoc resolves
+                    # relative image paths (combined.md's `![](diagram.png)`
+                    # refs) against its own cwd, not the input file's
+                    # directory -- without this every image silently drops
+                    # (no error, no non-zero exit, just a text-only PDF,
+                    # confirmed via `pdfimages -list` returning zero rows).
+                    "command": ["pandoc", "/input/combined.md", "--resource-path=/input", "--pdf-engine=xelatex", "--toc", "--toc-depth=2", "-o", "/output/development-plan.pdf"],
                     "volumeMounts": [
                         {"name": "input", "mountPath": "/input", "readOnly": True},
                         {"name": "output", "mountPath": "/output"},

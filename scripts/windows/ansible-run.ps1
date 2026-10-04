@@ -24,6 +24,51 @@ param(
 # Correctness comes from checking $LASTEXITCODE where it actually matters.
 $ErrorActionPreference = 'Continue'
 
+if ($Playbook -eq '-h' -or $Playbook -eq '--help' -or $Playbook -eq '-help') {
+@'
+Usage: scripts\windows\ansible-run.ps1 [playbook] [ansible-args...]
+       scripts\windows\ansible-run.ps1 --help | -h
+
+Clones a one-shot Job from the suspended ansible-runner CronJob (helm/ansible),
+streams its logs, lets k8s reap the pod when done.
+
+With no argument: runs every playbook in the default fan-out, in parallel.
+Pass "site" to run the same set serially instead. Pass a playbook name to
+run just that one (including bootstrap/DR-only ones, never run by default).
+
+Common ansible-args: --syntax-check (parse-only, no changes), --tags <tag>,
+-e key=value (extra vars).
+
+DEFAULT FAN-OUT (no arg runs all of these, in parallel):
+  n8n                   n8n post-deploy: owner setup, mint/reuse API key, seed the SDLC flows
+  omp                   Push a GitLab token into every omp pod's env
+  litellm               Wait for the LiteLLM proxy, confirm models loaded
+  mcp-servers           Push access tokens from .env into each MCP server Deployment
+  openwebui             Install the SDLC pipe as an OpenWebUI Function (idempotent)
+
+  site                  Run the exact same set SERIALLY instead of in parallel
+
+BOOTSTRAP / DISASTER-RECOVERY (not in the default fan-out -- run explicitly):
+  gitlab-webhook        Register/verify/deregister the n8n SDLC router webhook (F-00) on
+                        every sdlc-group project (--tags verify | --tags deregister
+                        -e deregister_confirmed=true)
+  taiga-gitlab-webhook  Register Taiga's own GitLab integration webhook (compliance
+                        trail -- separate from gitlab-webhook's F-00 router hook)
+  sonarqube-gitlab      Configure SonarQube's GitLab DevOps Platform Integration
+  argocd-clusters       Register the phase k3d clusters (sit/uat/qa/staging/production) with ArgoCD
+  role-accounts         Create one GitLab + Taiga service account per SDLC role
+                        (idempotent, re-run-safe -- see AGENTS.md's "Ticket assignee")
+
+Examples:
+  scripts\windows\ansible-run.ps1
+  scripts\windows\ansible-run.ps1 n8n
+  scripts\windows\ansible-run.ps1 n8n --syntax-check
+  scripts\windows\ansible-run.ps1 gitlab-webhook --tags verify
+  scripts\windows\ansible-run.ps1 role-accounts
+'@ | Write-Host
+  exit 0
+}
+
 $ns = if ($env:NS) { $env:NS } else { 'ansible' }
 $cronjob = if ($env:CRONJOB) { $env:CRONJOB } else { 'ansible-runner' }
 
