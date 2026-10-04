@@ -1,0 +1,71 @@
+# ponytail: shared across all 4 clusters. oc.opencost.prometheus.external.url
+# and the prometheus.* block differ per cluster (internal -> observability's
+# Mimir, prometheus.enabled stays false; sit/uat/production -> the bundled
+# prometheus dependency below, prometheus.enabled=true) - set via terraform
+# `set{}` in each cluster's opencost.tf, not in this file. No bundled UI -
+# cost data surfaces through the Grafana dashboard
+# (helm/observability/dashboards/opencost.json) instead, so there's nothing
+# here needing tailscale/authentik exposure the way kubecost's native UI did.
+#
+# ponytail: the "oc" alias (Chart.yaml) + the double "opencost.opencost.*"
+# nesting below aren't decorative — the upstream chart's own values.yaml
+# nests almost everything under an internal "opencost:" key, and our
+# dependency is *also* named "opencost", so without the alias every path here
+# would collide and silently not apply (verified: --set opencost.ui.enabled
+# through an unaliased dependency is a no-op; --set oc.opencost.ui.enabled
+# through the alias is not).
+oc:
+  # deterministic service/deployment name regardless of the alias/release-name
+  # substring quirk above (fullname helper would otherwise emit "opencost-oc").
+  fullnameOverride: opencost
+
+  # scraped by whichever Prometheus opencost.prometheus.external.url points
+  # back at (community `prometheus` chart's default scrape config picks up
+  # any pod carrying these annotations). Root-level in the subchart's own
+  # values schema, not nested under the inner opencost: block.
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9003"
+    prometheus.io/path: "/metrics"
+
+  opencost:
+    prometheus:
+      internal:
+        enabled: false
+      external:
+        enabled: true
+        # placeholder - every cluster's opencost.tf overrides this with the
+        # real endpoint.
+        url: "http://REPLACED-BY-TERRAFORM"
+
+    ui:
+      enabled: false
+
+# bundled Prometheus for sit/uat/production only (see Chart.yaml condition) -
+# internal reuses helm/observability's existing one instead.
+prometheus:
+  enabled: false
+  server:
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    persistentVolume:
+      enabled: true
+      size: 2Gi
+    # ponytail: short - this cluster's own cost history isn't queried far
+    # back; longer retention lives in internal's Mimir via remoteWrite.
+    retention: "3d"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 512Mi
+      limits:
+        memory: 1536Mi
+  alertmanager:
+    enabled: false
+  prometheus-pushgateway:
+    enabled: false
+  kube-state-metrics:
+    enabled: true
+  prometheus-node-exporter:
+    enabled: true

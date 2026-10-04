@@ -22,11 +22,8 @@ gates.
 
 ## Working here
 
-- **Tilt path and Terraform path must stay in sync.** If you touch
-  `helm/<app>/Tiltfile` or `helm/<app>/values.yaml`, make the matching change
-  in `terraform/<app>.tf`, and vice versa.
 - Secrets flow one way: edit `.env` → `scripts/linux/gen-tfvars.sh` →
-  `tofu apply`. Never edit `terraform/local.auto.tfvars` or a live Secret
+  `tofu apply`. Never edit `terraform/<env>/local.auto.tfvars` or a live Secret
   directly. `helm/<app>/values.yaml` carries `__PLACEHOLDER__` tokens the
   `.tf` swaps in. A `TF_VAR_*` line in `.env` that has no `variable {}` block
   makes `tofu plan` warn "undeclared variable" — remove it from `.env` too.
@@ -65,6 +62,15 @@ gates.
   `POST /workflows/{id}/activate`.
 - Git Bash rewrites absolute in-pod paths (and `/bin/sh`) passed to
   `kubectl exec` — prefix with `MSYS_NO_PATHCONV=1`.
+- **Docker registry host without an explicit port = docker assumes 443/https**,
+  even with `insecure-registries` set — it retries HTTPS on the *same* port
+  rather than falling back to plain-HTTP port 80, so a registry that's
+  genuinely plain-HTTP-on-80 (Harbor's `harbor` Service — no TLS) just hangs
+  instead of failing fast. Always spell the port explicitly
+  (`harbor.harbor.svc.cluster.local:80`, not the bare hostname) in every
+  image reference, `insecure-registries` entry, and containerd mirror key —
+  same reason GitLab's old bundled registry was always referenced with its
+  `:5000`.
 - `kubernetes.core.k8s_exec` returns `return_code` (not `rc`), and may omit
   it entirely on success — gate `until:` / `failed_when:` on `stdout` content.
 - **Shared postgres:** role name == db name for every app **except GitLab**
@@ -80,7 +86,7 @@ gates.
   default OAuth blueprints import — every provider ends up with no scope
   mappings and every OIDC login fails "Insufficient scope". The script now
   waits for the `openid`/`email`/`profile` mappings before assigning them.
-- **Tailscale shared ProxyGroup** (`terraform/tailscale-ingress.tf`): all app
+- **Tailscale shared ProxyGroup** (`terraform/internal/tailscale-ingress.tf`): all app
   Ingresses front one node via a Tailscale Service each. The tailnet policy
   needs THREE things or apps are silently `unreachable`:
   1. OAuth client scope **Services=write** (else operator 404s creating the
@@ -95,7 +101,7 @@ gates.
   ACME registrations / IP / 3h" — wait it out, don't churn.
 - **In-cluster can't reach the tailnet hostname.** Pods have no route to the
   Tailscale Service VIP, so any app that does OIDC *discovery* server-side
-  against `authentik.<tailnet>` times out. `terraform/coredns.tf` fixes it:
+  against `authentik.<tailnet>` times out. `terraform/internal/coredns.tf` fixes it:
   a `coredns-custom` rewrite points that name at traefik in-cluster, plus a
   traefik vhost for it with a homelab-CA cert. Apps consuming it must trust the
   homelab CA (`kubernetes_secret.*_homelab_ca` — minio via the chart's

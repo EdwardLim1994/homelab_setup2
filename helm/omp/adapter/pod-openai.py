@@ -40,8 +40,76 @@ OMP_CMD = os.environ.get(
     "OMP_CMD", f"omp --mode rpc --model {OMP_MODEL}"
 ).split()
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "sonnet")
+CLAUDE_EFFORT = os.environ.get("CLAUDE_EFFORT", "")
 TURN_TIMEOUT = int(os.environ.get("OMP_TURN_TIMEOUT", "900"))
 RESET_AT = int(os.environ.get("OMP_RESET_AT", "2"))
+
+# ponytail: same servers/tokens as helm/litellm/templates/config.yaml's
+# mcp_servers block — the mcp-servers pods, reachable by Service DNS with no
+# NetworkPolicy in the way. token_env names match values.yaml's env map.
+MCP_SERVERS = {
+    "grafana": {
+        "url": "http://mcp-servers-grafana.mcp-servers.svc.cluster.local:8000/mcp"},
+    "sonarqube": {
+        "url": "http://mcp-servers-sonarqube.mcp-servers.svc.cluster.local:8080/mcp",
+        "token_env": "MCP_SONARQUBE_TOKEN"},
+    "gitlab": {
+        "url": "http://mcp-servers-gitlab.mcp-servers.svc.cluster.local:3002/mcp",
+        "token_env": "MCP_GITLAB_TOKEN"},
+    "playwright": {
+        "url": "http://mcp-servers-playwright.mcp-servers.svc.cluster.local:8931/mcp"},
+    "n8n": {
+        "url": "http://mcp-servers-n8n.mcp-servers.svc.cluster.local:3000/mcp",
+        "token_env": "MCP_N8N_TOKEN"},
+}
+
+
+def write_mcp_config():
+    """Wire mcp-servers into whichever backend CLI this pod runs, at startup
+    (not baked into the image, so tokens never land in a layer)."""
+    servers = {}
+    for name, cfg in MCP_SERVERS.items():
+        entry = {"type": "http", "url": cfg["url"]}
+        token = os.environ.get(cfg.get("token_env", ""), "")
+        if token:
+            entry["headers"] = {"Authorization": f"Bearer {token}"}
+        servers[name] = entry
+
+    home = os.path.expanduser("~")
+    # claude backend: documented user-level MCP config (Claude Code reads
+    # mcpServers from ~/.claude.json regardless of cwd).
+    claude_cfg_path = os.path.join(home, ".claude.json")
+    claude_cfg = {}
+    if os.path.exists(claude_cfg_path):
+        try:
+            with open(claude_cfg_path) as f:
+                claude_cfg = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            claude_cfg = {}
+    claude_cfg["mcpServers"] = servers
+    with open(claude_cfg_path, "w") as f:
+        json.dump(claude_cfg, f, indent=2)
+
+    # omp backend: appended to config.yml (baked with model/smol/tools/
+    # startup keys — see Dockerfile). ponytail: schema modeled on opencode's
+    # remote-MCP config (oh-my-pi is an opencode fork with the same
+    # config.yml shape elsewhere) — unverified against omp's actual parser,
+    # check `omp --mode rpc` startup logs if servers don't show up.
+    omp_cfg_path = os.path.join(home, ".omp/agent/config.yml")
+    if os.path.exists(omp_cfg_path):
+        with open(omp_cfg_path) as f:
+            text = f.read()
+        if "\nmcp:" not in text:
+            lines = ["mcp:"]
+            for name, entry in servers.items():
+                lines.append(f"  {name}:")
+                lines.append("    type: remote")
+                lines.append(f"    url: {entry['url']}")
+                if "headers" in entry:
+                    lines.append("    headers:")
+                    lines.append(f"      Authorization: {entry['headers']['Authorization']}")
+            with open(omp_cfg_path, "a") as f:
+                f.write("\n" + "\n".join(lines) + "\n")
 
 
 class ClaudeBackend:
@@ -60,6 +128,8 @@ class ClaudeBackend:
             cmd = ["claude", "-p", message, "--output-format", "text"]
             if self.model:
                 cmd += ["--model", self.model]
+            if CLAUDE_EFFORT:
+                cmd += ["--effort", CLAUDE_EFFORT]
             if not fresh and self.started:
                 cmd.append("--continue")
             self.started = True
@@ -233,6 +303,28 @@ def _selftest():
                          {"role": "user", "content": "a"},
                          {"role": "assistant", "content": "b"},
                          {"role": "user", "content": "c"}]) == "c"
+
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        os.environ["MCP_SONARQUBE_TOKEN"] = "tok123"
+        os.makedirs(os.path.join(tmp, ".omp", "agent"))
+        with open(os.path.join(tmp, ".omp", "agent", "config.yml"), "w") as f:
+            f.write("model: ollama/qwen3.8:27b\n")
+        real_expanduser = os.path.expanduser
+        os.path.expanduser = lambda p: tmp if p == "~" else real_expanduser(p)
+        try:
+            write_mcp_config()
+        finally:
+            os.path.expanduser = real_expanduser
+            del os.environ["MCP_SONARQUBE_TOKEN"]
+        with open(os.path.join(tmp, ".claude.json")) as f:
+            claude_cfg = json.load(f)
+        assert claude_cfg["mcpServers"]["sonarqube"]["headers"]["Authorization"] == "Bearer tok123"
+        assert "headers" not in claude_cfg["mcpServers"]["grafana"]
+        with open(os.path.join(tmp, ".omp", "agent", "config.yml")) as f:
+            omp_cfg = f.read()
+        assert "mcp:" in omp_cfg and "Bearer tok123" in omp_cfg
+
     print("selftest ok")
 
 
@@ -240,6 +332,7 @@ if __name__ == "__main__":
     if os.environ.get("SELFTEST"):
         _selftest()
         raise SystemExit(0)
+    write_mcp_config()
     if BACKEND == "claude":
         RPC = ClaudeBackend(CLAUDE_MODEL)
         print(f"pod-openai on :{PORT} backend=claude model={CLAUDE_MODEL}", flush=True)

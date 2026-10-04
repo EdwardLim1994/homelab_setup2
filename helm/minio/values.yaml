@@ -19,7 +19,7 @@ minio:
   # ponytail: MinIO does OIDC discovery server-side against Authentik's tailnet
   # HTTPS URL; terraform/coredns.tf points that name at traefik in-cluster with
   # a homelab-CA cert, so MinIO must trust that CA. terraform swaps in the
-  # secret name; Tilt (no tailnet ingress) swaps in "" to skip the mount.
+  # secret name.
   trustedCertsSecret: "__MINIO_TRUSTED_CA_SECRET__"
 
   # ponytail: chart's post-install job (`mc mb`) creates these. GitLab's
@@ -29,6 +29,7 @@ minio:
   buckets:
     - name: gitlab-runner-cache
     - name: git-lfs
+    - name: gitlab-registry
     - name: gitlab-artifacts
     - name: gitlab-uploads
     - name: gitlab-packages
@@ -37,6 +38,10 @@ minio:
     - name: gitlab-terraform-state
     - name: gitlab-ci-secure-files
     - name: gitlab-backups
+    # plan_release/kickoff hand-off: per-role markdown sections + the
+    # compiled development-plan.docx, keyed release-reports/<version>/...
+    - name: release-reports
+    - name: postgres-backups
 
   persistence:
     size: 8Gi
@@ -58,8 +63,9 @@ minio:
   # which doesn't block startup), not worth patching the chart for a homelab.
   environment:
     MINIO_BROWSER: "on"
+    MINIO_BROWSER_REDIRECT_URL: "__CONSOLE_URL__"
     MINIO_IDENTITY_OPENID_CONFIG_URL: "__AUTHENTIK_URL__/application/o/minio/.well-known/openid-configuration"
-    # MINIO_IDENTITY_OPENID_CLIENT_ID / _CLIENT_SECRET set via Tiltfile/terraform (.env)
+    # MINIO_IDENTITY_OPENID_CLIENT_ID / _CLIENT_SECRET set via terraform (.env)
     MINIO_IDENTITY_OPENID_CLAIM_NAME: "policy"
     MINIO_IDENTITY_OPENID_SCOPES: "openid,profile,email,policy"
     MINIO_IDENTITY_OPENID_REDIRECT_URI: "__CONSOLE_URL__/oauth_callback"

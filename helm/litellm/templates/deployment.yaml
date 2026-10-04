@@ -16,6 +16,11 @@ spec:
         # ponytail: roll the pod whenever config.yaml changes — LiteLLM reads
         # --config only at startup, so a bare cm update is invisible otherwise.
         checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+        # observability's Prometheus (prometheus-community chart, default
+        # kubernetes-pods job) scrapes any pod carrying these.
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "4000"
+        prometheus.io/path: "/metrics"
     spec:
       initContainers:
         - name: wait-for-db

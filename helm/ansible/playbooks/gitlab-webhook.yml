@@ -33,6 +33,15 @@
       {{ lookup('env', 'N8N_WEBHOOK_BASE')
          | default('http://n8n.n8n.svc.cluster.local:5678/webhook', true) }}
     gitlab_api_base: "{{ gitlab_url }}/api/v4"
+    # ponytail: same in-cluster Service + token-as-username auth as
+    # sonarqube-gitlab.yml — reused here just to mint a CI-scoped user token.
+    sonarqube_url: >-
+      {{ lookup('env', 'SONARQUBE_URL')
+         | default('http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000', true) }}
+    sonarqube_admin_user: "{{ lookup('env', 'sonarqube_mcp_token') | default('admin', true) }}"
+    sonarqube_admin_password: >-
+      {{ '' if lookup('env', 'sonarqube_mcp_token') | length > 0
+         else (lookup('env', 'sonarqube_admin_password') | default('admin', true)) }}
     webhook_secret: "{{ lookup('env', 'gitlab_webhook_secret') }}"
     admin_email: "{{ lookup('env', 'n8n_owner_email') }}"
     group_ref: "{{ lookup('env', 'gitlab_group_id') | default('sdlc', true) }}"
@@ -125,6 +134,161 @@
     - name: Resolve group id
       ansible.builtin.set_fact:
         group_id: "{{ made_group.json.id if group_get.status == 404 else group_get.json.id }}"
+
+    # ponytail: group-level CI/CD variables inherit to every project under
+    # sdlc — the Harbor equivalent of the $CI_REGISTRY_* vars GitLab provides
+    # for free for its own bundled registry. PUT (update) first since it's
+    # idempotent and cheap; only POST (create) on a genuine 404.
+    - name: Set HARBOR_USER group CI/CD variable
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_id }}/variables/HARBOR_USER"
+        method: PUT
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body: { value: admin }
+        status_code: [200, 404]
+      register: harbor_user_put
+      no_log: true
+
+    - name: Create HARBOR_USER group CI/CD variable
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_id }}/variables"
+        method: POST
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body: { key: HARBOR_USER, value: admin }
+        status_code: [201]
+      no_log: true
+      when: harbor_user_put.status == 404
+
+    - name: Set HARBOR_PASSWORD group CI/CD variable
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_id }}/variables/HARBOR_PASSWORD"
+        method: PUT
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body: { value: "{{ lookup('env', 'harbor_admin_password') }}", masked: true, protected: false }
+        status_code: [200, 404]
+      register: harbor_password_put
+      no_log: true
+
+    - name: Create HARBOR_PASSWORD group CI/CD variable
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_id }}/variables"
+        method: POST
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body: { key: HARBOR_PASSWORD, value: "{{ lookup('env', 'harbor_admin_password') }}", masked: true, protected: false }
+        status_code: [201]
+      no_log: true
+      when: harbor_password_put.status == 404
+
+    # ponytail: found missing during a live incident — devops-engineer's CI
+    # template (SKILL.md) has always referenced ${SONAR_HOST_URL}/${SONAR_TOKEN}
+    # in its sonarqube stage, but nothing ever set them as group vars the way
+    # HARBOR_USER/PASSWORD are above — every generated project's sonar-scanner
+    # step ran with both unset. Revoke+regenerate each run, same reason the
+    # gitlab/sonarqube PATs above are minted fresh instead of stored.
+    - name: Revoke any existing sdlc-ci SonarQube user token
+      ansible.builtin.uri:
+        url: "{{ sonarqube_url }}/api/user_tokens/revoke"
+        method: POST
+        url_username: "{{ sonarqube_admin_user }}"
+        url_password: "{{ sonarqube_admin_password }}"
+        force_basic_auth: true
+        body_format: form-urlencoded
+        body: { name: sdlc-ci }
+        status_code: [204, 404]
+      no_log: true
+
+    - name: Generate a fresh sdlc-ci SonarQube user token
+      ansible.builtin.uri:
+        url: "{{ sonarqube_url }}/api/user_tokens/generate"
+        method: POST
+        url_username: "{{ sonarqube_admin_user }}"
+        url_password: "{{ sonarqube_admin_password }}"
+        force_basic_auth: true
+        body_format: form-urlencoded
+        body: { name: sdlc-ci }
+        return_content: true
+        status_code: [200]
+      register: sonar_token_out
+      no_log: true
+
+    - name: Set SONAR_HOST_URL group CI/CD variable
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_id }}/variables/SONAR_HOST_URL"
+        method: PUT
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body: { value: "{{ sonarqube_url }}" }
+        status_code: [200, 404]
+      register: sonar_url_put
+      no_log: true
+
+    - name: Create SONAR_HOST_URL group CI/CD variable
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_id }}/variables"
+        method: POST
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body: { key: SONAR_HOST_URL, value: "{{ sonarqube_url }}" }
+        status_code: [201]
+      no_log: true
+      when: sonar_url_put.status == 404
+
+    - name: Set SONAR_TOKEN group CI/CD variable
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_id }}/variables/SONAR_TOKEN"
+        method: PUT
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body: { value: "{{ sonar_token_out.json.token }}", masked: true, protected: false }
+        status_code: [200, 404]
+      register: sonar_token_put
+      no_log: true
+
+    - name: Create SONAR_TOKEN group CI/CD variable
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_id }}/variables"
+        method: POST
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body: { key: SONAR_TOKEN, value: "{{ sonar_token_out.json.token }}", masked: true, protected: false }
+        status_code: [201]
+      no_log: true
+      when: sonar_token_put.status == 404
+
+    # ponytail: APICURIO_URL_SIT/_UAT/_PRODUCTION — group-level, inherited by
+    # every project, same reversed host.docker.internal NodePort bridge as
+    # kafka's (terraform/modules/platform-apps/apicurio.tf's
+    # apicurio_external Service). Not secrets, just in-cluster-unreachable
+    # addresses, so no masking. See devops-engineer/SKILL.md's
+    # push-schemas:sit/uat/production CI jobs.
+    - name: Set APICURIO_URL group CI/CD variables
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_id }}/variables/{{ item.key }}"
+        method: PUT
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body: { value: "{{ item.value }}" }
+        status_code: [200, 404]
+      register: apicurio_url_put
+      loop:
+        - { key: APICURIO_URL_SIT, value: "http://host.docker.internal:30911" }
+        - { key: APICURIO_URL_UAT, value: "http://host.docker.internal:30912" }
+        - { key: APICURIO_URL_PRODUCTION, value: "http://host.docker.internal:30913" }
+
+    - name: Create APICURIO_URL group CI/CD variables
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_id }}/variables"
+        method: POST
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body: { key: "{{ item.item.key }}", value: "{{ item.item.value }}" }
+        status_code: [201]
+      loop: "{{ apicurio_url_put.results }}"
+      when: item.status == 404
 
     # ponytail: root creates every sdlc project (omp-agent Jobs use root's
     # PAT), which leaves the real human account with no membership on the

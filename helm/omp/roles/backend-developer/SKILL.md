@@ -32,6 +32,14 @@ cat AGENTS.md
 
 # 3. Verify referenced utilities exist (as pseudocode specifies)
 # If a referenced file doesn't exist, stop and signal n8n — do not invent it
+
+# 4. Flip the task ticket to in-progress (see AGENTS.md's Ticket & MR
+#    Conventions — native status field, Pending -> In progress on start)
+op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{N}" | jq -r '.version')
+op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="In progress") | .id')
+curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{N}" \
+  -H "Content-Type: application/json" \
+  -d "{\"version\": $op_version, \"status\": $op_status_id}"
 ```
 
 ---
@@ -50,7 +58,7 @@ The pseudocode specifies exact test scenarios. Write all tests before any implem
 
 Run tests to confirm they fail:
 ```bash
-bun test src/handlers/create-user.test.ts
+nx test {project} --testFile=apps/backend/{project}/src/handlers/create-user.test.ts
 # Expected: all tests fail — implementation doesn't exist yet
 ```
 
@@ -62,25 +70,26 @@ Follow the pseudocode step by step:
 - Follow the exact order of operations specified
 - Apply error handling exactly as specified (which error type, which message, which HTTP/gRPC status)
 
-### Step 3 — Run full test suite
+### Step 3 — Run affected checks (nx monorepo — never run repo-wide)
 
 ```bash
-bun test                    # all tests must pass
-bun run typecheck           # no TypeScript errors
-bun run lint                # no lint errors
+nx affected -t test,lint,typecheck --base=main
 ```
 
 Fix any failures — do not open MR with failing tests.
 
 ### Step 4 — Bump package.json version
 
+Per-app, not root — this monorepo has no meaningful root version (see
+AGENTS.md's "Generated repo structure"):
+
 ```bash
-# Read current version from package.json
+# Read current version from apps/backend/{project}/package.json
 # Bump to rc: e.g. 1.1.3 → 1.2.0-rc1
 # If rc already exists: increment rc number e.g. rc1 → rc2
 ```
 
-Edit `package.json`:
+Edit `apps/backend/{project}/package.json`:
 ```json
 {
   "version": "1.2.0-rc1"
@@ -89,7 +98,7 @@ Edit `package.json`:
 
 ### Step 5 — Update CHANGELOG
 
-Append to `CHANGELOG.md`:
+Append to `apps/backend/{project}/CHANGELOG.md` — per-app, same as the version above:
 
 ```markdown
 ## [v1.2.0-rc1] — unreleased
@@ -116,14 +125,73 @@ Implements pseudocode from openspec/impl/backend.pseudo.ts
 
 git push origin task/GL-{N}
 
+# Pre-build the Loki Explore link for the MR description — points at the
+# container name for THIS service, cluster_id=sit (that's where the story
+# branch's merge triggers auto-deploy, see devops-engineer/SKILL.md). Only
+# has data after the story branch merge/CI deploy runs — link it anyway, a
+# reviewer checks it post-merge.
+LOKI_QUERY="{cluster_id=\"sit\",container=\"{service-name}\"}"
+LOKI_LINK="$GRAFANA_URL/explore?schemaVersion=1&panes=$(python3 -c "
+import json, urllib.parse, sys
+q = json.dumps({'a': {'datasource': 'loki', 'queries': [{'refId': 'A', 'expr': sys.argv[1], 'datasource': 'loki'}], 'range': {'from': 'now-1h', 'to': 'now'}}})
+print(urllib.parse.quote(q))
+" "$LOKI_QUERY")&orgId=1"
+
+# TraceQL search, same cluster/service scoping as the Loki query above.
+TEMPO_QUERY='{ resource.service.name = "{service-name}" && resource.cluster_id = "sit" }'
+TEMPO_LINK="$GRAFANA_URL/explore?schemaVersion=1&panes=$(python3 -c "
+import json, urllib.parse, sys
+q = json.dumps({'a': {'datasource': 'tempo', 'queries': [{'refId': 'A', 'queryType': 'traceql', 'query': sys.argv[1], 'datasource': 'tempo'}], 'range': {'from': 'now-1h', 'to': 'now'}}})
+print(urllib.parse.quote(q))
+" "$TEMPO_QUERY")&orgId=1"
+
 glab mr create \
   --source-branch "task/GL-{N}" \
   --target-branch "us/GL-{parent-N}" \
   --title "[task] GL-{N} {short description}" \
-  --description "Implements GL-{N}. See openspec/impl/backend.pseudo.ts for implementation guide." \
+  --description "## Ticket
+{link to GL-{N}}
+
+## What's done
+- {bullet of what was implemented}
+- {bullet of what was implemented}
+
+## Proof of success
+{test output summary, or a recording/screenshot link if the task has any
+user-visible or API-visible behavior worth showing — tests passing alone
+isn't proof of behavior}
+
+Live logs (post-deploy, once this merges to the story branch): $LOKI_LINK
+Live traces: $TEMPO_LINK
+
+## Potential risk
+{what could break, migration/rollback notes, or \"none identified\"}
+
+Closes #{N}" \
   --label "type:task,role:backend" \
+  --assignee "backend-developer" \
+  --reviewer "@me" \
   --no-editor
 ```
+
+`Closes #{N}` in the MR description is GitLab prose only now — GitLab MRs no
+longer auto-close anything, since the ticket lives in Taiga, not GitLab
+(Taiga's own GitLab integration will still attach the merge commit as a
+comment for the compliance trail — see AGENTS.md's "GitLab compliance
+history" — it just doesn't flip status). `{N}` is still the exact same task
+id already in the branch name, no separate lookup needed. After the MR
+merges, PATCH the task's own status to "Closed"/"Done" as the last step of
+this flow — GET it first for its current `version`:
+
+```bash
+op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{N}" | jq -r '.version')
+op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="Closed") | .id')
+curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{N}" \
+  -H "Content-Type: application/json" \
+  -d "{\"version\": $op_version, \"status\": $op_status_id}"
+```
+
+That's the task ticket's status update, no n8n step required for it.
 
 ---
 
@@ -144,7 +212,67 @@ These apply regardless of framework. The framework is defined in `CLAUDE.md` —
 - Log errors with structured context: `{ error, operation, input_summary }`
 - Do not log sensitive data (passwords, tokens, PII)
 
+### Observability and traceability
+
+Every pod's stdout is scraped automatically (Alloy DaemonSet, no code
+needed) into internal's Grafana/Loki — SIT/UAT/production alike, bridged via
+`host.docker.internal` (see AGENT.md's "Log & trace shipper" section).
+Logging requirements:
+
+- Every log line JSON-structured (not plain text) — Loki queries filter on
+  fields, plain text only supports substring grep
+- Every log line carries a `trace_id` (see tracing below) — propagate it
+  through the whole call chain so one request is traceable end-to-end across
+  log lines
+- Service name in every log line matches the container name (same as the
+  image name) — that's the field the Loki query in the MR template below
+  filters on
+
+Tracing — OpenTelemetry SDK, exported via OTLP to this cluster's own
+log-shipper (in-cluster address, works identically on SIT/UAT/production):
+
+```typescript
+// tracing.ts — import first, before any other app code
+import { NodeSDK } from '@opentelemetry/sdk-node'
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc'
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node'
+
+new NodeSDK({
+  serviceName: '{service-name}',  // same name used in Loki's container label
+  traceExporter: new OTLPTraceExporter({
+    url: 'http://log-shipper-alloy.log-shipper.svc.cluster.local:4317',
+  }),
+  instrumentations: [getNodeAutoInstrumentations()],
+}).start()
+```
+
+Auto-instrumentation covers HTTP/gRPC/DB calls — no manual span code needed
+for the common case. Pull the active span's `trace_id` for the log
+correlation above via `trace.getActiveSpan()?.spanContext().traceId`. Every
+span carries this cluster's `cluster_id` automatically (log-shipper's Alloy
+config tags it, not app code).
+
 ### Database
+- **Manage schema changes through the stack's own established migration
+  tooling — never hand-roll raw SQL scripts or ad-hoc version tracking.**
+  There's no default stack (see solution-architect/SKILL.md's "Stack
+  Selection"), so the correct tool follows whatever stack was chosen for
+  this project, not a fixed default:
+  - TypeScript + Prisma ORM → **Prisma Migrate** (`prisma migrate dev` /
+    `prisma migrate deploy`), schema lives in `schema.prisma`.
+  - TypeScript + TypeORM → **TypeORM migrations**
+    (`typeorm migration:generate` / `migration:run`), never
+    `synchronize: true` outside local dev.
+  - Java (Spring Boot or similar) → **Liquibase** (preferred —
+    database-agnostic changelogs) or **Flyway** if the project already uses
+    it; check for an existing `db/changelog/` or `db/migration/` directory
+    before picking one.
+  - PHP/Laravel → **Laravel's own migration system**
+    (`php artisan make:migration` / `migrate`), never a separate tool.
+  - Any other stack → use that ecosystem's standard/idiomatic migration
+    tool (e.g. Django's `manage.py migrate`, Rails' ActiveRecord
+    migrations, Alembic for SQLAlchemy) — check what's already scaffolded
+    in the repo before introducing a new one.
 - Always use transactions for multi-step writes
 - Use parameterised queries — never string-interpolate SQL
 - Migrations are additive — never drop columns in the same migration that adds the replacement

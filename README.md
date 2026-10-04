@@ -9,13 +9,8 @@ One shared `postgres` pod backs authentik / gitlab / litellm / n8n /
 sonarqube (nextcloud keeps its own MariaDB); one shared `redis` pod
 backs authentik + gitlab.
 
-Two deployment paths exist side by side:
-
-- **Tilt** — fast local iteration, dev-fixed secrets, auto-reload on file change.
-- **Terraform (OpenTofu)** — the "real" deploy, reads the same `.env` values,
-  no auto-reload, meant to be run deliberately.
-
-Both read secrets from the same root `.env` file so they never drift apart.
+Deployed via **Terraform (OpenTofu)**, reading secrets from the root `.env`
+file, meant to be run deliberately.
 
 ## Autonomous SDLC
 
@@ -93,8 +88,7 @@ Sprint Milestone v{X}.{Y}.{Z}
 
 - Docker Desktop (or another Docker engine)
 - [k3d](https://k3d.io/)
-- [Tilt](https://tilt.dev/) (dev path)
-- [OpenTofu](https://opentofu.org/) (`tofu`) (prod path) — Terraform CLI works too
+- [OpenTofu](https://opentofu.org/) (`tofu`) — Terraform CLI works too
 - [Tailscale](https://tailscale.com/) client, for remote access to `*.ts.net` URLs
 - `kubectl`, `helm`
 
@@ -115,45 +109,43 @@ Edit `.env`:
 - Everything else already has a working dev-placeholder default.
 
 ```bash
-./scripts/linux/create-cluster.sh   # one-time: creates the k3d cluster
+./scripts/linux/create-cluster.sh          # one-time: creates the k3d "internal" cluster (Authentik, GitLab, n8n, etc.)
+./scripts/linux/create-cluster.sh phases   # one-time: creates the sit/uat/production k3d clusters the SDLC flows deploy to
 ```
 
 Scripts are grouped by platform: `scripts/linux/*.sh` (bash) and
 `scripts/windows/*.ps1` (PowerShell 7+). The two sets are equivalent — use
 whichever matches your shell.
 
-### Development (Tilt)
+### Deploy (Terraform)
 
 ```bash
-./scripts/linux/dev-up.sh
-```
-
-This sources `.env` and runs `tilt up`. Opens the Tilt web UI; every app in
-`helm/*/Tiltfile` deploys with dev-fixed secrets and hot-reloads on change.
-Bare `tilt up` also works — the root `Tiltfile` loads `.env` itself — but
-real shell env vars still take precedence over `.env`.
-
-`Tiltfile` (repo root) pins `k8s_context('k3d-internal-dev')` — if your
-cluster has a different name (`create-cluster.sh` defaults to `internal`,
-override with `K3D_CLUSTER_NAME`), update that line or export
-`K3D_CLUSTER_NAME=internal-dev` before creating the cluster.
-
-### Production (Terraform)
-
-```bash
-./scripts/linux/gen-tfvars.sh              # regenerate terraform/local.auto.tfvars from .env
-cd terraform
+./scripts/linux/gen-tfvars.sh              # regenerate terraform/<env>/local.auto.tfvars from .env
+cd terraform/internal
 tofu init                            # first time only
 tofu plan
 tofu apply
 ```
 
-`terraform/local.auto.tfvars` is generated, gitignored, and auto-loaded by
-Terraform — never edit it by hand, edit `.env` and re-run `gen-tfvars.sh`.
+`terraform/internal` is the always-on homelab (GitLab, n8n, omp, Authentik,
+etc.). `terraform/sit`, `terraform/uat`, and
+`terraform/production` are separate root modules/states, one per phase k3d
+cluster (`create-cluster.sh phases`), each deploying the same minimal
+platform-infra set (Authentik, Traefik, Unleash, Vault, Kafka, Meilisearch,
+MinIO, Apicurio Registry — via `terraform/modules/platform-apps`, local
+`helm/<app>` chart wrappers just like `internal`) that SDLC agent pods'
+generated projects integrate with. k3s's own bundled traefik is disabled on
+these clusters at creation time so the `helm/traefik` release can own ports
+80/443 without a fight. Apply the same way, one dir at a time:
 
-Each `terraform/*.tf` file mirrors its `helm/*/Tiltfile` counterpart 1:1
-(same env vars, same OIDC wiring) — if you add an app to one, add it to the
-other too, they're expected to stay in sync.
+```bash
+cd terraform/sit && tofu init && tofu plan && tofu apply   # then uat, production
+```
+
+`terraform/<env>/local.auto.tfvars` is generated, gitignored, and auto-loaded
+by Terraform — never edit it by hand, edit `.env` and re-run `gen-tfvars.sh`
+(it fans out to every `terraform/<env>/` dir, filtered to the vars each one
+declares).
 
 Two provisioners deploy config that outlives a single `helm_release`:
 - `null_resource.authentik_app_providers` — creates every app's OAuth2/SAML
@@ -174,7 +166,7 @@ or the underlying Python script change.
 
 Passwords, DB passwords, encryption/salt keys, and every OIDC
 `client_id` / `client_secret` pair (gitlab, minio, n8n, sonarqube, nextcloud,
-argocd, grafana, openwebui, litellm). Authentik trusts whatever value it's
+argocd, grafana, openwebui, litellm, taiga). Authentik trusts whatever value it's
 given, so a placeholder is exactly as real as a generated one. The whole
 cluster comes up with the shipped defaults untouched.
 
@@ -208,6 +200,7 @@ app is up, so the flow is: deploy once → generate → put in `.env` → redepl
 | `TF_VAR_gitlab_mcp_token` | GitLab → **Edit profile → Access Tokens** → new token, scope `api`, expiry as you like → copy. | **Yes** — GitLab | GitLab MCP server **hard-refuses to start** |
 | `TF_VAR_n8n_mcp_api_key` | Nothing to do by hand — leave blank the first time. `playbooks/n8n.yml` mints an n8n API key itself and prints it in the task output; copy that value in. | **Yes** — n8n (the playbook bootstraps it for you) | Without it the playbook just mints a fresh key on every run instead of reusing one — harmless but sloppy (n8n Settings → API Keys piles up) |
 | `TF_VAR_openwebui_api_key` | OpenWebUI → log in via the browser (SSO) → **Settings → Account → API Keys** → generate → copy. Can't be scripted like n8n's above — OpenWebUI is SSO-only, no password to log in with from a playbook. | **Yes** — OpenWebUI | `playbooks/openwebui.yml` (installs the SDLC chat pipe) hard-fails on its own assert with the exact same instructions |
+| `TF_VAR_taiga_api_token` | Self-hosted Taiga has no "generate API token" page — mint one via its login API instead: `curl -X POST https://taiga.<tailnet>/api/v1/auth -H "Content-Type: application/json" -d '{"type":"normal","username":"admin","password":"<taiga_admin_password>"}'`, copy the `auth_token` field from the response. | **Yes** — Taiga | n8n flows and omp pods can't call Taiga's ticket/wiki API (`TAIGA_TOKEN` env var) — ticket/wiki steps 401 |
 
 ### Not real credentials (safe defaults, listed for completeness)
 
@@ -219,12 +212,9 @@ app is up, so the flow is: deploy once → generate → put in `.env` → redepl
 ### After editing `.env` for a Terraform deploy
 
 ```bash
-./scripts/linux/gen-tfvars.sh            # regenerate terraform/local.auto.tfvars
-cd terraform && tofu apply
+./scripts/linux/gen-tfvars.sh            # regenerate terraform/<env>/local.auto.tfvars
+cd terraform/internal && tofu apply
 ```
-
-For Tilt, re-run `./scripts/linux/dev-up.sh` (or just save any watched file — the
-Tiltfiles read `.env` on load).
 
 ## Accessing apps
 
@@ -234,15 +224,15 @@ Tiltfiles read `.env` on load).
 
 Every app is reachable two ways: `https://<app>.<tailnet_domain>` from any
 device on your tailnet — provisioned by the **Tailscale Kubernetes operator**
-(`terraform/tailscale.tf`, `terraform/tailscale-ingress.tf`). All 11 app
+(`terraform/internal/tailscale.tf`, `terraform/internal/tailscale-ingress.tf`). All 11 app
 Ingresses share **one** ProxyGroup proxy node (`homelab-ingress`), so the whole
 homelab is one tailnet device; each app still gets its own MagicDNS host +
 Let's Encrypt cert. Or `https://<app>.local` on the LAN (needs a `/etc/hosts`
 entry — or Windows `C:\Windows\System32\drivers\etc\hosts` — plus trusting the
-homelab's self-signed CA, `terraform/cert-manager.tf`'s `homelab-ca-issuer`).
+homelab's self-signed CA, `terraform/internal/cert-manager.tf`'s `homelab-ca-issuer`).
 
 **One-time operator setup** (full detail in the header comment of
-`terraform/tailscale.tf`):
+`terraform/internal/tailscale.tf`):
 
 1. `tag:k8s-operator` / `tag:k8s` tagOwners in the tailnet policy.
 2. **Two** grants for `autogroup:member` — `dst: ["tag:k8s"]` (reach the proxy
@@ -282,9 +272,10 @@ the equivalent.
 ## Repo layout
 
 ```
-helm/<app>/           Helm chart + Tiltfile for each app (dev path)
+helm/<app>/           Helm chart for each app
 helm/ansible/         one suspended CronJob; playbooks/ run as cloned Jobs
-terraform/<app>.tf    Matching Terraform resource for each app (prod path)
-scripts/{linux,windows}/  cluster bootstrap, dev-up, gen-tfvars, ansible-run, list-urls
-.env / .env.example   Single source of truth for both Tilt and Terraform
+terraform/internal/<app>.tf   Matching Terraform resource for each internal-cluster app
+terraform/{sit,uat,production}/  phase-cluster platform infra (own state each), via terraform/modules/platform-apps
+scripts/{linux,windows}/  cluster bootstrap, gen-tfvars, ansible-run, list-urls
+.env / .env.example   Single source of truth for Terraform
 ```

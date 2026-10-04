@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kafka
+description: >-
+  Single-node Kafka (KRaft, official apache/kafka image, no bitnami) for
+  sit/uat/production platform infra.
+version: 0.1.0

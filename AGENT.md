@@ -10,34 +10,31 @@ in front of everything, every app reachable over Tailscale MagicDNS
 (`https://<app>.<tailnet>.ts.net`) and on the LAN (`https://<app>.local`).
 
 Apps: Authentik, GitLab (+ runner), MinIO, n8n, SonarQube, Nextcloud, ArgoCD,
-an LGTM observability stack, LiteLLM, OpenWebUI, a set of MCP
-servers, and an in-cluster coding-agent stack (`omp` / oh-my-pi).
+an LGTM observability stack, LiteLLM, OpenWebUI, Kafbat Kafka UI (views
+sit/uat/production's kafka — see "Kafka UI" below), Harbor (container
+registry — see "Harbor" below), Taiga (ticket/wiki tracker — see
+"Taiga" below), a set of MCP servers, and an in-cluster coding-agent
+stack (`omp` / oh-my-pi).
 
-## Two deploy paths, kept in lockstep
+## Deploy path
 
-| Path | Files | Use |
-|---|---|---|
-| **Tilt** | `helm/<app>/Tiltfile` + root `Tiltfile` | fast local iteration, hot reload, dev-fixed secrets |
-| **Terraform (OpenTofu)** | `terraform/<app>.tf` | deliberate "real" deploy, no reload |
+**Terraform (OpenTofu)** — `terraform/internal/<app>.tf` per app, deliberate
+"real" deploy, no reload. The only deploy path.
 
-**Rule:** every `helm/<app>/Tiltfile` has a 1:1 `terraform/<app>.tf` mirror —
-same env vars, same OIDC wiring. Change one, change the other.
-
-Both read secrets from the **same root `.env`**. Tiltfiles load `.env`
-directly; Terraform reads `terraform/local.auto.tfvars`, regenerated from
-`.env` by `scripts/{linux,windows}/gen-tfvars.*` (gitignored, never hand-edit).
+Terraform reads `terraform/<env>/local.auto.tfvars`, regenerated from the
+root `.env` by `scripts/{linux,windows}/gen-tfvars.*` (gitignored, never
+hand-edit).
 
 ### Secret substitution convention
 
 `helm/<app>/values.yaml` contains `__PLACEHOLDER__` tokens. Terraform swaps
 them via a `replace(replace(... file(values.yaml) ...))` chain in the app's
-`.tf`; the Tiltfile does the equivalent with `--set` or string replace.
-Non-secret dev defaults live inline in `values.yaml`. `set_sensitive` in the
-`.tf` is used for values that must not appear in plan output.
+`.tf`. Non-secret dev defaults live inline in `values.yaml`. `set_sensitive`
+in the `.tf` is used for values that must not appear in plan output.
 
 ### Authentik provisioning
 
-`terraform/authentik.tf` has two `null_resource` provisioners that create
+`terraform/internal/authentik.tf` has two `null_resource` provisioners that create
 config no `helm_release` owns:
 
 - `authentik_app_providers` — runs `helm/authentik/provision-app-providers.py`
@@ -48,14 +45,247 @@ config no `helm_release` owns:
 
 Both re-run on `triggers` when their secrets or the Python script change.
 
+### Phase-cluster platform infra
+
+`terraform/{sit,uat,production}/` — one Terraform root module (own state)
+per phase k3d cluster, each a thin `providers.tf`/`variables.tf`/`main.tf`
+calling the shared `terraform/modules/platform-apps` module. Deploys
+Authentik, Traefik, Unleash, Vault, Kafka, Meilisearch, MinIO, and Apicurio
+Registry — same local `helm/<app>` wrapper-chart convention as the internal
+cluster (`Chart.yaml` dependency on the upstream chart, `values.yaml` /
+`values-phase.yaml` for defaults, terraform swaps secrets in via
+`set_sensitive`). Authentik and MinIO reuse the same `helm/authentik` /
+`helm/minio` chart dirs as internal, via a second `values-phase.yaml` in
+each (bundled postgresql/redis subcharts, no OIDC/tailscale/homelab-CA
+wiring — these clusters have none of that). This is the platform checklist
+`helm/omp/roles/solution-architect/SKILL.md` tells agent pods to plan
+against for every new project — these apps exist so a pod's generated
+project actually has something to integrate with in SIT/UAT/production.
+Phase clusters have k3s's bundled traefik disabled at cluster creation
+(`create-cluster.sh --k3s-arg disable=traefik`) so `helm/traefik` owns
+ports 80/443 instead — `internal` is untouched, still on k3s's own.
+
+### OpenCost (all 4 clusters)
+
+`helm/opencost` (local wrapper: `opencost/opencost` upstream, aliased `oc` —
+its own values.yaml nests almost everything under an internal `opencost:`
+key too, so without the alias every `--set`/`set{}` path here would collide
+with the dependency's own name and silently no-op) deployed on `internal`
+(`terraform/internal/opencost.tf`) and each phase cluster
+(`terraform/modules/platform-apps/opencost.tf`). Replaced kubecost — opencost
+has no UI worth exposing (its own is disabled, `oc.opencost.ui.enabled:
+false`) and no auth of its own to set up; cost data surfaces entirely through
+a Grafana dashboard instead
+(`helm/observability/dashboards/opencost.json`, grafana.com id 22208, adapted
+to the fixed `mimir` datasource + a `cluster_id` filter variable every query
+now carries — same convention every other dashboard in this repo uses).
+
+opencost itself doesn't scrape anything — it only *queries* an existing
+Prometheus for kube-state-metrics/cadvisor data and computes cost from it
+(`oc.opencost.prometheus.external.url`). `internal` already has a Prometheus
+doing that scrape (helm/observability's bundled kube-prometheus stack), so
+`internal`'s opencost just points at Mimir's Prometheus-compatible
+query-frontend endpoint
+(`observability-mimir-query-frontend.observability.svc.cluster.local:8080/prometheus`)
+— no bundled Prometheus needed there. The phase clusters have no Prometheus
+of their own, so `helm/opencost`'s second dependency (`prometheus`, same
+chart/version `helm/observability` pins, gated by a `prometheus.enabled`
+Chart.yaml condition) turns on there instead — kube-state-metrics +
+node-exporter enabled, `remoteWrite`s into internal's Mimir the same
+`host.docker.internal` NodePort bridge pattern the Harbor registry mirror
+uses (`terraform/internal/observability.tf`'s `mimir_distributor_nodeport`
+Service is the in-cluster half, `create-cluster.sh`'s `MIMIR_PUSH_PORT`,
+default 30510, is the host half), each stamped with an
+`external_labels.cluster_id` (`internal`/`sit`/`uat`/`production`, `internal`
+set directly on helm/observability's own Prometheus for consistency) so the
+opencost dashboard's cluster picker can tell all 4 apart.
+
+`gen-tfvars.*` fans the same `.env` out to all four `terraform/<env>/`
+dirs, filtered per-dir to the `TF_VAR_*` names each one actually declares.
+
+### Log & trace shipper (phase clusters → internal's Loki/Tempo)
+
+`helm/log-shipper` (local wrapper, `grafana/alloy` upstream — same chart
+version `helm/observability` pins for its own Alloy) deployed on each phase
+cluster (`terraform/modules/platform-apps/log-shipper.tf`) so generated
+apps' pod logs and OTLP traces land in internal's Grafana/Loki/Tempo,
+letting QA/dev roles link a Loki query or a trace as MR proof (see role
+SKILL.md files). Two `host.docker.internal` NodePort bridges, same direction
+as opencost→Mimir:
+
+- **Logs**: automatic, no app code needed — this Alloy scrapes every pod's
+  stdout on its own cluster (same discovery.kubernetes + loki.source.kubernetes
+  config as `helm/observability`'s own Alloy) and pushes to
+  `terraform/internal/observability.tf`'s `loki_nodeport` Service
+  (`create-cluster.sh`'s `LOKI_PUSH_PORT`, default 30511).
+- **Traces**: apps push OTLP to this Alloy's own in-cluster Service
+  (`log-shipper-alloy.log-shipper.svc.cluster.local:4317`/`:4318`, same OTLP
+  receiver pattern `helm/observability`'s Alloy exposes for internal), which
+  forwards to `observability.tf`'s `tempo_nodeport` Service
+  (`TEMPO_PUSH_PORT`, default 30512). Requires app-side OpenTelemetry SDK
+  instrumentation — see backend-developer/SKILL.md's "Observability and
+  traceability".
+
+Every pod's logs and every span get a `cluster_id` label/attribute
+(`sit`/`uat`/`production`) so Grafana can tell clusters apart, same
+convention opencost's `external_labels.cluster_id` already established for
+metrics. `LOKI_PUSH_PORT`/`TEMPO_PUSH_PORT` are baked in at cluster
+**creation** time like `MIMIR_PUSH_PORT` — an already-running phase cluster
+needs recreating to pick up a first-time addition of either.
+
+### Kafka UI (internal, views sit/uat/production)
+
+`helm/kafka-ui` (local wrapper, `kafbat/kafka-ui` upstream) deployed only on
+`internal` (`terraform/internal/kafka-ui.tf`), Authentik SSO like every other
+tailnet app. It has no kafka of its own to browse — internal doesn't run
+kafka — its three `kafka.clusters[]` entries all point at phase-cluster
+brokers. Same `host.docker.internal` NodePort bridge as kubecost, but the
+other direction: each phase cluster exposes ITS OWN kafka via a `kafka-
+external` NodePort Service (`terraform/modules/platform-apps/kafka.tf`)
+mapped on **its own** k3d loadbalancer (`create-cluster.sh`'s
+`KAFKA_NODEPORT`, one distinct host port per cluster — 30901/30902/30903 for
+sit/uat/production, since all three share the same Docker host) — internal's
+kafka-ui pod dials `host.docker.internal:<that cluster's port>`.
+
+### Apicurio schema push (GitLab CI, per phase cluster)
+
+Each phase cluster's Apicurio Registry (`terraform/modules/platform-apps/apicurio.tf`,
+enabled by default) gets the same reversed `host.docker.internal` NodePort
+bridge as Kafka above: an `apicurio-external` NodePort Service, one distinct
+host port per cluster (`create-cluster.sh`'s `APICURIO_NODEPORT` —
+30911/30912/30913 for sit/uat/production), since GitLab's CI runner lives
+on `internal` and has no route to a phase cluster's in-cluster Service.
+`APICURIO_URL_SIT`/`_UAT`/`_PRODUCTION` (`http://host.docker.internal:<port>`)
+are group-level CI/CD variables set by `gitlab-webhook.yml`, inherited by
+every project automatically — same convention as `HARBOR_USER`/`_PASSWORD`.
+
+Data Engineer authors schemas under a project's `schemas/api/proto`,
+`schemas/api/graphql`, `schemas/kafka` (see `data-engineer/SKILL.md`) and
+just commits them — the actual registry push is a GitLab CI stage DevOps
+Engineer wires (`schema-registry` stage, `push-schemas:sit/uat/production`
+jobs, see `devops-engineer/SKILL.md`'s `.gitlab-ci.yml` template), gated
+per environment: SIT mirrors the existing `build` job's `us/*`/`release/*`
+branch rule; UAT/production trigger off the same `env/<env>/**/values.yaml`
+commits that already promote app images there (`/uat`'s pre-deploy step,
+the promote→main MR) — no separate flow-triggered pipeline needed.
+
+### Harbor (internal, container registry — replaces gitlab-registry)
+
+`helm/harbor` (local wrapper, `goharbor/harbor` upstream) deployed only on
+`internal` (`terraform/internal/harbor.tf`), shared postgres/redis (DB 2)
+like every other migrated app, Authentik SSO via a `null_resource` provisioner
+(`oidc_verify_cert: false` — Harbor's OIDC is auto-discovery-only, so its
+server-side token/userinfo calls land on Authentik's external tailnet URL,
+routed in-cluster by `coredns.tf`'s split-horizon rewrite; skipping cert
+verification for that one hop is simpler than a CA-bundle mount for a
+homelab). `expose.type: clusterIP` — no chart-owned Ingress; both the
+tailnet and `.local` ingresses are plain `kubectl_manifest` resources in
+`harbor.tf` pointing at the chart's single unified `harbor` Service
+(portal+core+registry all proxied through it). Every generated app's CI
+pipeline pushes to `harbor.harbor.svc.cluster.local:80/library/<group>/
+<project>/<app>` (F-01/F-02 prompts) using `$HARBOR_USER`/`$HARBOR_PASSWORD`
+— group-level CI/CD variables on `sdlc` set by `gitlab-webhook.yml`, since
+Harbor isn't GitLab's own registry and gets none of the `$CI_REGISTRY_*`
+auto-vars for free. `admin` / `var.harbor_admin_password` is reused for CI
+push, ArgoCD Image Updater, and Harbor's own admin login — no separate robot
+account, homelab-scoped. `create-cluster.sh`'s phase-cluster containerd
+mirror also points here now (was gitlab-registry) — see Known issues below,
+this only takes effect on a freshly-created phase cluster.
+
+### Apollo Router chart (internal → phase clusters, per-project GraphQL gateway)
+
+`helm/apollo-router` is centrally-maintained infra, not a deployed release
+of its own on `internal` — `terraform/internal/apollo-router-chart.tf`
+packages it and pushes it as an OCI artifact to Harbor's `library/charts`
+project (Harbor's default project, already exists, same one every image
+push already targets) whenever the chart changes. Every generated project
+gets its own router **instance** per (project, env) on the phase clusters,
+provisioned by the devops-engineer agent pod at `/kickoff` — see
+devops-engineer/SKILL.md's "Apollo Router Provisioning" for the full
+ArgoCD multi-source Application shape (chart from Harbor OCI, values from
+the project's own repo) and devops-engineer's `.gitlab-ci.yml`
+`compose-supergraph` stage for how the composed supergraph schema gets kept
+in sync (`rover supergraph compose` over every backend subgraph, written
+into the project's own `env/{env}/apollo-router/values.yaml`, ArgoCD
+auto-syncs from there). The chart itself is deliberately never copied into
+any generated project's repo — one chart, many independent instances,
+same "shared source, per-consumer instance" shape `terraform/{sit,uat,production}`
+already uses for `platform-apps`, just keyed by project instead of by
+phase-cluster. Push uses a `kubectl port-forward` to Harbor for the
+duration of the push (host can't resolve `harbor.harbor.svc.cluster.local`)
+— phase clusters' ArgoCD instances instead pull the chart via the same
+`host.docker.internal:$REGISTRY_MIRROR_PORT` NodePort bridge every image
+pull from those clusters already uses.
+
+### Taiga (internal, ticket/wiki tracker — replaces GitLab issues+wiki)
+
+`helm/taiga` — hand-rolled (no upstream Helm chart exists for Taiga; taiga.io
+ships only a docker-compose, see `helm/taiga/Chart.yaml`'s comment), deployed
+only on `internal` (`terraform/internal/taiga.tf`). Replaces **OpenProject**,
+tried first — OpenProject Community Edition hard-gates every custom SSO/OIDC
+provider behind an Enterprise license
+(`EnterpriseToken.allows_to?(:sso_auth_providers)`, confirmed in its own
+source and docs), so Authentik login for it was a dead end short of buying a
+license. Taiga is AGPL, no license gate, and has a first-party one-way
+GitLab→Taiga webhook integration (push/issue/comment events attach as
+comments to the referenced ticket) that OpenProject never had — needed for
+compliance: tickets moved out of GitLab, but GitLab activity history must
+still show up on them.
+
+Services: `taiga-back` (custom image — official `taigaio/taiga-back` plus
+`taiga-contrib-oidc-auth` for generic OIDC, see `helm/taiga/Dockerfile`,
+built+pushed by a `terraform/internal/taiga.tf` `null_resource` the same way
+`terraform/internal/omp-agent.tf` builds the omp image), `taiga-async` (same
+image, worker entrypoint), `taiga-front` (official image, OIDC login link via
+its native `conf.json` `oidcMountPoint` — no frontend fork needed),
+`taiga-events` (websockets), `taiga-protected` (attachment auth proxy),
+`taiga-gateway` (nginx, unifies all of the above behind one Service:port,
+same role Harbor's/OpenProject's unified Service played), and its own
+`rabbitmq` (first message-broker chart in this repo — shared postgres covers
+the DB, nothing else here needed a broker before). `ingress.enabled: false`
+in the chart — same convention as Harbor: `.local` ingress is a plain
+`kubectl_manifest`, tailnet ingress comes from `locals.tf`'s
+`tailscale_apps` map.
+
+n8n and omp pods talk to it over its REST API v1 with a bearer token
+(`TAIGA_TOKEN`/`TAIGA_URL`/`TAIGA_PROJECT_ID` env vars — see `.env.example`'s
+`TF_VAR_taiga_api_token`, bootstrap-once via the browser like
+`openwebui_api_key`) instead of a dedicated MCP server — no maintained Taiga
+MCP server existed to reuse, and `curl`-against-the-REST-API is already the
+pattern every GitLab-calling SKILL.md/flow file used before. See AGENTS.md's
+"Ticket & MR Conventions" for the full endpoint/field mapping (Taiga has no
+single ticket endpoint with a type field the way OpenProject did — epic,
+userstory, task, and issue are four separate REST resources).
+
+GitLab itself is untouched — it stays the source-control + CI +
+webhook-trigger system (F-00's router, `glab`/git clone for code); issue/
+ticket authoring moved to Taiga, and **wiki also moved to Taiga's own wiki
+module** (was staying on GitLab during the OpenProject attempt — changed
+here because Taiga's GitLab integration is one-way GitLab→Taiga, so a wiki
+still on GitLab would be orphaned from the same compliance trail). The
+compliance webhook itself is registered by
+`helm/ansible/playbooks/taiga-gitlab-webhook.yml` (bootstrap/DR, same
+register/verify/deregister pattern as `gitlab-webhook.yml`, not in
+`site.yml`) — separate from F-00's own SDLC-router webhook, different event
+set (push/issues/note, not merge_requests/pipeline).
+
+Not cleaned up automatically from the OpenProject attempt (same class of
+leftover Mattermost's removal left, see Known issues below): Authentik's
+`openproject` OAuth2Provider/Application still sits in its DB (the
+provisioner only creates/updates, never deletes); the shared-postgres
+`openproject` role/db and any PVCs it had aren't dropped either.
+
 ## Repo layout
 
 ```
-helm/<app>/            Helm chart + Tiltfile (dev path)
+helm/<app>/            Helm chart
 helm/<app>/values.yaml Chart values with __PLACEHOLDER__ secret tokens
-terraform/<app>.tf     Matching Terraform resource (prod path)
-terraform/locals.tf    app_url map, authentik_url, shared locals
-terraform/variables.tf All TF_VAR_* inputs + dev defaults
+terraform/internal/<app>.tf     Matching Terraform resource
+terraform/internal/locals.tf    app_url map, authentik_url, shared locals
+terraform/internal/variables.tf All TF_VAR_* inputs + dev defaults
+terraform/modules/platform-apps/  shared module: authentik/unleash/vault/kafka/
+                       meilisearch/minio/apicurio, instantiated by sit/uat/production
+terraform/{sit,uat,production}/  thin root module per phase cluster (own state)
 scripts/linux/*.sh     bash; scripts/windows/*.ps1  PowerShell 7+ (equivalent)
 .env / .env.example    single source of truth for both paths
 k3d-storage/           host-path mount backing the cluster's local-path PVs
@@ -79,8 +309,8 @@ One `redis:7-alpine` pod (`helm/redis`, namespace `redis`, service
 logical DB 0 (its components' default), **authentik** on DB 1
 (`AUTHENTIK_REDIS__DB`).
 
-Each consumer's `.tf` has `depends_on = [helm_release.postgres(, .redis)]` and
-its Tiltfile `resource_deps=['postgres'(, 'redis')]`. **nextcloud keeps its own
+Each consumer's `.tf` has `depends_on = [helm_release.postgres(, .redis)]`.
+**nextcloud keeps its own
 MariaDB** (different engine); **argocd keeps its bundled redis** (tightly
 coupled to the argo-cd subchart). Old per-app `<app>-postgres` /
 `<app>-redis` templates are gone — after switching, orphan
@@ -89,7 +319,7 @@ pruned).
 
 ## Tailscale ingress
 
-`terraform/tailscale.tf` (operator) + `terraform/tailscale-ingress.tf` (one
+`terraform/internal/tailscale.tf` (operator) + `terraform/internal/tailscale-ingress.tf` (one
 `tailscale`-class Ingress per app, plus the `ProxyGroup` CR inline,
 `replicas: 1`). All 11 Ingresses carry
 `tailscale.com/proxy-group: homelab-ingress` and share that **one** ProxyGroup
@@ -111,14 +341,14 @@ devices. `list-urls.sh` reads the operator-assigned hostname from each
 `ts-<app>` Ingress status, so a `-N` suffix (name still held by a stale device)
 doesn't break it.
 
-**Split-horizon DNS** (`terraform/coredns.tf`): pods can't route to the Tailscale
+**Split-horizon DNS** (`terraform/internal/coredns.tf`): pods can't route to the Tailscale
 Service VIP, so an app doing OIDC discovery server-side against
 `https://authentik.<tailnet>` just times out. A `coredns-custom` rewrite points
 that name at traefik in-cluster + a traefik vhost serves it with a homelab-CA
 cert; the consuming app trusts that CA (minio via the chart's
 `trustedCertsSecret`, openwebui via an init container). Browser traffic is
-untouched. Terraform-only — Tilt has no tailnet ingress. Apps that *can* split
-browser vs backend endpoints (gitlab/grafana/litellm) skip all this and just
+untouched. Apps that *can* split browser vs backend endpoints
+(gitlab/grafana/litellm) skip all this and just
 point server-side calls at `authentik-server.authentik.svc`.
 
 ## The coding-agent stack (`omp`)
@@ -133,7 +363,8 @@ it's CLI / `--mode rpc` (newline-JSON over stdio) / ACP only.
   OpenAI-compatible API on `:4096` wrapping one persistent `omp --mode rpc`
   child (requests serialized by a lock).
 - `helm/omp/adapter/server.py` (`omp-adapter`) is a scale-to-zero waker + flat
-  proxy so LiteLLM can list the omp pods as models.
+  proxy so LiteLLM can list the omp pods as models. (It only wakes — never
+  scales back down; `helm/mermaid-render` below does both directions.)
 - `helm/litellm/templates/config.yaml` registers `omp` and `omp-<role>` as
   models (`api_base: http://omp-adapter.omp.svc:8000/v1`) plus the host
   Ollama models, plus `pass_through_endpoints` for auth'd/logged direct hops.
@@ -152,10 +383,36 @@ originally driven by Mattermost slash commands + GitLab/CI webhooks. Seeded by
 `helm/ansible/flows/seed.sh`, run from `helm/ansible/playbooks/n8n.yml`
 (mints an n8n API key, then upserts the flows). Flow files are mounted at
 `/flows` in the ansible runner via the `ansible-n8n-flows` ConfigMap
-(`terraform/ansible.tf`, built from the files — not the helm chart).
+(`terraform/internal/ansible.tf`, built from the files — not the helm chart).
 
 `seed.sh` strips read-only keys (`active`, `tags`) before `POST /api/v1/workflows`
 and activates via `POST /workflows/{id}/activate` (n8n 2.x).
+
+**`/plan_release` (F-01) is report-only — it makes zero GitLab/Taiga
+writes.** Architect/DE/QA/Security/UX/PM/Tech-Lead each write their
+section to a local markdown file and `mc cp` it to
+`release-reports/<version>/<section>.md` in MinIO (the plan_release <->
+kickoff hand-off store — `helm/minio/values.yaml`'s `buckets:` list; `mc`
+and `pandoc` are baked into the omp image, `helm/omp/Dockerfile`; MinIO
+creds reach the role pod as `$MINIO_ENDPOINT`/`$MINIO_ROOT_USER`/
+`$MINIO_ROOT_PASSWORD`, same plain-env/`set_sensitive` split as
+`$TAIGA_URL`/`$TAIGA_TOKEN` — see `helm/n8n/values.yaml` +
+`terraform/internal/n8n.tf`). A final PM step downloads all seven
+sections, concatenates them, and `pandoc`s the result into
+`release-reports/<version>/development-plan.docx` — pull it via the MinIO
+console (no presign tooling exists in this repo). Architecture diagrams are
+rendered to real PNGs before the PDF is built — see "mermaid-render" below
+— and referenced via standard markdown image syntax, not left as raw
+` ```mermaid ` fences (pandoc has no Mermaid renderer on its own).
+
+**`/kickoff` (F-02) is where everything actually gets created** — GitLab
+group/project (+ owner membership), the nx workspace scaffold + CI/
+Dockerfile/registry wiring committed to `main`, the three wiki pages
+(Architecture/PRD/Estimate — published to **Taiga's** wiki module, fetched
+back from MinIO's `release-reports/<version>/*.md`, not GitLab), the
+GitLab milestone, then Taiga epic/stories/tasks/QA-Security-DevOps
+tickets, the release branch, and the story/task branches — in that order,
+since branches fork from `main` and `main` must be scaffolded first.
 
 **Mattermost was removed** (see "Current progress" below) — the flow JSON
 files still carry `mattermostApi` credential refs and Mattermost-shaped nodes
@@ -179,7 +436,7 @@ Playbooks: `n8n.yml`, `mcp-servers.yml`, `omp.yml`, `litellm.yml`,
 all in parallel (no cross-dependencies now that `mattermost.yml` — the one
 thing chained after n8n — is gone). Pass `site` to run the old serial
 `site.yml` in a single Job instead. Runner SA is
-`ansible-runner`; per-namespace Roles for it live in `terraform/ansible.tf`.
+`ansible-runner`; per-namespace Roles for it live in `terraform/internal/ansible.tf`.
 
 `openwebui.yml` installs `helm/ansible/pipe/sdlc_pipe.py` as an OpenWebUI
 Function via the admin API (create-or-update, idempotent, enables it if not
@@ -198,7 +455,7 @@ that feeds flow F-00. Registers a **project-level** hook on every project in the
 the `sdlc` group if missing. `scripts/ansible-run.{sh,ps1} gitlab-webhook`.
 Needs no PAT in `.env` — mints a fresh `sdlc-webhook` api token via `rails
 runner` in the webservice pod (needs `pods/exec` in `gitlab`, see
-`terraform/ansible.tf`). Uses `gitlab_webhook_secret` from `ansible-secrets`.
+`terraform/internal/ansible.tf`). Uses `gitlab_webhook_secret` from `ansible-secrets`.
 Also flips `allow_local_requests_from_web_hooks_and_services` on (n8n is an
 in-cluster address). The DevOps pod hooks new repos at `/kickoff`.
 
@@ -216,9 +473,9 @@ in-cluster address). The DevOps pod hooks new repos at `/kickoff`.
 
 ```bash
 scripts/linux/create-cluster.sh                  # one-time k3d cluster
-scripts/linux/dev-up.sh                           # tilt up (dev path)
-scripts/linux/gen-tfvars.sh && (cd terraform && tofu apply)   # prod path
+scripts/linux/gen-tfvars.sh && (cd terraform/internal && tofu apply)   # deploy
 scripts/linux/list-urls.sh                        # app URLs + status
+scripts/linux/restore-postgres-backup.sh --list   # list/restore shared-postgres backups (destructive)
 scripts/linux/omp-shell.sh                        # interactive omp pod shell
 scripts/linux/ansible-run.sh                      # every playbook, parallel fan-out
 scripts/linux/ansible-run.sh <playbook>           # just one (n8n / omp / litellm / …)
@@ -230,7 +487,7 @@ kubectl -n omp scale deploy/omp --replicas=1      # wake the agent pod
 
 Working and verified end-to-end:
 
-- Full cluster deploys via both Tilt and Terraform.
+- Full cluster deploys via Terraform.
 - Authentik SSO for every app; Tailscale + LAN ingress. (The provisioner now
   waits for Authentik's default OAuth scope mappings before assigning them —
   without that, a fresh Authentik DB leaves every provider unscoped and every
@@ -246,14 +503,55 @@ Working and verified end-to-end:
 - **29 n8n SDLC flows** seeded and active (though Mattermost-shaped — see
   "n8n SDLC flows" above; not yet updated post-removal).
   `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` so `$env.*` resolves.
+- **`helm/mermaid-render`** — scale-to-zero `mermaid-cli` (`mmdc`) HTTP
+  microservice (`minlag/mermaid-cli` image, `server.js` wrapper mounted via
+  ConfigMap, same convention as `omp-adapter`'s `server.py`), namespace
+  `sdlc`. `helm/omp/scripts/render-mermaid.sh` (baked into `omp-box:dev`)
+  PATCHes its `/scale` subresource to wake it, POSTs Mermaid source to
+  `/render`, saves the PNG, then scales it back to 0 itself in a trap —
+  unlike `omp-adapter`'s waker, which never scales down. Used by
+  `/plan_release`'s architect + PM steps so the final PDF embeds real
+  diagram images instead of raw ` ```mermaid ` text. Verified live:
+  scale 0→1→0, real PNG rendered and confirmed visually.
 - **OpenWebUI** — SSO-only login (Authentik), routed through LiteLLM, PWA
   install verified working.
 - **MCP servers** — grafana, sonarqube, gitlab, playwright, **n8n**
-  (`czlonkowski/n8n-mcp`, docs + management once `n8n.yml` injects the key).
+  (`czlonkowski/n8n-mcp`, docs + management once `n8n.yml` injects the key),
+  **taiga** (hand-rolled, no maintained image exists —
+  `helm/mcp-servers/taiga-mcp/`, 4 generic REST tools — `taiga_get`/`_post`/
+  `_patch`/`_delete` — over Taiga's API rather than one bespoke tool per
+  resource type, since AGENTS.md's endpoint table already covers that and
+  would need mirroring forever otherwise. Registered in LiteLLM's
+  `mcp_servers` like the others, and wired directly into every omp-agent Job
+  via `--mcp-config` (F-31's `Build Job Manifest` node) — no maintained
+  Taiga MCP server existed to reuse (checked first), and this is the only
+  in-house-built one in the set).
 - **GitLab webhook** — `gitlab-webhook.yml` registers a project-level SDLC
   hook on every project in the `sdlc` group (CE has no group hooks).
 
 Known issues / next steps:
+
+- **OpenProject → Taiga swap left orphans**, same class of leftover
+  Mattermost's removal did (see below): the `openproject` OAuth2Provider/
+  Application in Authentik's DB, the shared-postgres `openproject` role/db,
+  and `helm/openproject`'s old PVCs (if the release ever fully came up)
+  aren't dropped automatically — the provisioner only creates/updates,
+  `helm/postgres`'s initdb only runs once, and `helm uninstall` doesn't
+  touch cluster-external state. Remove by hand if it matters.
+- `taiga-contrib-oidc-auth`'s last visible activity was ~2019-2021 — verify
+  it still installs cleanly against the pinned `taigaio/taiga-back` image
+  tag before relying on it; the fallback within the same "1-line custom
+  image" budget is `taiga-contrib-openid-auth` (Keycloak-oriented fork) or a
+  minimal local patch.
+
+- **Harbor migration is script-only for phase clusters.** `create-cluster.sh`
+  now bakes the containerd mirror config for a Harbor NodePort, but the
+  mirror config is set at cluster **creation** time — the live sit/uat/
+  production k3d clusters still have the old gitlab-registry mirror baked
+  in and won't pick this up until they're recreated (deliberately not done
+  as part of this migration — nothing currently exercises that pull path
+  end-to-end). GitLab's own bundled registry is untouched and still running,
+  just no longer referenced by any prompt/config.
 
 - The omp base Deployment idles at `replicas: 0`; first chat after idle waits
   ~1–2 min. Ollama must be running on the host or nothing LLM-shaped works.
@@ -262,7 +560,7 @@ Known issues / next steps:
 - Old per-app `data-<app>-postgres-0` / `-postgresql-0` PVCs are orphaned after
   the shared-DB switch — delete them by hand (StatefulSet PVCs aren't pruned).
 - `opencode` fully removed (`omp`). `openwebui` was removed in favor of
-  Mattermost, then restored (`helm/openwebui`, `terraform/openwebui.tf`) as a
+  Mattermost, then restored (`helm/openwebui`, `terraform/internal/openwebui.tf`) as a
   SSO-only chat UI onto the same LiteLLM backend. OpenWebUI is a PWA out of
   the box (own manifest/service worker); no extra server config beyond the
   HTTPS it already gets from the Tailscale/LAN ingress — install via the
@@ -271,7 +569,7 @@ Known issues / next steps:
   password form.
 - **Mattermost removed** (superseded by OpenWebUI for chat — see above). Live
   cluster resources torn down via `tofu destroy`; `helm/mattermost/` and
-  `terraform/mattermost.tf` deleted; its shared-postgres db entry, MinIO
+  `terraform/internal/mattermost.tf` deleted; its shared-postgres db entry, MinIO
   bucket, ansible RBAC/playbook, and script references all removed. **Not**
   cleaned up: the `mattermost` OAuth2Provider/Application still sits in
   Authentik's DB (the provisioner only creates/updates, never deletes —

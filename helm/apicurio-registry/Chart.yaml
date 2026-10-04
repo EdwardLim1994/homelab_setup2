@@ -1,0 +1,9 @@
+apiVersion: v2
+name: apicurio-registry
+version: 0.1.0
+dependencies:
+  # ponytail: no official first-party Apicurio helm repo (apicurio.github.io/
+  # apicurio-registry 404s) - this is the community chart, OCI-distributed.
+  - name: apicurio-registry
+    version: "3.8.0"
+    repository: "oci://ghcr.io/eshepelyuk/helm"

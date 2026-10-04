@@ -13,4 +13,14 @@ rules:
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["configmaps"]
-    verbs: ["get", "list"]
+    # ponytail: create/delete needed by role pods that hand a file to a
+    # throwaway PDF-conversion Job (plan_release's compile step) — the
+    # ConfigMap is the input, deleted right after the Job is.
+    verbs: ["get", "list", "create", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale"]
+    # ponytail: render-mermaid.sh wakes the scale-to-zero mermaid-render
+    # Deployment before use and scales it back to 0 right after (same
+    # minimal get+patch shape as helm/omp/templates/adapter.yaml's Role,
+    # just granted to this already-existing SA instead of a new one).
+    verbs: ["get", "patch"]

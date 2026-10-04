@@ -64,9 +64,9 @@ COMMANDS: dict[str, Command] = {
         path="plan-release",
         method="POST",
         params=["version"],
-        optional=[],
-        description="Multi-agent release planning: Arch+DE -> QA+Sec+UX -> PM PRD",
-        example="/plan_release v1.2.0",
+        optional=["group", "project"],
+        description="Multi-agent release planning: Arch+DE -> QA+Sec+UX -> PM PRD. Optional group/project: GitLab group+project to create/use (default: sdlc/hr-portal, the dry-run fixture — always name both explicitly for a real project)",
+        example="/plan_release v1.2.0 my-team my-app",
     ),
     "/kickoff": Command(
         name="/kickoff",
@@ -164,7 +164,8 @@ HELP_TEXT = """**SDLC Commands**
 
 | Command | Params | Description |
 |---|---|---|
-| `/plan_release <version>` | version | Multi-agent release planning |
+| `/requirements` | — | Prints a requirements checklist to fill in before `/plan_release` |
+| `/plan_release <version> [group] [project]` | version, optional group+project (default: sdlc/hr-portal — dry-run fixture, name both for a real project) | Multi-agent release planning |
 | `/kickoff <version>` | version | Sprint kickoff |
 | `/develop <version>` | version | Dev gates + pod fan-out |
 | `/uat` | — | UAT pipeline |
@@ -176,14 +177,36 @@ HELP_TEXT = """**SDLC Commands**
 | `/escalate <reason>` | reason | Pause DAG + alert |
 | `/projects` | — | DAG state snapshot |
 
+**Discussing requirements before `/plan_release`**
+
+`/plan_release` reads every message you sent earlier in this same chat (as
+context for the Architect/Data Engineer/PM pods) — so type out what you
+want built first, in plain chat, *then* run `/plan_release <version>`. Use
+`/requirements` first if you want a checklist to fill in rather than typing
+from scratch.
+
 **Examples**
 ```
+/requirements
 /kickoff v1.2.0
 /develop v1.2.0
 /rollback_story GL-42
 /escalate "staging deploy hung"
 ```
 """
+
+REQUIREMENTS_TEMPLATE = """**Requirements checklist** — fill this in below, then run `/plan_release <version> [group] [project]`. Everything you type in this chat before that command becomes context for the Architect, Data Engineer, and PM pods.
+
+- **Business goal**: what problem does this solve, for whom?
+- **Success metrics**: how do we know it worked?
+- **Key user stories**: the 3-5 things a user must be able to do
+- **Stack**: given (name it exactly) or "choose per Design Principles"
+- **Platform infrastructure**: which of Authentik/Kafka/Apicurio/Unleash/Vault/MinIO/Meilisearch does this need? ("none" is a valid answer, but say so)
+- **Constraints**: compliance, data residency, SLA, deadline
+- **Out of scope**: what this release explicitly does NOT do
+- **Risks**: anything you already know could go wrong
+
+Skipping a section is fine — an empty answer just means the planning pods won't have that context and may ask (via the wiki/PRD) rather than assume."""
 
 
 # ── Parser ────────────────────────────────────────────────────────────────────
@@ -221,7 +244,15 @@ def parse_command(text: str) -> tuple[Optional[Command], dict, Optional[str]]:
                 f"Usage: `{cmd.example}`"
             )
 
-    # remaining positional -> reason (for /escalate multi-word)
+    # remaining positional args fill cmd.optional in order, one word each
+    rest = positional[len(cmd.params):]
+    for i, param in enumerate(cmd.optional):
+        if i < len(rest):
+            body[param] = rest[i]
+
+    # remaining positional -> reason (for /escalate multi-word, overrides
+    # the single-word optional-fill above since /escalate's "reason" is
+    # meant to capture everything, not just the first extra word)
     if cmd_name == "/escalate" and len(positional) > 1:
         body["reason"] = " ".join(positional)
 
@@ -263,8 +294,25 @@ class Pipe:
             yield HELP_TEXT
             return
 
+        # ── requirements checklist (local only, never dispatched to n8n) ───────
+        if user_text == "/requirements":
+            yield REQUIREMENTS_TEMPLATE
+            return
+
         # ── parse ─────────────────────────────────────────────────────────────
         cmd, payload_body, error = parse_command(user_text)
+
+        # ponytail: everything the user typed BEFORE the slash command in this
+        # chat is the requirements discussion — forward it as context so n8n's
+        # role prompts can use it instead of just the bare command args.
+        if cmd is not None and not error:
+            prior = "\n\n".join(
+                m.get("content", "").strip()
+                for m in messages[:-1]
+                if m.get("role") == "user" and m.get("content", "").strip()
+            )
+            if prior:
+                payload_body["context"] = prior
 
         if error == "__help__":
             yield HELP_TEXT

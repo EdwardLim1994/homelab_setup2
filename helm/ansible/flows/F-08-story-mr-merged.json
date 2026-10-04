@@ -19,93 +19,42 @@
       "webhookId": "e1932c5d-0bc4-42c3-8723-236fccec563a"
     },
     {
+      "id": "f08000001-0000-0000-0000-000000000001",
+      "name": "Extract Story IID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const branch = ($json.body?.object_attributes?.source_branch) || ($json.object_attributes?.source_branch) || '';\nconst m = branch.match(/^us\\/GL-(\\d+)$/);\nreturn [{ json: { ...$json, story_work_package_id: m ? m[1] : null, source_branch: branch } }];"
+      }
+    },
+    {
       "id": "e9c0b402-3e0c-4df5-873f-2b9760d50ef2",
-      "name": "Close Story Tickets",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "name": "Close Story Ticket",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         680,
         200
       ],
       "parameters": {
-        "method": "PUT",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues?labels=type:task,us={{ $json.object_attributes.source_branch }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "__json",
-              "value": "{\"state_event\":\"close\"}"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "e4d9cac1-ca92-4e65-9c41-011e42d5ea7a",
-      "name": "Sleep QA Cluster",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        680,
-        400
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/cluster-lifecycle",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "action",
-              "value": "sleep"
-            },
-            {
-              "name": "cluster",
-              "value": "qa"
-            }
-          ]
-        }
+        "jsCode": "const auth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst id = $node['Extract Story IID'].json.story_work_package_id;\nif (!id) return [{ json: $json }];\nconst us = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/userstories/${id}`, headers: auth, json: true });\nconst statuses = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/userstory-statuses?project=${$env.TAIGA_PROJECT_ID}`, headers: auth, json: true });\nconst statusId = statuses.find(s => s.name === 'Closed')?.id;\nawait this.helpers.httpRequest({ method: 'PATCH', url: `${$env.TAIGA_URL}/api/v1/userstories/${id}`, headers: { ...auth, 'Content-Type': 'application/json' }, body: { version: us.version, status: statusId }, json: true });\nreturn [{ json: $json }];"
       }
     },
     {
       "id": "ced58661-afae-44e6-a50f-a463c1ffd36d",
       "name": "All Stories Merged?",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         900,
         300
       ],
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues?labels=type:user-story,milestone={{ $env.RELEASE_VERSION }}&state=opened",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
-            }
-          ]
-        }
+        "jsCode": "const auth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst res = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/userstories?project=${$env.TAIGA_PROJECT_ID}&tags=${$env.RELEASE_VERSION}`, headers: auth, json: true });\nconst openStories = (res || []).filter(s => !s.is_closed);\nreturn [{ json: { ...$json, length: openStories.length } }];"
       }
     },
     {
@@ -153,7 +102,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -193,7 +142,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -213,30 +162,25 @@
       "main": [
         [
           {
-            "node": "Close Story Tickets",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Sleep QA Cluster",
+            "node": "Extract Story IID",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Close Story Tickets": {
+    "Extract Story IID": {
       "main": [
         [
           {
-            "node": "All Stories Merged?",
+            "node": "Close Story Ticket",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Sleep QA Cluster": {
+    "Close Story Ticket": {
       "main": [
         [
           {

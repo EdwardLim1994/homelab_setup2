@@ -44,7 +44,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -68,7 +68,7 @@
         200
       ],
       "parameters": {
-        "command": "omp --role qa-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Run k6 load test suite against staging for {{ $json.body.version }}. Output: p95 latency, error rate, pass/fail.' --non-interactive"
+        "command": "omp --role qa-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Run k6 load test suite against UAT for {{ $json.body.version }} — the full-version image just promoted there (no separate staging cluster). Output: p95 latency, error rate, pass/fail.' --non-interactive"
       }
     },
     {
@@ -81,7 +81,7 @@
         400
       ],
       "parameters": {
-        "command": "omp --role security-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Run OWASP ZAP DAST scan against staging for {{ $json.body.version }}. Output: critical/high findings list.' --non-interactive"
+        "command": "omp --role security-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Run OWASP ZAP DAST scan against UAT for {{ $json.body.version }} — the full-version image just promoted there (no separate staging cluster). Output: critical/high findings list.' --non-interactive"
       }
     },
     {
@@ -125,7 +125,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",

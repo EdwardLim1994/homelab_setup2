@@ -36,7 +36,7 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "query": "label_values(kube_pod_info{namespace!~\"omp|ansible|observability|kube-system|kube-node-lease|kube-public|cert-manager|local-path-storage\"}, namespace)",
+        "query": "label_values(kube_pod_info{namespace!~\"omp|sdlc|ansible|observability|kube-system|kube-node-lease|kube-public|cert-manager|local-path-storage\"}, namespace)",
         "includeAll": true,
         "multi": true,
         "refresh": 2,

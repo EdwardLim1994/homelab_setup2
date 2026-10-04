@@ -33,19 +33,19 @@
             {
               "id": "11353859-5ea2-4a0a-bc95-a3f9a9108f7c",
               "name": "pipeline_id",
-              "value": "={{ $json.object_attributes.id }}",
+              "value": "={{ $json.body.object_attributes.id }}",
               "type": "string"
             },
             {
               "id": "647dc784-c163-4109-acb6-a9c672381976",
               "name": "status",
-              "value": "={{ $json.object_attributes.status }}",
+              "value": "={{ $json.body.object_attributes.status }}",
               "type": "string"
             },
             {
               "id": "977b7ed5-d19e-4914-af28-46b2f797689d",
               "name": "ref",
-              "value": "={{ $json.object_attributes.ref }}",
+              "value": "={{ $json.body.object_attributes.ref }}",
               "type": "string"
             }
           ]
@@ -97,7 +97,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -137,7 +137,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",

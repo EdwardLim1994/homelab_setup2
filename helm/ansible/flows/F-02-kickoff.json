@@ -44,11 +44,11 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
-              "value": "🚀 kickoff started — 3 parallel tracks"
+              "value": "🚀 kickoff started — repo+project create -> scaffold+wiki -> PM stories -> TL tasks -> release branch -> TL story/task branches, DevOps in parallel"
             },
             {
               "name": "notes",
@@ -59,13 +59,13 @@
       }
     },
     {
-      "id": "b2000001-0000-0000-0000-000000000001",
-      "name": "TL Input",
+      "id": "c1000001-0000-0000-0000-000000000001",
+      "name": "PM Project Input",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
         900,
-        120
+        60
       ],
       "parameters": {
         "mode": "manual",
@@ -74,19 +74,19 @@
             {
               "id": "1",
               "name": "role",
-              "value": "tech-lead",
+              "value": "pm",
               "type": "string"
             },
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Kickoff for {{ $node['Webhook Trigger'].json.body.body.version }}. Create story branches from release/{{ $node['Webhook Trigger'].json.body.body.version }}, write openspec pseudocode per task, label openspec:ready.",
+              "value": "=Using glab (hostname gitlab-webservice-default.gitlab.svc.cluster.local), the GitLab group to use is {{ $node['Webhook Trigger'].json.body.body.group ?? 'sdlc' }} and the project to use is {{ $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal' }} — if the chat command that triggered this specified a group/project name, use those exact names; otherwise default to 'sdlc'/'hr-portal' (the dry-run fixture — every real project should name both explicitly). Never hardcode 'sdlc' or 'hr-portal' below, always use these same two values. Ensure that GitLab group exists (create it if missing) and that project exists inside that group (create it if missing — do not treat an already-existing group or project as an error). Whether or not the group was just created, ensure the user with email edwardlimkoksiong1994@gmail.com is a member of that group with Owner access (look up their user id via `glab api users?search=edwardlimkoksiong1994@gmail.com`, then add/update membership via `glab api groups/<group>/members --method POST -f user_id=<id> -f access_level=50`, ignoring a 409/already-a-member response as success) — a group recreated after deletion has no members but root, so this must run every time, not just on first creation. Report the group and project names used, the project's full path, whether the group/project were newly created or already existed, and whether the membership add succeeded — and flag explicitly if this run is defaulting to sdlc/hr-portal so it's obvious a real project name was never given. Do NOT delete or rename the group or project for any reason, even if a prior run's project seems stale or misconfigured -- every step after this one in this SAME kickoff run computes the group/project path directly from this chat command's group/project fields (not from any static env var), so treat an existing group/project as success and move on; other flows (develop, uat, etc) also prefer their own chat/event input over the static env var fallback now, with the env var kept only as a last-resort default when no chat value is given.",
               "type": "string"
             },
             {
               "id": "3",
               "name": "story",
-              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal' }}",
               "type": "string"
             }
           ]
@@ -94,13 +94,98 @@
       }
     },
     {
-      "id": "b02da329-9a7e-45ca-a098-30860e5e762d",
-      "name": "TL: Branches + Pseudocode",
+      "id": "c1000001-0000-0000-0000-000000000002",
+      "name": "PM: Ensure Project Exists",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
         1080,
-        160
+        60
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "c1000001-0000-0000-0000-000000000003",
+      "name": "Ensure Taiga Project",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1170,
+        60
+      ],
+      "parameters": {
+        "jsCode": "const auth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst projectName = $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal';\nconst slug = projectName.toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');\n\nconst existing = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/projects/by_slug?slug=${slug}`, headers: auth, json: true, ignoreHttpStatusErrors: true });\nif (existing && existing.id) {\n  return [{ json: { taiga_project_id: existing.id, taiga_project_slug: existing.slug, taiga_project_created: false } }];\n}\n\nconst created = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `${$env.TAIGA_URL}/api/v1/projects`,\n  headers: auth,\n  json: true,\n  body: { name: projectName, slug, description: `${projectName} \\u2014 created by /kickoff`, creation_template: 1, is_backlog_activated: true, is_epics_activated: true, is_wiki_activated: true, is_issues_activated: true, is_kanban_activated: false }\n});\nreturn [{ json: { taiga_project_id: created.id, taiga_project_slug: created.slug, taiga_project_created: true } }];"
+      }
+    },
+    {
+      "id": "c1000001-0000-0000-0000-000000000004",
+      "name": "Add Role Members to Taiga Project",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        60
+      ],
+      "parameters": {
+        "jsCode": "// ponytail: one dedicated Taiga user per SDLC role (created once by\n// helm/ansible/playbooks/role-accounts.yml) so tickets can be assigned to\n// the role that did the work instead of the single shared admin identity.\n// GitLab grants this at the `sdlc` GROUP level (cascades to every project\n// automatically) -- Taiga has no group-membership concept, so each new\n// project needs its own membership call here at kickoff time.\nconst auth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst projectId = $json.taiga_project_id;\nconst sdlcRoles = ['backend-developer','data-engineer','devops-engineer','frontend-developer','product-owner','project-manager','qa-engineer','release-manager','security-engineer','solution-architect','tech-lead','uiux-designer'];\n\nconst allUsers = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/users`, headers: auth, json: true });\nconst roles = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/roles?project=${projectId}`, headers: auth, json: true });\n// ponytail: membership `role` only affects permissions/points template, not\n// what assigned_to can be set to -- every role-account gets the project's\n// first role rather than building a role-name mapping that isn't needed.\nconst defaultRoleId = roles[0]?.id;\n\nconst added = [];\nconst skipped = [];\nfor (const roleName of sdlcRoles) {\n  const user = allUsers.find(u => u.username === roleName);\n  if (!user) { skipped.push(roleName); continue; }\n  try {\n    await this.helpers.httpRequest({ method: 'POST', url: `${$env.TAIGA_URL}/api/v1/memberships`, headers: auth, json: true, body: { project: projectId, user: user.id, role: defaultRoleId } });\n    added.push(roleName);\n  } catch (e) {\n    // already a member -- Taiga 400s on duplicate membership, treat as success\n    added.push(roleName);\n  }\n}\nif (skipped.length) {\n  console.log(`Role accounts not found in Taiga (run role-accounts.yml first): ${skipped.join(', ')}`);\n}\nreturn [{ json: { ...$json, role_members_added: added, role_members_skipped: skipped } }];"
+      }
+    },
+    {
+      "id": "c1000002-0000-0000-0000-000000000001",
+      "name": "Architect Input (Scaffold)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1260,
+        60
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "architect",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Fetch the architecture report plan_release already produced: `mc alias set local $MINIO_ENDPOINT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD >/dev/null && mc cat local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/architecture.md`. The stack was already decided there during planning — use it exactly, do not re-decide it now. Check whether the workspace is already scaffolded: `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/files/nx.json?ref=main` (a 404 means not scaffolded — GitLab auto-inits every new project with a README commit, so do not use commit count as the signal). If not scaffolded, scaffold that stack now and commit straight to `main` before anything else below, since release/story/task branches fork from `main` next. When the stack says NestJS, use the @nx/nest generator for the backend app (e.g. `nx g @nx/nest:app <name>`) — never @nx/express or raw Express, even though nx's own starter preset defaults there; use @nx/react for the frontend app. This GitLab instance runs GitLab CI, not GitHub Actions — add a .gitlab-ci.yml at the repo root (an nx-affected lint/test/typecheck/build pipeline is enough) and delete .github/workflows. create-nx-workspace also writes agent-skill/config directories for several coding tools we do not use — delete .codex, .cursor, .gemini, .github/agents, .github/prompts, .github/skills, .opencode, .vscode, keeping ONLY .agents and .claude. Use bun, not npm/npx, for every install and script-run step everywhere below (bun install, bunx nx, bun publish — never npm ci, npx nx, or npm publish). Add CI docker-build + npm-registry wiring: (1) a Dockerfile per deployable app (apps/api, apps/shop, etc — multi-stage build: build stage FROM oven/bun:1 running bun install --frozen-lockfile + bunx nx build/prune, runtime stage also FROM oven/bun:1 running bun install --production against the pruned package.json since `nx prune` does not emit an npm-shaped lockfile bun's `npm ci` equivalent needs) so .gitlab-ci.yml can build+push images; (2) a root .npmrc pointing the workspace scope at this GitLab instance's npm registry (in-cluster API host http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/api/v4/projects/${CI_PROJECT_ID}/packages/npm/, auth via ${CI_JOB_TOKEN} — do NOT use $CI_API_V4_URL/$CI_SERVER_HOST, they resolve to the external tailnet hostname which pods cannot reach); (3) extend .gitlab-ci.yml with a build stage running docker build (this GitLab runner is privileged with docker:dind already wired, kaniko is deprecated — do not use it) against the in-cluster registry host harbor.harbor.svc.cluster.local:80 (the :80 must be explicit — docker's registry client assumes https/443 for a bare hostname and this is plain http; a separate Harbor instance, not GitLab's own registry — no $CI_REGISTRY_* auto-vars apply here). The docker:24-dind SERVICE also needs telling it is plain-http, independent of the :80 port -- give it its own daemon flag: `services: - name: docker:24-dind` with `command: [\"--insecure-registry=harbor.harbor.svc.cluster.local:80\"]`, or dockerd inside that service still assumes TLS and `docker login`/`push` fail with \"server gave HTTP response to HTTPS client\" even though the port is explicit. Use `docker login ... --password-stdin` (echo the password into it), never `-p $VAR` (insecure-CLI-arg warning), authenticating with $HARBOR_USER/$HARBOR_PASSWORD (group-level CI/CD variables set on the sdlc group, inherited automatically by every project — not GitLab-provided), tagging images harbor.harbor.svc.cluster.local:80/library/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/<app>:${CI_COMMIT_SHORT_SHA}, only on main/release branches; and a publish stage that runs bun publish for packages under packages/* using the .npmrc above, only on main/release branches. The install job should rely on the pipeline cache (keyed on bun.lock) to hand node_modules to later jobs, NOT an `artifacts:` upload of node_modules/ -- a full node_modules tree as a job artifact is large enough to trip GitLab's request-size limit (413) on upload. Once scaffolding is confirmed (new or pre-existing), publish the fetched architecture report as Taiga's wiki page for this release: check for an existing page (`GET $TAIGA_URL/api/v1/wiki?project=$TAIGA_PROJECT_ID&slug={{ $node['Webhook Trigger'].json.body.body.version }}/Architecture`); if none exists, create one (`POST $TAIGA_URL/api/v1/wiki` with `{\"project\": $TAIGA_PROJECT_ID, \"slug\": \"{{ $node['Webhook Trigger'].json.body.body.version }}/Architecture\", \"content\": <the markdown>}`); if one exists, update it (`PATCH $TAIGA_URL/api/v1/wiki/<id>` with `{\"version\": <its current version field, from the GET>, \"content\": <the markdown>}`). Then list every per-service architecture file plan_release uploaded (`mc ls local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/ | grep -oE \"architecture-[a-z0-9-]+\\.md\"`) — for EACH one found, fetch it (`mc cat local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/architecture-<slug>.md`) and publish it as its OWN wiki page, one page per service, never combined into the overall Architecture page: check for an existing page (`GET $TAIGA_URL/api/v1/wiki?project=$TAIGA_PROJECT_ID&slug={{ $node['Webhook Trigger'].json.body.body.version }}/Architecture/<service name>`); if none exists, create one (`POST $TAIGA_URL/api/v1/wiki` with `{\"project\": $TAIGA_PROJECT_ID, \"slug\": \"{{ $node['Webhook Trigger'].json.body.body.version }}/Architecture/<service name>\", \"content\": <that file's markdown>}`); if one exists, update it the same PATCH way as above. Derive <service name> from the filename slug (hyphens back to spaces, title case) unless the file's own H1 heading already names the service — prefer that. Report whether the workspace was newly scaffolded or already existed, the overall Architecture page id, and every per-service page id created/updated.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "taiga_project_id",
+              "value": "={{ $node['Ensure Taiga Project'].json.taiga_project_id }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c1000002-0000-0000-0000-000000000002",
+      "name": "Architect: Scaffold Repo",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        200
       ],
       "parameters": {
         "source": "database",
@@ -118,7 +203,7 @@
       "typeVersion": 3.4,
       "position": [
         900,
-        280
+        200
       ],
       "parameters": {
         "mode": "manual",
@@ -133,13 +218,19 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Create GitLab user-story issues and task issues for the {{ $node['Webhook Trigger'].json.body.body.version }} milestone via glab.",
+              "value": "=First publish the PRD plan_release produced: `mc alias set local $MINIO_ENDPOINT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD >/dev/null && mc cat local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/prd.md`, then check for an existing Taiga wiki page (`GET $TAIGA_URL/api/v1/wiki?project=$TAIGA_PROJECT_ID&slug={{ $node['Webhook Trigger'].json.body.body.version }}/PRD`) — if none exists, create one (`POST $TAIGA_URL/api/v1/wiki` with `{\"project\": $TAIGA_PROJECT_ID, \"slug\": \"{{ $node['Webhook Trigger'].json.body.body.version }}/PRD\", \"content\": <the markdown>}`); if one exists, update it (`PATCH $TAIGA_URL/api/v1/wiki/<id>` with `{\"version\": <its current version field>, \"content\": <the markdown>}`). Also create a GitLab milestone for this release via glab (this GitLab is Community Edition — it has no Epics, do not attempt to create one). Then fetch the PRD back from Taiga's wiki module (`GET $TAIGA_URL/api/v1/wiki?project=$TAIGA_PROJECT_ID&slug={{ $node['Webhook Trigger'].json.body.body.version }}/PRD` — wiki moved off GitLab onto Taiga's own wiki module, see AGENTS.md's Ticket & MR Conventions) and take its executive summary as the epic's subject. Create ONE Epic via `POST $TAIGA_URL/api/v1/epics` with `{\"project\": $TAIGA_PROJECT_ID, \"subject\": \"...\", \"tags\": [\"{{ $node['Webhook Trigger'].json.body.body.version }}\"]}` — no status needed, epics don't track pending/in-progress. Then create ONE user story per user story derived from the PRD. Before creating any, resolve two things once: the project-manager role account's user id (`GET $TAIGA_URL/api/v1/users`, filter `.[] | select(.username==\"project-manager\") | .id` — stories are owned by the project-manager role account, not whichever identity's token happens to be making the API call) and the project's points scale (`GET $TAIGA_URL/api/v1/points?project=$TAIGA_PROJECT_ID` — the Scrum template seeds this automatically; if it's empty something is wrong with project creation, stop and report it rather than guessing ids), picking the scale entry closest to a medium estimate (prefer the one named \"5\" if present, else the middle entry by `order`) as the default points value for every story — PM can't know real sizing yet at kickoff, this is a starting estimate Tech Lead/the story owner refines later. Create each story via `POST $TAIGA_URL/api/v1/userstories` with `{\"project\": $TAIGA_PROJECT_ID, \"subject\": \"...\", \"epic\": <epic id>, \"assigned_to\": <owner user id>, \"tags\": [\"{{ $node['Webhook Trigger'].json.body.body.version }}\"], \"description\": \"## Goal\\n{goal derived from the PRD}\\n\\n## Acceptance Criteria\\n- [ ] ...\\n\\n## Dependencies\\n{any cross-story dependency, or \\\"None\\\"}\"}` — every story MUST have the epic set via the `epic` field and a real `description` (not a placeholder), never orphaned. Look up Taiga's `Pending` userstory-status id (`GET $TAIGA_URL/api/v1/userstory-statuses?project=$TAIGA_PROJECT_ID`, filter `.[] | select(.name==\"Pending\") | .id` — resolve every time, never hardcode an id) and set `status` to it on every story at creation. Immediately after each story is created, resolve the project's computable roles (`GET $TAIGA_URL/api/v1/roles?project=$TAIGA_PROJECT_ID`, filter `.[] | select(.computable==true)`) and `PATCH $TAIGA_URL/api/v1/userstories/<id>` with `{\"version\": <its version field from the create response>, \"points\": {<role-id>: <chosen-points-id>, ... one entry per computable role}}` so every story carries a points estimate across every role that needs one. Report the epic's id and subject, then every created story's id, subject, assigned_to, and points — the next step needs the story ids to attach child tasks, and Release Manager needs the epic's id later (post-UAT) to parent the release ticket to it.",
               "type": "string"
             },
             {
               "id": "3",
               "name": "story",
               "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "taiga_project_id",
+              "value": "={{ $node['Ensure Taiga Project'].json.taiga_project_id }}",
               "type": "string"
             }
           ]
@@ -148,12 +239,366 @@
     },
     {
       "id": "e1dc6899-3754-4706-ade7-ae3a5bc076ac",
-      "name": "PM: GitLab Artifacts",
+      "name": "PM: Create Story Work Items",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        1080,
-        320
+        1120,
+        200
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b2000002-0000-0000-0000-000000000001",
+      "name": "QA Tickets Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1320,
+        40
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "qa-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Query the stories created for {{ $node['Webhook Trigger'].json.body.body.version }} (from the previous step's output, or re-query via `GET $TAIGA_URL/api/v1/userstories?project=$TAIGA_PROJECT_ID&tags={{ $node['Webhook Trigger'].json.body.body.version }}` if needed). Look up Taiga's `Pending` task-status id (`GET $TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID`, filter `.[] | select(.name==\"Pending\") | .id`). For each story, if a QA ticket doesn't exist yet, create one via `POST $TAIGA_URL/api/v1/tasks`: `{\"project\": $TAIGA_PROJECT_ID, \"subject\": \"[qa] {story short description} — test plan\", \"user_story\": <story id>, \"status\": <Pending id>, \"tags\": [\"{{ $node['Webhook Trigger'].json.body.body.version }}\"]}`. Also post a branch-link comment (`PATCH $TAIGA_URL/api/v1/tasks/{id}` with `{\"version\": <current version>, \"comment\": \"Branch: ...\"}` — GET the task first for its current `version`) once QA's own work branch exists (if QA opens one for this story — most QA work happens directly against SIT/UAT, not a branch, so this is often n/a). Report every QA ticket created and its parent story.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "taiga_project_id",
+              "value": "={{ $node['Ensure Taiga Project'].json.taiga_project_id }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2000002-0000-0000-0000-000000000002",
+      "name": "QA: Create QA Tickets",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1500,
+        40
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b2000003-0000-0000-0000-000000000001",
+      "name": "Security Tickets Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1320,
+        120
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "security-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Query the stories created for {{ $node['Webhook Trigger'].json.body.body.version }} (from the previous step's output, or re-query via `GET $TAIGA_URL/api/v1/userstories?project=$TAIGA_PROJECT_ID&tags={{ $node['Webhook Trigger'].json.body.body.version }}` if needed). Look up Taiga's `Pending` task-status id (`GET $TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID`, filter `.[] | select(.name==\"Pending\") | .id`). For each story, if a security ticket doesn't exist yet, create one via `POST $TAIGA_URL/api/v1/tasks`: `{\"project\": $TAIGA_PROJECT_ID, \"subject\": \"[security] {story short description} — threat model\", \"user_story\": <story id>, \"status\": <Pending id>, \"tags\": [\"{{ $node['Webhook Trigger'].json.body.body.version }}\"]}`. Report every security ticket created and its parent story.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "taiga_project_id",
+              "value": "={{ $node['Ensure Taiga Project'].json.taiga_project_id }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2000003-0000-0000-0000-000000000002",
+      "name": "Security: Create Security Tickets",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1500,
+        120
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b2000004-0000-0000-0000-000000000001",
+      "name": "DevOps Tickets Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1320,
+        280
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "devops-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Query the stories created for {{ $node['Webhook Trigger'].json.body.body.version }} (from the previous step's output, or re-query via `GET $TAIGA_URL/api/v1/userstories?project=$TAIGA_PROJECT_ID&tags={{ $node['Webhook Trigger'].json.body.body.version }}` if needed). Look up Taiga's `Pending` task-status id (`GET $TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID`, filter `.[] | select(.name==\"Pending\") | .id`). For each story, if a DevOps ticket doesn't exist yet, create one via `POST $TAIGA_URL/api/v1/tasks`: `{\"project\": $TAIGA_PROJECT_ID, \"subject\": \"[devops] {story short description} — infra checklist\", \"user_story\": <story id>, \"status\": <Pending id>, \"tags\": [\"{{ $node['Webhook Trigger'].json.body.body.version }}\"]}`. Most stories need no actual devops work beyond the one-time project provisioning (handled separately) — create the ticket anyway, empty checklist is fine, so it's visible as reviewed rather than silently skipped. Report every DevOps ticket created and its parent story.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "taiga_project_id",
+              "value": "={{ $node['Ensure Taiga Project'].json.taiga_project_id }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2000004-0000-0000-0000-000000000002",
+      "name": "DevOps: Create DevOps Tickets",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1500,
+        280
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b2000001-0000-0000-0000-000000000001",
+      "name": "TL Input (Tasks)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1340,
+        200
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "tech-lead",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=First publish the effort estimate plan_release produced: `mc alias set local $MINIO_ENDPOINT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD >/dev/null && mc cat local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/estimate.md`, then check for an existing Taiga wiki page (`GET $TAIGA_URL/api/v1/wiki?project=$TAIGA_PROJECT_ID&slug={{ $node['Webhook Trigger'].json.body.body.version }}/Estimate`) — if none exists, create one (`POST $TAIGA_URL/api/v1/wiki` with `{\"project\": $TAIGA_PROJECT_ID, \"slug\": \"{{ $node['Webhook Trigger'].json.body.body.version }}/Estimate\", \"content\": <the markdown>}`); if one exists, update it (`PATCH $TAIGA_URL/api/v1/wiki/<id>` with `{\"version\": <its current version field>, \"content\": <the markdown>}`). Then look up Taiga's `Pending` task-status id (`GET $TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID`, filter `.[] | select(.name==\"Pending\") | .id`). Confirm the stories from the previous step actually exist by querying `GET $TAIGA_URL/api/v1/userstories?project=$TAIGA_PROJECT_ID&tags={{ $node['Webhook Trigger'].json.body.body.version }}` (do not assume the previous step's report was accurate — verify against Taiga directly). If no stories exist yet, create them yourself first (`POST $TAIGA_URL/api/v1/userstories` with `epic` = the epic's id, `tags` = [\"{{ $node['Webhook Trigger'].json.body.body.version }}\"]) before proceeding. Resolve the backend-developer and frontend-developer role accounts' user ids once (`GET $TAIGA_URL/api/v1/users`, filter `.[] | select(.username==\"backend-developer\") | .id` and the same for `\"frontend-developer\"` — each role has its own dedicated Taiga account, created by `helm/ansible/playbooks/role-accounts.yml`). Then, for EACH story, break it into task tickets by role x feature — NOT one generic task per story. Identify the distinct backend/frontend/api features the story touches (e.g. a login story might be 'frontend: login page' + 'backend: login mechanism' + 'api: login endpoint contract'); create one Task per role-feature pair via `POST $TAIGA_URL/api/v1/tasks` with `{\"project\": $TAIGA_PROJECT_ID, \"subject\": \"[{role}] {feature — short description}\", \"description\": \"{what this task covers and its concrete done-condition, 2-4 sentences — not a restatement of the subject}\", \"assigned_to\": <backend-developer's id for [backend]/[api] tasks, frontend-developer's id for [frontend] tasks — api tasks fall under backend-developer, there is no separate api role account>, \"user_story\": <story id>, \"status\": <Pending id>, \"tags\": [\"{{ $node['Webhook Trigger'].json.body.body.version }}\"]}` — every task MUST have `user_story`, a real `description`, and the correct role's `assigned_to` set, never orphaned and never defaulted to your own identity. Skip any role the story genuinely doesn't touch (a pure backend migration gets no frontend task). Role lives in the subject prefix ('[backend]'/'[frontend]'/'[api]') only — there is no separate role field or label (see AGENTS.md's Ticket & MR Conventions). Do not create qa/security/devops task tickets — those roles self-create their own tickets from the story directly (see qa-engineer/security-engineer/devops-engineer SKILL.md), not Tech Lead's job. Report every created task's id, subject, role, and its parent story's subject — the branch-creation step later needs these.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "taiga_project_id",
+              "value": "={{ $node['Ensure Taiga Project'].json.taiga_project_id }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b02da329-9a7e-45ca-a098-30860e5e762d",
+      "name": "TL: Create Task Work Items",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        200
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b2000001-0000-0000-0000-000000000005",
+      "name": "Release Manager Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1780,
+        200
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "release-manager",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Using glab (hostname gitlab-webservice-default.gitlab.svc.cluster.local), determine the next release version number for project {{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}: list existing branches via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --hostname gitlab-webservice-default.gitlab.svc.cluster.local` and find the highest semantic version among any matching 'release/vMAJOR.MINOR.PATCH'; if none exist, start at v0.0.1, otherwise bump the patch number by 1. Create a branch named 'release/<version>' (e.g. 'release/v0.0.1') from the 'main' branch via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --method POST -f branch=release/<version> -f ref=main`. If that exact branch name already exists (400/409 conflict), treat it as success. Report the exact version number and exact branch name you created — the next step must reuse this exact name, not derive its own.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "taiga_project_id",
+              "value": "={{ $node['Ensure Taiga Project'].json.taiga_project_id }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2000001-0000-0000-0000-000000000006",
+      "name": "RM: Create Release Branch",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2000,
+        200
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "b2000001-0000-0000-0000-000000000007",
+      "name": "TL Input (Branches)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2220,
+        200
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "tech-lead",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=First find the exact release branch name the previous step created (it reported it, formatted like 'release/v0.0.1' — a semantic version number, NOT the literal text 'release/{{ $node['Webhook Trigger'].json.body.body.version }}'; if you need to rediscover it, list branches via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --hostname gitlab-webservice-default.gitlab.svc.cluster.local` and pick the branch matching 'release/vMAJOR.MINOR.PATCH' with the highest version). Using glab, create one branch per story ticket off of that release branch (not main) named 'us/GL-<story-id>' (the story's Taiga id, NOT a title slug — every other role's SKILL.md already assumes this exact branch name as the task MRs' target branch; 'GL-' is kept as branch-naming vocabulary only, per AGENTS.md's Ticket & MR Conventions — the id itself is a Taiga userstory id, not a GitLab issue IID) via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --method POST -f branch=us/GL-<story-id> -f ref=<release-branch-name>`, then one branch per task ticket off of its parent story's branch named 'task/GL-<task-id>' (the task's own Taiga id) via the same call with ref=us/GL-<story-id> (use the story/task ids from the earlier steps — re-query Taiga if you need them again). Embedding the id in the branch name (not a slug) is required — backend/frontend-developer read it straight out of their branch name to put 'Closes #<task-id>' in their task MR description; that's prose only now (the ticket lives in Taiga, so a GitLab merge can't auto-close it — Taiga's own GitLab integration still attaches the merge commit as a comment for the compliance trail, see AGENTS.md's 'GitLab compliance history'), but the id is still how the developer pod finds which task to PATCH to Closed/Done after merge — a slug can't be reverse-parsed back to an id reliably. Immediately after creating each branch, comment on its ticket with a clickable link to it — not just the bare branch name, the link must resolve from a browser, so build it against the external tailnet host, never the in-cluster service address: `https://gitlab.tail60240b.ts.net/{{ $node['Webhook Trigger'].json.body.body.group ?? 'sdlc' }}/{{ $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal' }}/-/tree/us/GL-<story-id>` (`PATCH $TAIGA_URL/api/v1/userstories/<story-id>` with `{\"version\": <current-version>, \"comment\": \"Branch: <that full URL>\"}` — GET the story first for its current `version`; same pattern against `/api/v1/tasks/<task-id>` for each task ticket with its own branch's URL — per AGENTS.md's Ticket & MR Conventions, this is the ticket-to-branch linkage). For each task branch, commit openspec pseudocode under openspec/<task-slug>.md (slug is fine for the file name, this is just a path), and PATCH the task's status to 'OpenSpec Ready' (`GET $TAIGA_URL/api/v1/tasks/<task-id>` for its current `version`, look up the status id via `GET $TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID` filtered by name, then `PATCH $TAIGA_URL/api/v1/tasks/<task-id>` with `{\"version\": <current-version>, \"status\": <status-id>}`). Report every branch created.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "taiga_project_id",
+              "value": "={{ $node['Ensure Taiga Project'].json.taiga_project_id }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2000001-0000-0000-0000-000000000008",
+      "name": "TL: Create Story/Task Branches",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2440,
+        200
       ],
       "parameters": {
         "source": "database",
@@ -171,7 +616,7 @@
       "typeVersion": 3.4,
       "position": [
         900,
-        440
+        480
       ],
       "parameters": {
         "mode": "manual",
@@ -186,13 +631,19 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Register the GitLab group webhook (idempotent), set CI env vars, and verify the SIT cluster is healthy for {{ $node['Webhook Trigger'].json.body.body.version }}.",
+              "value": "=Register the GitLab group webhook (idempotent), set CI env vars, and verify the SIT cluster is healthy for {{ $node['Webhook Trigger'].json.body.body.version }}. Then, idempotently ensure GitOps wiring exists for this project (skip any step already done — check before creating): (1) for each deployable app under apps/, if no helm/<app> chart exists on main yet, scaffold one (Chart.yaml, templates/deployment.yaml + service.yaml — templates only, no environment-specific values in helm/<app>/values.yaml, that file holds chart defaults only) and commit to main; (2) for each app x each environment this project deploys to (sit/uat/production at minimum), if env/<environment>/<app>/values.yaml doesn't exist yet, create it (image harbor.harbor.svc.cluster.local:80/library/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/<app>:v<current main package.json version> — do not use :latest, ArgoCD Image Updater below owns the tag on SIT from here on) and commit to main — this is the ONLY place values live, per repo convention (`env/{environment-name}/{application-name}/values.yaml`, never inline in the ArgoCD Application, never environment-specific data inside helm/<app>/values.yaml); (3) check `kubectl get application -n argocd {{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '-' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}-<app>-<environment>` for each app x environment — if missing, `kubectl apply` an ArgoCD Application (repoURL http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}.git, targetRevision main, source.path helm/<app>, source.helm.valueFiles [../../env/<environment>/<app>/values.yaml], destination this same in-cluster namespace, automated syncPolicy) — on SIT only, carry these annotations so ArgoCD Image Updater (already deployed in the argocd namespace) picks it up: `argocd-image-updater.argoproj.io/image-list: <app>=harbor.harbor.svc.cluster.local:80/library/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/<app>`, `argocd-image-updater.argoproj.io/<app>.update-strategy: latest`, `argocd-image-updater.argoproj.io/<app>.allow-tags: regexp:^v[0-9]+\\.[0-9]+\\.[0-9]+-rc[0-9]+$` (matches the CI build stage's `v{package.json version}` rc tags), `argocd-image-updater.argoproj.io/<app>.pull-secret: secret:argocd/argocd-image-updater-registry`, `argocd-image-updater.argoproj.io/write-back-method: argocd` (the CI docker-build stage tagging images `v{X}.{Y}.{Z}-rc{N}` on every us/* or release/* merge is what image-updater then polls and auto-bumps on SIT — no manual tag edits, no re-running this flow per release; UAT/staging/production use explicit ArgoCD sync instead, no image-updater annotations there — UAT's tag comes from `/uat`'s pre-deploy step reading QA's tested-tag record on each story MR, never from image-updater). If an existing Application already exists but is missing these annotations or still points at a deploy/ path from before this convention, patch it to the helm/<app> + valueFiles form rather than skipping. This is one-time infra registration per project x environment, not per release — always check existence first so repeat kickoffs don't duplicate or fight ArgoCD's own reconciliation.",
               "type": "string"
             },
             {
               "id": "3",
               "name": "story",
               "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "taiga_project_id",
+              "value": "={{ $node['Ensure Taiga Project'].json.taiga_project_id }}",
               "type": "string"
             }
           ]
@@ -205,7 +656,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        1080,
+        1120,
         480
       ],
       "parameters": {
@@ -219,17 +670,17 @@
     },
     {
       "id": "190355fa-88b0-41e7-ba40-da302eecf355",
-      "name": "Merge 3 Tracks",
+      "name": "Merge 2 Tracks",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        1300,
-        320
+        2660,
+        340
       ],
       "parameters": {
         "mode": "combine",
         "combineBy": "combineByPosition",
-        "numberInputs": 3
+        "numberInputs": 2
       }
     },
     {
@@ -238,8 +689,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1520,
-        320
+        2880,
+        340
       ],
       "parameters": {
         "method": "POST",
@@ -258,11 +709,11 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
-              "value": "✅ kickoff complete — branches created, tickets open, infra ready"
+              "value": "✅ kickoff complete — story/task work items, release+story+task branches, infra ready"
             },
             {
               "name": "notes",
@@ -289,10 +740,71 @@
       "main": [
         [
           {
-            "node": "TL Input",
+            "node": "PM Project Input",
             "type": "main",
             "index": 0
-          },
+          }
+        ]
+      ]
+    },
+    "PM Project Input": {
+      "main": [
+        [
+          {
+            "node": "PM: Ensure Project Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PM: Ensure Project Exists": {
+      "main": [
+        [
+          {
+            "node": "Ensure Taiga Project",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ensure Taiga Project": {
+      "main": [
+        [
+          {
+            "node": "Add Role Members to Taiga Project",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Role Members to Taiga Project": {
+      "main": [
+        [
+          {
+            "node": "Architect Input (Scaffold)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Architect Input (Scaffold)": {
+      "main": [
+        [
+          {
+            "node": "Architect: Scaffold Repo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Architect: Scaffold Repo": {
+      "main": [
+        [
           {
             "node": "PM Input",
             "type": "main",
@@ -306,22 +818,136 @@
         ]
       ]
     },
-    "TL Input": {
+    "PM Input": {
       "main": [
         [
           {
-            "node": "TL: Branches + Pseudocode",
+            "node": "PM: Create Story Work Items",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "PM Input": {
+    "PM: Create Story Work Items": {
       "main": [
         [
           {
-            "node": "PM: GitLab Artifacts",
+            "node": "TL Input (Tasks)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "QA Tickets Input",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Security Tickets Input",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "DevOps Tickets Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QA Tickets Input": {
+      "main": [
+        [
+          {
+            "node": "QA: Create QA Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Security Tickets Input": {
+      "main": [
+        [
+          {
+            "node": "Security: Create Security Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DevOps Tickets Input": {
+      "main": [
+        [
+          {
+            "node": "DevOps: Create DevOps Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TL Input (Tasks)": {
+      "main": [
+        [
+          {
+            "node": "TL: Create Task Work Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TL: Create Task Work Items": {
+      "main": [
+        [
+          {
+            "node": "Release Manager Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Release Manager Input": {
+      "main": [
+        [
+          {
+            "node": "RM: Create Release Branch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RM: Create Release Branch": {
+      "main": [
+        [
+          {
+            "node": "TL Input (Branches)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TL Input (Branches)": {
+      "main": [
+        [
+          {
+            "node": "TL: Create Story/Task Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TL: Create Story/Task Branches": {
+      "main": [
+        [
+          {
+            "node": "Merge 2 Tracks",
             "type": "main",
             "index": 0
           }
@@ -339,40 +965,18 @@
         ]
       ]
     },
-    "TL: Branches + Pseudocode": {
+    "DevOps: Infra + Webhook": {
       "main": [
         [
           {
-            "node": "Merge 3 Tracks",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "PM: GitLab Artifacts": {
-      "main": [
-        [
-          {
-            "node": "Merge 3 Tracks",
+            "node": "Merge 2 Tracks",
             "type": "main",
             "index": 1
           }
         ]
       ]
     },
-    "DevOps: Infra + Webhook": {
-      "main": [
-        [
-          {
-            "node": "Merge 3 Tracks",
-            "type": "main",
-            "index": 2
-          }
-        ]
-      ]
-    },
-    "Merge 3 Tracks": {
+    "Merge 2 Tracks": {
       "main": [
         [
           {

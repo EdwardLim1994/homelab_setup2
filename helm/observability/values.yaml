@@ -1,4 +1,4 @@
-# ponytail: terraform/Tiltfile do a plain string-replace of __TS_HOST__ across
+# ponytail: terraform does a plain string-replace of __TS_HOST__ across
 # this file, so exposing it as a value lets templates/dashboards.yaml reuse the
 # substituted host without a second injection path.
 tsHost: "__TS_HOST__"
@@ -9,8 +9,8 @@ tailnetDomain: "__TAILNET_DOMAIN__"
 grafana:
   # ponytail: chart refuses to render any sensitive key (client_secret,
   # adminPassword, etc.) in plain values as a guard against accidental
-  # secret commits. Our placeholder-replacement approach handles this at
-  # Tiltfile load time — disable the guard so helm template succeeds.
+  # secret commits. Our placeholder-replacement approach substitutes these
+  # before helm ever renders — disable the guard so helm template succeeds.
   assertNoLeakedSecrets: false
 
   adminPassword: "__GRAFANA_ADMIN_PASSWORD__"
@@ -246,8 +246,27 @@ mimir-distributed:
         data_dir: /data/compactor
       ingest_storage:
         enabled: false
+      # ponytail: Mimir defaults both rings' replication_factor to 3 (no
+      # override anywhere in the chart's own base config) - with 1 ingester
+      # and 1 store-gateway pod total, every read needs quorum from replicas
+      # that don't exist, failing instantly with "too many unhealthy
+      # instances in the ring" before any real network call. Single-node
+      # homelab, so 1 is correct everywhere reads/writes need quorum.
       ingester:
         push_grpc_method_enabled: true
+        ring:
+          replication_factor: 1
+      store_gateway:
+        sharding_ring:
+          replication_factor: 1
+      # ponytail: chart default max_global_series_per_user (150000) is a
+      # single-cluster-sized guess — 4 clusters' worth of node-exporter/
+      # cadvisor/kubecost/kube-state-metrics is pushing past it, rejecting
+      # writes ("per-user series limit ... exceeded"). Raise the ceiling;
+      # ingester's memory limit above is the real backstop against runaway
+      # cardinality, not this.
+      limits:
+        max_global_series_per_user: 500000
 
   # ponytail: single replicas throughout — no HA, no zone awareness.
   # The rollout_operator and zone-aware replication exist for production
@@ -262,12 +281,16 @@ mimir-distributed:
     persistentVolume:
       enabled: true
       size: 10Gi
+    # ponytail: 512Mi was sized for internal alone; sit/uat/production's
+    # kubecost + node-exporter + cadvisor now all remote_write in too and
+    # OOMKilled it (exitCode 137) well before the series-limit override below
+    # even kicked in. Bump if it OOMs again as more gets onboarded.
     resources:
       requests:
-        cpu: 50m
-        memory: 256Mi
-      limits:
+        cpu: 100m
         memory: 512Mi
+      limits:
+        memory: 1536Mi
 
   distributor:
     replicas: 1
@@ -327,10 +350,24 @@ mimir-distributed:
     enabled: false
   ruler:
     enabled: false
-  query_scheduler:
-    enabled: false
   overrides_exporter:
     enabled: false
+
+  # ponytail: this chart's base mimir.config hardcodes frontend/frontend_worker
+  # scheduler_address at the query-scheduler regardless of any override, and
+  # this Mimir version's frontend_worker has no direct-poll-the-frontend mode
+  # to fall back to (worker.Config has no frontend_address field at all) — so
+  # disabling this and clearing scheduler_address (tried first) just leaves
+  # the querier endlessly failing DNS lookups and every query timing out.
+  # Scheduler has to stay on.
+  query_scheduler:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
 
   # ponytail: mimir-distributed bundles its own minio subchart for demos;
   # we use the already-deployed MinIO in the minio namespace instead.
@@ -445,6 +482,12 @@ prometheus:
     global:
       scrape_interval: 15s
       evaluation_interval: 15s
+      # matches the cluster_id external label sit/uat/production's own
+      # opencost-prometheus stamps on (terraform/modules/platform-apps/
+      # opencost.tf) — lets the opencost Grafana dashboard's cluster picker
+      # tell all 4 clusters' series apart, internal included.
+      external_labels:
+        cluster_id: internal
     # ponytail: remote_write to Mimir so metrics survive beyond Prometheus's
     # own retention window and are queryable from Grafana's Mimir datasource.
     remoteWrite:

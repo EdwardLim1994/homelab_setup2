@@ -44,7 +44,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -80,13 +80,13 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Open an MR from us/{{ $node['Webhook Trigger'].json.body.body.story_id }} into release/{{ $node['Webhook Trigger'].json.body.body.version }} via glab. Set reviewers.",
+              "value": "=Using glab against the in-cluster GitLab (`--hostname gitlab-webservice-default.gitlab.svc.cluster.local`, project {{ $node['Webhook Trigger'].json.body.project?.path_with_namespace ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }}), find the release branch this story forked from: list branches via `glab api projects/{{ $node['Webhook Trigger'].json.body.project?.path_with_namespace?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/repository/branches` and pick the one matching 'release/vMAJOR.MINOR.PATCH' with the highest version. Open an MR from story/{{ $node['Webhook Trigger'].json.body.story_id }} into that release branch. Set reviewers.",
               "type": "string"
             },
             {
               "id": "3",
               "name": "story",
-              "value": "={{ $node['Webhook Trigger'].json.body.body.story_id }}",
+              "value": "={{ $node['Webhook Trigger'].json.body.story_id }}",
               "type": "string"
             }
           ]
@@ -133,13 +133,13 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Run the integration test suite for story {{ $node['Webhook Trigger'].json.body.body.story_id }}. Report pass/fail with coverage.",
+              "value": "=Run the integration test suite for story {{ $node['Webhook Trigger'].json.body.story_id }} against the SIT cluster (story/task-level QA testing runs here, not a dedicated QA cluster). Report pass/fail with coverage.",
               "type": "string"
             },
             {
               "id": "3",
               "name": "story",
-              "value": "={{ $node['Webhook Trigger'].json.body.body.story_id }}",
+              "value": "={{ $node['Webhook Trigger'].json.body.story_id }}",
               "type": "string"
             }
           ]
@@ -209,7 +209,7 @@
             },
             {
               "name": "message",
-              "value": "=👤 Story MR ready — Edward please review and merge us/{{ $node['Webhook Trigger'].json.body.body.story_id }}"
+              "value": "=👤 Story MR ready — Edward please review and merge story/{{ $node['Webhook Trigger'].json.body.story_id }}"
             },
             {
               "name": "notes",

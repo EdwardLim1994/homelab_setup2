@@ -1,0 +1,82 @@
+{{- /*
+  Scale-to-zero mermaid-cli microservice. Woken by
+  helm/omp/scripts/render-mermaid.sh (PATCHes this Deployment's /scale
+  subresource via the omp-agent ServiceAccount, which already holds the
+  get+patch RBAC for it — see helm/omp-agent/templates/role.yaml) right
+  before use, and scaled back to 0 by the same script right after —
+  deliberately no idle-timer/watcher, unlike helm/omp/adapter's waker
+  which has no scale-down path at all. server.js is mounted from a
+  ConfigMap into the stock minlag/mermaid-cli image, same convention as
+  helm/omp/templates/adapter.yaml's server.py.
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.namespace }}
+data:
+  server.js: |
+{{ .Files.Get "server.js" | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Release.Name }}
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: mermaid-render
+          image: {{ .Values.image | quote }}
+          # ponytail: the image tag is `:latest`, which k8s defaults to
+          # imagePullPolicy Always -- that means a registry round-trip on
+          # every single scale-up otherwise. Pin IfNotPresent so, once
+          # cached on the node (first pull is slow, ~150s, Chromium-
+          # bundled image), every later render is a pure local pull.
+          imagePullPolicy: IfNotPresent
+          command: ["node", "/app/server.js"]
+          env:
+            - name: PORT
+              value: {{ .Values.port | quote }}
+          ports:
+            - containerPort: {{ .Values.port }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.port }}
+          volumeMounts:
+            - name: app
+              mountPath: /app
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: app
+          configMap:
+            name: {{ .Release.Name }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ .Values.port }}
+      targetPort: {{ .Values.port }}

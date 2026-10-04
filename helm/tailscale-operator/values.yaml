@@ -1,5 +1,5 @@
 tailscale-operator:
-  # ponytail: oauth.clientId / oauth.clientSecret come from Tiltfile/terraform
+  # ponytail: oauth.clientId / oauth.clientSecret come from terraform
   # (.env: TF_VAR_tailscale_oauth_client_id / _secret). Create the OAuth client
   # once in the Tailscale admin console (Settings -> OAuth clients) with write
   # scope on Devices/Core and Keys/Auth Keys, and set tag:k8s-operator as a

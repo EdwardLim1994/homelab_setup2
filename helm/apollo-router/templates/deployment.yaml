@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+      annotations:
+        # ponytail: ConfigMap change (new supergraph schema from the
+        # compose-supergraph CI stage) needs a rollout to actually reload —
+        # router.yaml has no file-watch enabled here, keep it simple.
+        checksum/config: {{ .Values.supergraphSchema | sha256sum }}
+    spec:
+      containers:
+        - name: apollo-router
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          args: ["--config", "/config/router.yaml", "--supergraph", "/config/supergraph.graphql"]
+          ports:
+            - containerPort: {{ .Values.port }}
+            - containerPort: 8088
+              name: health
+            - containerPort: 9090
+              name: metrics
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 5
+          volumeMounts:
+            - name: config
+              mountPath: /config
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: {{ .Release.Name }}
+  ports:
+    - name: graphql
+      port: {{ .Values.port }}
+      targetPort: {{ .Values.port }}
+    - name: metrics
+      port: 9090
+      targetPort: 9090

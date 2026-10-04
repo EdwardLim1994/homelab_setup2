@@ -31,7 +31,7 @@
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            { "name": "flow_id", "value": "={{ $json.flow_id ?? '' }}" },
+            { "name": "flow_id", "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}" },
             { "name": "message", "value": "🧪 UAT QA stage running" },
             { "name": "notes", "value": "" }
           ]
@@ -49,7 +49,7 @@
         "assignments": {
           "assignments": [
             { "id": "1", "name": "role", "value": "qa-engineer", "type": "string" },
-            { "id": "2", "name": "prompt", "value": "=Run the full UAT test suite against the UAT environment for {{ $node['Webhook Trigger'].json.body.version }}. Output JSON only: {\"pass\": true|false, \"coverage\": \"string\"}", "type": "string" },
+            { "id": "2", "name": "prompt", "value": "=Run the full UAT test suite against the UAT environment for {{ $node['Webhook Trigger'].json.body.version }} — functional pass/fail plus a load/performance test (response times under representative concurrent load, error rate under load). UAT is now the only environment performance testing runs against (no separate QA/staging cluster). Output JSON only: {\"pass\": true|false, \"coverage\": \"string\", \"performance\": {\"p95_ms\": number, \"error_rate\": number, \"notes\": \"string\"}}", "type": "string" },
             { "id": "3", "name": "story", "value": "={{ $node['Webhook Trigger'].json.body.version }}", "type": "string" }
           ]
         }
@@ -80,30 +80,6 @@
             "operation": "equals",
             "rightValue": "true"
           }
-        }
-      }
-    },
-    {
-      "id": "de10fdda-5f2c-492e-9499-bbc2217ec54c",
-      "name": "Label: qa:uat-approved",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1520, 200],
-      "parameters": {
-        "method": "PUT",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $env.RELEASE_TICKET_ID }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "PRIVATE-TOKEN", "value": "={{ $env.GITLAB_TOKEN }}" },
-            { "name": "Content-Type", "value": "application/json" }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [{ "name": "__json", "value": "={\"add_labels\":\"qa:uat-approved\"}" }]
         }
       }
     },
@@ -163,12 +139,9 @@
     },
     "QA Pass?": {
       "main": [
-        [{ "node": "Label: qa:uat-approved", "type": "main", "index": 0 }],
+        [{ "node": "→ F-12 Security UAT", "type": "main", "index": 0 }],
         [{ "node": "Notify: QA UAT failed", "type": "main", "index": 0 }]
       ]
-    },
-    "Label: qa:uat-approved": {
-      "main": [[{ "node": "→ F-12 Security UAT", "type": "main", "index": 0 }]]
     }
   },
   "active": true,

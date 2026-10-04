@@ -9,7 +9,7 @@ authentik:
       host: "postgres.postgres.svc.cluster.local"
       name: "authentik"
       user: "authentik"
-      password: ""  # set via terraform / Tiltfile (shared_db_password)
+      password: ""  # set via terraform (shared_db_password)
     redis:
       host: "redis.redis.svc.cluster.local"
       db: 1

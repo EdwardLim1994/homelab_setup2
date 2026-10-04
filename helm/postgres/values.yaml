@@ -17,6 +17,8 @@ databases:
   - litellm
   - n8n
   - sonarqube
+  - harbor
+  - taiga
 gitlabDatabase: gitlabhq_production
 
 storageSize: 20Gi
@@ -27,3 +29,15 @@ resources:
     memory: 512Mi
   limits:
     memory: 2Gi
+
+# ponytail: pg_dumpall (superuser, dumps every role + every app database in
+# one file — simpler than one dump per app) piped to minio via `mc`. No
+# retention/pruning automation — the bucket just grows; delete old dumps by
+# hand or add an `mc ilm` expiry rule if disk becomes a problem.
+backup:
+  enabled: true
+  schedule: "0 18 * * *"  # 18:00 UTC daily
+  bucket: postgres-backups
+  minioEndpoint: http://minio.minio.svc.cluster.local:9000
+  minioRootUser: admin
+  minioRootPassword: ""  # set via terraform variable

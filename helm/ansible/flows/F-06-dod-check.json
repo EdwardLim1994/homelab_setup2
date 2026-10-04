@@ -44,11 +44,11 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
-              "value": "🔬 DoD check running for story"
+              "value": "=🔬 DoD check running for story {{ $json.body.story_id }}"
             },
             {
               "name": "notes",
@@ -59,35 +59,56 @@
       }
     },
     {
-      "id": "1c5e32cb-eeda-4422-bd5b-80546a7143a3",
-      "name": "TL: DoD Evaluation",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "b6000001-0000-0000-0000-000000000001",
+      "name": "TL DoD Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         900,
         300
       ],
       "parameters": {
-        "command": "omp --role tech-lead --model slow --project {{ $env.REPO_DIR }} --prompt 'Evaluate Definition of Done for story tasks in {{ $json.body.version }}. Check: all tests pass, coverage ≥80%, no critical lint, pseudocode implemented fully. Output JSON: {pass: bool, notes: string}' --non-interactive"
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "tech-lead",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Evaluate Definition of Done for story {{ $json.body.story_id }} (branch {{ $json.body.story_branch }}) in project {{ $json.body.gitlab_project_path ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }} via glab: review its task branches for tests passing, no critical lint issues, and openspec pseudocode fully implemented. This is advisory only, not a merge gate — post your findings as a Taiga comment on the story (id {{ $json.body.story_id }}, same id embedded in its `us/GL-{{ $json.body.story_id }}` branch name): GET `{{ $env.TAIGA_URL }}/api/v1/userstories/{{ $json.body.story_id }}` for its current `.version`, then `curl -sH \"Authorization: Bearer {{ $env.TAIGA_TOKEN }}\" -X PATCH \"{{ $env.TAIGA_URL }}/api/v1/userstories/{{ $json.body.story_id }}\" -H \"Content-Type: application/json\" -d '{\"version\": V, \"comment\": \"...\"}'` if the story exists, otherwise just report the findings in your own output.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $json.body.story_id }}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
-      "id": "ac914dd1-65f2-4505-ba31-0f16a13feca7",
-      "name": "DoD Pass?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
+      "id": "1c5e32cb-eeda-4422-bd5b-80546a7143a3",
+      "name": "TL: DoD Evaluation",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
         1120,
         300
       ],
       "parameters": {
-        "conditions": {
-          "options": {
-            "leftValue": "={{ JSON.parse($json.stdout).pass }}",
-            "operation": "equals",
-            "rightValue": "true"
-          }
-        }
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
@@ -97,7 +118,7 @@
       "typeVersion": 4.2,
       "position": [
         1340,
-        200
+        300
       ],
       "parameters": {
         "method": "POST",
@@ -106,75 +127,12 @@
         "bodyParameters": {
           "parameters": [
             {
-              "name": "version",
-              "value": "={{ $json.body.version }}"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "73274a11-99a5-4946-8a9b-fcf129e509e4",
-      "name": "Notify: DoD fail feedback",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1340,
-        400
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "name": "story_id",
+              "value": "={{ $('Notify: DoD check').item.json.body.story_id }}"
             },
             {
-              "name": "message",
-              "value": "❌ DoD failed — feedback posted to task branches, re-triggering F-04"
-            },
-            {
-              "name": "notes",
-              "value": ""
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "bb1a533a-181e-4bba-8c29-5fd0fad2d6e3",
-      "name": "Re-trigger F-04 pods",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1560,
-        400
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/gitlab-task-mr-opened",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "retry",
-              "value": "true"
-            },
-            {
-              "name": "version",
-              "value": "={{ $json.body.version }}"
+              "name": "story_branch",
+              "value": "={{ $('Notify: DoD check').item.json.body.story_branch }}"
             }
           ]
         }
@@ -197,6 +155,17 @@
       "main": [
         [
           {
+            "node": "TL DoD Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TL DoD Input": {
+      "main": [
+        [
+          {
             "node": "TL: DoD Evaluation",
             "type": "main",
             "index": 0
@@ -208,36 +177,7 @@
       "main": [
         [
           {
-            "node": "DoD Pass?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "DoD Pass?": {
-      "main": [
-        [
-          {
             "node": "→ F-07 Story MR",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Notify: DoD fail feedback",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Notify: DoD fail feedback": {
-      "main": [
-        [
-          {
-            "node": "Re-trigger F-04 pods",
             "type": "main",
             "index": 0
           }

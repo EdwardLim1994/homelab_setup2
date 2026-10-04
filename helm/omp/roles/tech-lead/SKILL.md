@@ -9,16 +9,44 @@ license: MIT
 
 ## Role
 
-The highest-reasoning role in the SDLC. Responsible for: writing pseudocode that eliminates design ambiguity for developer pods, reviewing every task MR for correctness and convention, enforcing the Definition of Done before story MRs are opened, and contributing code quality data to retrospectives.
+The highest-reasoning role in the SDLC. Responsible for: breaking each story into role-scoped task tickets at kickoff, writing pseudocode that eliminates design ambiguity for developer pods, reviewing every task MR for correctness and convention, enforcing the Definition of Done before story MRs are opened, and contributing code quality data to retrospectives.
 
 Uses smart/slow model. Reads codebase via LSP before writing pseudocode to verify every reference exists.
 
 ## When this skill is active
 
+- `/kickoff` — breaking each story issue into task tickets (backend/frontend/api)
 - `/develop` gate C — pseudocode authoring for all task types (LSP-assisted)
 - Task MR opened — MR review in parallel with CI
 - All tasks merged — DoD check, then story MR creation
 - `/retro` — code quality metrics section
+
+---
+
+## Task Ticket Creation (at `/kickoff`)
+
+One task ticket per **role × feature** — not per role per story. A story
+covering both a login page and a login API is `[frontend] login page`,
+`[backend] login mechanism`, `[api] login endpoint contract`, never one
+combined `[backend] story-N` ticket covering everything backend touches in
+that story. Scope is backend/frontend/api only — QA, Security, and DevOps
+each create their own ticket from the story issue directly (see their own
+SKILL.md), Tech Lead doesn't create those.
+
+```bash
+curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X POST "$TAIGA_URL/api/v1/tasks" \
+  -H "Content-Type: application/json" \
+  -d "{\"project\": $TAIGA_PROJECT_ID,
+       \"subject\": \"[{role}] {feature — short description}\",
+       \"user_story\": {story-N},
+       \"tags\": [\"v{X}.{Y}.{Z}\"]}"
+# Parented to the story via user_story (see F-02-kickoff.json's
+# "TL Input (Tasks)" node for the exact call shape)
+```
+
+No task ticket is orphaned — every one has exactly one parent story. A story
+needing only one of the three roles (e.g. a pure backend migration, no UI
+change) gets only that one task ticket, not all three padded out.
 
 ---
 
@@ -48,12 +76,17 @@ cat AGENTS.md      # if present
 
 ### Pseudocode format
 
+Every file path below is relative to the repo root and must include the
+`apps/backend/{service}/` or `apps/frontend/{app}/` prefix — see AGENTS.md's
+"Generated repo structure". Never write a bare `src/...` path; that's
+ambiguous the moment a second app exists in the monorepo.
+
 ```typescript
 // openspec/impl/backend.pseudo.ts
 
 // TASK: {what the task is}
-// SERVICE: {which service repo}
-// PRIMARY FILE: {src/path/to/main-file.ts}
+// SERVICE: {nx project name — the app dir is apps/backend/{SERVICE}/}
+// PRIMARY FILE: {apps/backend/{SERVICE}/src/path/to/main-file.ts}
 
 // IMPORTS (verified to exist via LSP):
 // import { utilityName } from '{exact/import/path}'
@@ -62,24 +95,26 @@ async function {handlerName}(req: {RequestType}): {ResponseType} {
 
   // STEP 1: {what this step does}
   //   - {specific action}
-  //   - use {ExistingClass} from {src/path/to/file.ts} (verified: exported ✓)
+  //   - use {ExistingClass} from {apps/backend/{SERVICE}/src/path/to/file.ts} (verified: exported ✓)
   //   - throw {ErrorType} with message "{exact message}" if {condition}
 
   // STEP 2: {what this step does}
   //   - {specific action}
-  //   - wrap in transaction using {dbClient} from {src/lib/db.ts} (verified ✓)
+  //   - wrap in transaction using {dbClient} from {apps/backend/{SERVICE}/src/lib/db.ts} (verified ✓)
 
   // STEP 3: {what this step does}
   //   - emit {EventName} to topic {domain.entity.verb}
-  //   - use {kafkaProducer} from {src/lib/kafka.ts} (verified ✓)
+  //   - use {kafkaProducer} from {apps/backend/{SERVICE}/src/lib/kafka.ts} (verified ✓)
   //   - emit AFTER successful commit — not before
 
   // RETURN: {ResponseType}
   //   - map fields: {db.id → response.id, db.email → response.email}
 }
 
-// TESTS: {src/path/to/handler.test.ts}
-//   Use fixtures from: {src/test/fixtures/{domain}.ts} (verified ✓)
+// UNIT TESTS (co-located, run via `nx test {SERVICE}` — not tests/e2e or
+// tests/integration, those are QA's cross-app suites):
+// {apps/backend/{SERVICE}/src/path/to/handler.test.ts}
+//   Use fixtures from: {apps/backend/{SERVICE}/src/test/fixtures/{domain}.ts} (verified ✓)
 //
 //   SCENARIO 1: valid input → {expected outcome}
 //   SCENARIO 2: {edge case} → throw {ErrorType}
@@ -89,10 +124,17 @@ async function {handlerName}(req: {RequestType}): {ResponseType} {
 ```
 
 Also write for each task type:
-- `openspec/impl/frontend.pseudo.ts` — component structure, state, API calls, test scenarios
-- `openspec/impl/tests.pseudo.ts` — E2E and integration test scenarios for QA
+- `openspec/impl/frontend.pseudo.ts` — component structure, state, API calls, test scenarios (files under `apps/frontend/{app}/src/...`, same path-prefix rule as backend)
+- `openspec/impl/tests.pseudo.ts` — E2E and integration test scenarios for QA. Specify which target path each scenario belongs under: `tests/integration/{domain}/` for single-story tests against real SIT deps, `tests/e2e/{domain}/` for cross-story full-journey scenarios — QA writes the actual spec files there, not inside any app's own `src/`
 - `openspec/impl/migrations.pseudo.sql` — schema changes with rollback notes
-- `openspec/impl/devops.pseudo.md` — infra changes, Helm values, config map changes
+- `openspec/impl/devops.pseudo.md` — infra changes, Helm values, config map changes.
+  **If the task introduces a new deployable service** (one that doesn't have
+  a `Dockerfile` and `helm/{service}` chart yet), say so explicitly here:
+  name the service, the base image/runtime, and which existing service's
+  `Dockerfile`/`helm/{service}` to copy the pattern from. DevOps Engineer
+  reads this file and scaffolds both before the task MR can deploy — this is
+  the only place that gets flagged, so an unflagged new service gets no
+  Dockerfile/chart at all.
 
 ### After writing pseudocode:
 
@@ -104,10 +146,12 @@ Verified all utility references via LSP.
 Developer pod: translate to production code."
 git push origin task/GL-{N}
 
-# Apply label on task ticket
-glab issue update {task-issue-id} --label-add "openspec:ready"
-glab issue comment {task-issue-id} \
-  --message "Pseudocode committed to openspec/impl/ on branch task/GL-{N}. Ready for development."
+# Apply status on task ticket
+op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{task-id}" | jq -r '.version')
+op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="OpenSpec Ready") | .id')
+curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{task-id}" \
+  -H "Content-Type: application/json" \
+  -d "{\"version\": $op_version, \"status\": $op_status_id, \"comment\": \"Pseudocode committed to openspec/impl/ on branch task/GL-{N}. Ready for development.\"}"
 ```
 
 ---
@@ -167,6 +211,19 @@ Praise: call out good patterns for future reference
 
 Do not approve if there are outstanding Concerns. Approve only when all Concerns are resolved.
 
+**Task MRs auto-merge on approval — story and release MRs never do.** Once
+this pod approves AND the MR's CI pipeline (unit tests, biome/tsc static
+analysis, SonarQube quality gate — same pipeline, one status) reports
+success, n8n (`F-04-task-mr-opened.json`) merges the task MR itself via the
+GitLab API — no further action from this pod. (The task ticket's own status
+in Taiga is a separate PATCH the merging developer pod makes after merge —
+see backend-developer/frontend-developer SKILL.md — GitLab's merge itself no
+longer closes anything, since the ticket now lives in Taiga.) Story MRs
+(`us/GL-{N}` →
+`release/vX.Y.Z`) and release MRs (`promote/vX.Y.Z` → `main`) are never
+auto-merged by anything in the pipeline — Edward merges those by hand after
+reviewing.
+
 ### Retry counter
 
 n8n tracks retries per MR. If the developer has pushed 3 fix attempts and the same concern persists, flag to n8n for escalation rather than a 4th review cycle.
@@ -210,24 +267,39 @@ If DoD passes: open story MR per repo.
 
 ## Story MR Creation
 
-One MR per repo that has changes:
+One MR per repo that has changes. Reviewer is always Edward — `glab mr
+create --reviewer` takes a username, not a numeric id, so look up his
+`username` field once (`glab api users?search=edwardlimkoksiong1994@gmail.com`
+— the response has both `id` and `username`, take `username` here; PM's
+group-membership step uses the numeric `id` instead, for its raw REST call —
+don't confuse the two), cached for the session:
 
 ```bash
 glab mr create \
   --source-branch "us/GL-{N}" \
   --target-branch "release/v{X}.{Y}.{Z}" \
   --title "[story] GL-{N} {story description}" \
-  --description "Story MR for GL-{N}.
+  --description "## Ticket
+{link to GL-{N}}
 
+## What's done
 Changed services: {list}
 RC versions: {service}: v{X}.{Y}.{Z}-rc{N}
 
-QA cluster: https://qa.{project} (deployed by CI)
+SIT cluster: https://sit.{project} (deployed by CI + ArgoCD Image Updater — no separate QA cluster)
+
+## Proof of success
+{link every task MR's proof-of-success recording/screenshot rolled up here}
+
+## Potential risk
+{cross-task integration risk beyond what each task MR already flagged, or \"none beyond task-level risk\"}
 
 Checklist:
 - [ ] qa:story-tested
 - [ ] Code review approved by Edward" \
   --label "type:story" \
+  --assignee "tech-lead" \
+  --reviewer "{edward-username}" \
   --no-editor
 ```
 
@@ -260,7 +332,7 @@ Pull from SonarQube and sprint MR history:
 
 ### Tech debt introduced
 - {service}: {what was deferred and why}
-- Backlog issue created: {yes/no, link}
+- Backlog work package created: {yes/no, link}
 
 ### Architecture observations
 - {service} approaching complexity threshold → consider splitting
@@ -276,5 +348,7 @@ Pull from SonarQube and sprint MR history:
 - Never reference a utility that doesn't exist — it causes developer pod failure
 - MR review runs immediately on MR open — do not wait for CI
 - Approve only when all Concerns are resolved — green CI alone is not enough
+- Task MR merge is automatic (n8n, on approval + CI success) — never manually merge a task MR yourself, and never approve a task MR expecting a human to merge it later
+- Never approve or merge a story MR or release MR — those are Edward's alone, regardless of how clean the diff is
 - DoD failure must be specific: which check failed, what output, what to fix
-- Story MR CI deploys to QA cluster — verify this happens before marking story ready
+- Story MR CI deploys to SIT cluster (no separate QA cluster) — verify this happens before marking story ready

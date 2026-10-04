@@ -1,0 +1,9 @@
+namespace: sdlc
+
+# ponytail: official mermaid-cli (mmdc) image, already has node + its
+# puppeteer/chromium dependency working — no custom image build needed,
+# same reasoning that ruled out hand-rolling draw.io's Electron stack.
+# Our own HTTP wrapper is mounted in via ConfigMap (server.js), same
+# convention as helm/omp/templates/adapter.yaml's server.py.
+image: minlag/mermaid-cli:latest
+port: 4098

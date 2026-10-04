@@ -62,26 +62,34 @@ run_playbook() {
   # ponytail: poll the job's terminal condition. `kubectl wait
   # --for=condition=complete` blocks the full --timeout on a Failed job, and a
   # job that TTL-reaps after succeeding disappears entirely — treat "gone" as
-  # complete, not a hang.
-  local i types seen="" rc=1 last_beat=0
+  # complete, not a hang. A single failed `kubectl get job` is frequently just
+  # a transient API-server blip (TLS handshake timeout, brief network flake),
+  # NOT proof the job vanished — require 3 CONSECUTIVE failures before
+  # concluding that, and track every blip so the final RESULT line can flag
+  # "succeeded, but polling was flaky" instead of silently hiding it.
+  local i types seen="" rc=1 last_beat=0 gone_streak=0 blips=0
   for ((i = 0; i < 400; i++)); do
     if ! kubectl -n "$NS" get job "$job" >/dev/null 2>&1; then
-      # Job GC'd out from under us (ttl is set high enough this shouldn't
-      # normally happen). Trust the last condition we saw; unknown = failure.
+      gone_streak=$((gone_streak + 1)); blips=$((blips + 1))
+      if (( gone_streak < 3 )); then
+        sleep 2
+        continue
+      fi
       case " $seen " in
-        *" Complete "*) echo "${prefix}Job complete (reaped)."; rc=0 ;;
-        *) echo "${prefix}Job vanished before completing — kubectl -n $NS get events"; rc=1 ;;
+        *" Complete "*) rc=0 ;;
+        *) rc=1 ;;
       esac
       break
     fi
+    gone_streak=0
     types=$(kubectl -n "$NS" get job "$job" -o jsonpath='{.status.conditions[*].type}' 2>/dev/null || true)
+    [ -z "$types" ] && blips=$((blips + 1))
     seen="$types"
     case " $types " in
-      *" Complete "*) echo "${prefix}Job complete."
+      *" Complete "*)
         kubectl -n "$NS" delete job "$job" --ignore-not-found >/dev/null 2>&1 || true
         rc=0; break ;;
-      *" Failed "*) echo "${prefix}Job FAILED — kubectl -n $NS describe job/$job"
-        rc=1; break ;;
+      *" Failed "*) rc=1; break ;;
     esac
     if (( i - last_beat >= 40 )); then
       echo "${prefix}...still running ($((i * 3))s)"; last_beat=$i
@@ -89,9 +97,23 @@ run_playbook() {
     sleep 3
   done
   [ -n "$tail_pid" ] && kill "$tail_pid" 2>/dev/null || true
+
   if (( i >= 400 )); then
-    echo "${prefix}Job timed out after 20m — kubectl -n $NS describe job/$job"
+    echo "${prefix}RESULT: FAILED — timed out after 20m — kubectl -n $NS describe job/$job"
     return 1
+  fi
+  if (( rc == 0 )); then
+    if (( blips > 0 )); then
+      echo "${prefix}RESULT: WARNING — job Complete, but $blips transient kubectl API blip(s) occurred while polling (not a real failure; verify yourself if unsure: kubectl -n $NS get job $job -o yaml)"
+    else
+      echo "${prefix}RESULT: SUCCESS — job Complete"
+    fi
+  else
+    if (( gone_streak >= 3 )); then
+      echo "${prefix}RESULT: FAILED — job genuinely vanished (confirmed gone across 3 consecutive checks, last seen condition: '${seen:-none}') — kubectl -n $NS get events"
+    else
+      echo "${prefix}RESULT: FAILED — job condition Failed — kubectl -n $NS describe job/$job"
+    fi
   fi
   return $rc
 }

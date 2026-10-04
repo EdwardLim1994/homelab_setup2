@@ -1,0 +1,13 @@
+apiVersion: v2
+name: apollo-router
+description: >-
+  One Apollo Router instance per (project, environment) — the API gateway
+  every generated project's frontend talks to, federating that project's own
+  backend GraphQL subgraphs into one supergraph. Never copied into a
+  generated project's own repo: packaged as an OCI artifact and pushed to
+  Harbor by terraform/internal/apollo-router-chart.tf, referenced by version
+  from each project's ArgoCD Application — see devops-engineer/SKILL.md's
+  "Apollo Router Provisioning". Only the composed supergraph schema and
+  subgraph routing URLs (both per-project data) live in the project repo,
+  as this chart's values.
+version: 0.1.0

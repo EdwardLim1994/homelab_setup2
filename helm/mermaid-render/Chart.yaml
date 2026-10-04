@@ -1,0 +1,5 @@
+apiVersion: v2
+name: mermaid-render
+description: Scale-to-zero mermaid-cli microservice for /plan_release diagram rendering
+type: application
+version: 0.1.0

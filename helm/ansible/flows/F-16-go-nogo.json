@@ -19,6 +19,19 @@
       "webhookId": "29d43455-5a2c-487c-8985-91a20aa4edb3"
     },
     {
+      "id": "b16000001-0000-0000-0000-000000000001",
+      "name": "Find Release Ticket",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const auth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst res = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks?project=${$env.TAIGA_PROJECT_ID}&tags=${$env.RELEASE_VERSION}`, headers: auth, json: true });\nconst ticket = (res || []).find(t => (t.subject || '').startsWith('[release]'));\nif (!ticket) throw new Error(`No release ticket found for ${$env.RELEASE_VERSION} — UAT sign-off must complete before go/no-go runs`);\nreturn [{ json: { ...$json, release_ticket_id: ticket.id } }];"
+      }
+    },
+    {
       "id": "e1c93f14-a8c2-465a-975a-4387f7790798",
       "name": "RM: Go/No-Go Decision",
       "type": "n8n-nodes-base.executeCommand",
@@ -52,40 +65,15 @@
     },
     {
       "id": "7a44622a-d6c8-4a4f-8b10-23a776c9a275",
-      "name": "Label: rm:go",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "name": "Set RM Go Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1120,
         200
       ],
       "parameters": {
-        "method": "PUT",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $env.RELEASE_TICKET_ID }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "__json",
-              "value": "{\"add_labels\":\"rm:go\"}"
-            }
-          ]
-        }
+        "jsCode": "const auth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst id = $node['Find Release Ticket'].json.release_ticket_id;\nconst task = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: auth, json: true });\nconst statuses = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/task-statuses?project=${$env.TAIGA_PROJECT_ID}`, headers: auth, json: true });\nconst statusId = statuses.find(s => s.name === 'RM Go')?.id;\nawait this.helpers.httpRequest({ method: 'PATCH', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: { ...auth, 'Content-Type': 'application/json' }, body: { version: task.version, status: statusId, comment: 'GO decision — cleared for /release_production.' }, json: true });\nreturn [{ json: $json }];"
       }
     },
     {
@@ -114,7 +102,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -154,7 +142,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -171,6 +159,17 @@
   ],
   "connections": {
     "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Find Release Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Release Ticket": {
       "main": [
         [
           {
@@ -196,7 +195,7 @@
       "main": [
         [
           {
-            "node": "Label: rm:go",
+            "node": "Set RM Go Status",
             "type": "main",
             "index": 0
           }
@@ -210,7 +209,7 @@
         ]
       ]
     },
-    "Label: rm:go": {
+    "Set RM Go Status": {
       "main": [
         [
           {

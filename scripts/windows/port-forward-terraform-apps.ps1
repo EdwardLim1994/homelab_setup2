@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
-# Local port-forwards for the terraform-deployed apps (Tilt does this itself).
+# Local port-forwards for the terraform-deployed apps.
 #
 # Browser / SSO: use the TAILNET column - https://<app>.<tailnet_domain>, served
-# by the Tailscale k8s operator (terraform/tailscale-ingress.tf). Every OIDC app
+# by the Tailscale k8s operator (terraform/internal/tailscale-ingress.tf). Every OIDC app
 # (argocd, litellm, grafana, gitlab, nextcloud) bakes that exact
 # origin into its redirect_uri, so logging in through the localhost forward or a
 # `tailscale serve` port fails ("redirect_uri mismatch" / "Invalid redirect URL").

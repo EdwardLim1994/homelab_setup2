@@ -1,0 +1,21 @@
+# ponytail: sit/uat/production only. No OIDC (no reachable Authentik-for-
+# discovery path set up here the way values.yaml's does on internal), no
+# homelab-CA trust, no local-domain ingress - just object storage. rootUser/
+# rootPassword set via terraform `set_sensitive`, not in this file.
+minio:
+  # ponytail: chart default is the __MINIO_TRUSTED_CA_SECRET__ placeholder
+  # (internal substitutes it via terraform); phase clusters have no homelab
+  # CA, empty disables the volume mount entirely.
+  trustedCertsSecret: ""
+  mode: standalone
+  replicas: 1
+  drivesPerNode: 1
+  pools: 1
+
+  persistence:
+    size: 2Gi
+
+  ingress:
+    enabled: false
+  consoleIngress:
+    enabled: false

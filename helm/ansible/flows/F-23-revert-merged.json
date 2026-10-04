@@ -21,39 +21,14 @@
     {
       "id": "ded48d7b-dcbf-48a5-9967-98fd7004248d",
       "name": "Label story: Deferred",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         680,
         300
       ],
       "parameters": {
-        "method": "PUT",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $json.object_attributes.source_branch.split('/')[1] }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "__json",
-              "value": "{\"add_labels\":\"status:deferred\",\"remove_labels\":\"status:in-progress\"}"
-            }
-          ]
-        }
+        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\n// branch is 'us/GL-{story id}' — GL- is branch-naming vocabulary only, {N} is the Taiga userstory id\nconst storyId = $json.object_attributes.source_branch.split('/')[1].split('-')[1];\nconst story = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/userstories/${storyId}`, headers: taigaAuth, json: true });\nconst statusesRes = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/userstory-statuses`, qs: { project: $env.TAIGA_PROJECT_ID }, headers: taigaAuth, json: true });\nconst deferredStatusId = statusesRes.find(s => s.name === 'Deferred').id;\nawait this.helpers.httpRequest({\n  method: 'PATCH',\n  url: `${$env.TAIGA_URL}/api/v1/userstories/${storyId}`,\n  headers: { ...taigaAuth, 'Content-Type': 'application/json' },\n  body: { version: story.version, status: deferredStatusId },\n  json: true,\n});\nreturn [{ json: { ...$json, story_id: storyId } }];"
       }
     },
     {
@@ -82,7 +57,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",

@@ -30,10 +30,12 @@ data:
     {{- range .Values.databases }}
     app_db {{ . | quote }}
     {{- end }}
+    {{- if .Values.gitlabDatabase }}
     app_db {{ .Values.gitlabDatabase | quote }} gitlab
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d {{ .Values.gitlabDatabase | quote }} \
       -c "CREATE EXTENSION IF NOT EXISTS pg_trgm" \
       -c "CREATE EXTENSION IF NOT EXISTS btree_gist"
+    {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -105,7 +107,7 @@ spec:
               command: ["pg_isready", "-U", "postgres", "-d", "postgres"]
             initialDelaySeconds: 20
             periodSeconds: 10
-            failureThreshold: 60
+            failureThreshold: 180
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data

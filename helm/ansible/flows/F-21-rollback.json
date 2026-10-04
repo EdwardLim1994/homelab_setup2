@@ -44,7 +44,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -59,66 +59,69 @@
       }
     },
     {
-      "id": "d1277724-73cf-477c-bff4-a4ccfb2402a5",
-      "name": "ArgoCD: Rollback Production",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "f21000001-0000-0000-0000-000000000001",
+      "name": "DevOps Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         900,
         300
       ],
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.ARGOCD_URL }}/api/v1/applications/{{ $env.ARGOCD_PROJECT }}-production/sync",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
             {
-              "name": "Authorization",
-              "value": "Bearer {{ $env.ARGOCD_TOKEN }}"
+              "id": "1",
+              "name": "role",
+              "value": "devops-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Roll production back from the failed {{ $json.body.version }} deploy — there is no single ArgoCD Application per environment (each service has its own, `<ARGOCD_PROJECT>-<service>-production`), and 'rollback' here means restoring the previous known-good image tag, not re-syncing current (broken) state. For every file under env/production/*/values.yaml: run `git log -2 --format=%H -- <file>` to get its previous commit (before the {{ $json.body.version }} deploy that just failed), then `git show <previous-commit>:<file>` to read that prior version's content, and overwrite the current file with it. Commit all reverted files in one commit ('rollback: revert production to pre-{{ $json.body.version }} state') and push to main — ArgoCD's automated syncPolicy on each production Application picks up the reverted tag from there. Then wait for each service's production Deployment rollout to complete (kubectl --context $PRODUCTION_CLUSTER_CONTEXT rollout status deployment/<service> -n hr-portal --timeout=120s). If any env/production/*/values.yaml has no prior commit (first-ever deploy, nothing to roll back to), flag that service explicitly rather than silently skipping it. Report which services were reverted and to which tags.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $env.RELEASE_VERSION }}",
+              "type": "string"
             }
           ]
         }
       }
     },
     {
+      "id": "f21000001-0000-0000-0000-000000000002",
+      "name": "DevOps: Revert Production",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1000,
+        300
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
       "id": "988fb99a-f4e9-454c-84c6-8ae4f212101a",
       "name": "Open Incident Ticket",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1120,
         300
       ],
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "__json",
-              "value": "{\"title\":\"[INCIDENT] Production rollback {{ $env.RELEASE_VERSION }}\",\"labels\":\"type:incident\",\"description\":\"Auto-created on /rollback\"}"
-            }
-          ]
-        }
+        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst created = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `${$env.TAIGA_URL}/api/v1/issues`,\n  headers: { ...taigaAuth, 'Content-Type': 'application/json' },\n  body: { project: $env.TAIGA_PROJECT_ID, subject: `[bugfix] Production rollback ${$env.RELEASE_VERSION}`, description: 'Auto-created on /rollback', tags: [$env.RELEASE_VERSION] },\n  json: true,\n});\nreturn [{ json: { ...$json, incident_ticket_id: created.id } }];"
       }
     },
     {
@@ -147,7 +150,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -178,14 +181,25 @@
       "main": [
         [
           {
-            "node": "ArgoCD: Rollback Production",
+            "node": "DevOps Input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "ArgoCD: Rollback Production": {
+    "DevOps Input": {
+      "main": [
+        [
+          {
+            "node": "DevOps: Revert Production",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DevOps: Revert Production": {
       "main": [
         [
           {

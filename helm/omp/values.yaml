@@ -22,11 +22,18 @@ args: ["/opt/pod-openai.py"]
 env:
   BACKEND: "claude"
   CLAUDE_MODEL: "sonnet"
+  CLAUDE_EFFORT: "low"
+  # ponytail: same tokens as helm/litellm's mcpSonarqubeAuthToken /
+  # mcpGitlabAuthToken / mcpN8nAuthToken — this chart has no terraform
+  # release of its own (only its Dockerfile is used, by omp-agent.tf), so
+  # these stay blank until/unless that changes. Blank = that server's tools 403.
+  MCP_SONARQUBE_TOKEN: ""
+  MCP_GITLAB_TOKEN: ""
+  MCP_N8N_TOKEN: ""
 
 # ponytail: Secret (key CLAUDE_CODE_OAUTH_TOKEN) mounted as envFrom into every
-# omp pod — used when a pod runs the `claude` CLI instead of omp. The Tiltfile
-# creates it from TF_VAR_claude_code_token in .env. Set secretName: "" to drop
-# the mount entirely.
+# omp pod — used when a pod runs the `claude` CLI instead of omp. Set
+# secretName: "" to drop the mount entirely.
 claudeAuth:
   secretName: omp-claude-auth
 

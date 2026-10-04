@@ -1,0 +1,35 @@
+# ponytail: sit/uat/production only. Unlike values.yaml (internal cluster -
+# shared postgres/redis, tailscale/OIDC/traefik-local ingress wiring) these
+# phase clusters get their own dedicated postgres/redis pods instead (see
+# postgres.tf/redis.tf) - no ingress (reached via port-forward/in-cluster
+# only for now).
+# secret_key / bootstrap token+password are set via terraform `set_sensitive`
+# (same pattern as internal's authentik.tf), not in this file.
+authentik:
+  authentik:
+    log_level: info
+
+    # ponytail: dedicated postgres:16 / redis:7-alpine per phase cluster
+    # (postgres.tf / redis.tf in platform-apps, same official images as
+    # internal's helm/postgres / helm/redis) — avoids the goauthentik chart's
+    # bundled bitnami postgresql/redis subcharts entirely.
+    postgresql:
+      host: "postgres.postgres.svc.cluster.local"
+      name: "authentik"
+      user: "authentik"
+      password: ""  # set via terraform (phase_shared_db_password)
+    redis:
+      host: "redis.redis.svc.cluster.local"
+
+  postgresql:
+    enabled: false
+  redis:
+    enabled: false
+
+  server:
+    replicas: 1
+    ingress:
+      enabled: false
+
+  worker:
+    replicas: 1

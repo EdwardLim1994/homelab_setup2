@@ -1,0 +1,74 @@
+# ponytail: sit/uat/production's kafka lives on separate Docker networks —
+# same host.docker.internal NodePort bridge as the gitlab-registry mirror /
+# opencost->Mimir push (see scripts/*/create-cluster.sh), just in the other
+# direction: each phase cluster exposes its kafka via a NodePort on ITS OWN
+# k3d loadbalancer (terraform/modules/platform-apps/kafka.tf), and this pod
+# dials out to host.docker.internal:<that port>.
+kafka-ui:
+  fullnameOverride: "kafka-ui"
+
+  yamlApplicationConfig:
+    kafka:
+      clusters:
+        - name: sit
+          bootstrapServers: host.docker.internal:30901
+        # ponytail: uat/production's k3d clusters are stopped more often than
+        # not (not every session needs the phase pipeline) -- kafbat-ui has
+        # no health-aware backoff of its own, so a down cluster's AdminClient
+        # gets recreated and reconnected on every scheduled poll using Kafka's
+        # DEFAULT backoff (fast, sub-second), burning real CPU on the shared
+        # Docker Desktop VM for nothing. These properties pass straight
+        # through to the underlying Kafka client config -- raises the floor
+        # so a dead cluster is retried every 10-60s instead of continuously.
+        # Harmless when the cluster IS up: just a slightly slower first
+        # discovery, no effect on steady-state polling once connected.
+        - name: uat
+          bootstrapServers: host.docker.internal:30902
+          properties:
+            reconnect.backoff.ms: 10000
+            reconnect.backoff.max.ms: 60000
+            retry.backoff.ms: 10000
+            request.timeout.ms: 10000
+            default.api.timeout.ms: 10000
+        - name: production
+          bootstrapServers: host.docker.internal:30903
+          properties:
+            reconnect.backoff.ms: 10000
+            reconnect.backoff.max.ms: 60000
+            retry.backoff.ms: 10000
+            request.timeout.ms: 10000
+            default.api.timeout.ms: 10000
+    # ponytail: kafbat-ui does NOT use Spring Boot's standard
+    # spring.security.oauth2.client.* — it binds its own flat OAuthProperties
+    # class at auth.oauth2.client.<name> (see OAuthSecurityConfig.java /
+    # OAuthProperties.java upstream). The standard-looking schema fails with
+    # "OAuth2 authentication is enabled but no providers specified" since
+    # Spring never sees it as a provider at all.
+    auth:
+      type: OAUTH2
+      oauth2:
+        client:
+          authentik:
+            provider: authentik
+            client-id: "__KAFKA_UI_OIDC_CLIENT_ID__"
+            client-secret: "__KAFKA_UI_OIDC_CLIENT_SECRET__"
+            client-name: authentik
+            authorization-grant-type: authorization_code
+            redirect-uri: "__APP_URL__/login/oauth2/code/authentik"
+            scope: [openid, profile, email]
+            # ponytail: authorization is browser-navigated (Tailscale HTTPS
+            # external); token/user-info/jwks are server-side calls — use
+            # in-cluster HTTP so kafka-ui never has to trust the homelab CA
+            # (same split as litellm/grafana/gitlab).
+            authorization-uri: "__AUTHENTIK_URL__/application/o/authorize/"
+            token-uri: "http://authentik-server.authentik.svc.cluster.local/application/o/token/"
+            user-info-uri: "http://authentik-server.authentik.svc.cluster.local/application/o/userinfo/"
+            jwk-set-uri: "http://authentik-server.authentik.svc.cluster.local/application/o/kafka-ui/jwks/"
+            user-name-attribute: preferred_username
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi

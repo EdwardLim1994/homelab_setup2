@@ -21,26 +21,14 @@
     {
       "id": "d0342401-24c5-437f-a35c-d26606bdeba7",
       "name": "Query DAG State",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         680,
         300
       ],
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues?milestone={{ $env.RELEASE_VERSION }}&per_page=100",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
-            }
-          ]
-        }
+        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst tag = $env.RELEASE_VERSION;\nconst stories = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/userstories`, qs: { project: $env.TAIGA_PROJECT_ID, tags: tag }, headers: taigaAuth, json: true });\nconst tasks = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks`, qs: { project: $env.TAIGA_PROJECT_ID, tags: tag }, headers: taigaAuth, json: true });\nreturn [\n  ...stories.map(s => ({ json: { ...s, _taigaType: 'userstory' } })),\n  ...tasks.map(t => ({ json: { ...t, _taigaType: 'task' } })),\n];"
       }
     },
     {
@@ -53,7 +41,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "\nconst issues = $input.all().map(i => i.json);\nconst stories = issues.filter(i => i.labels.includes('type:user-story'));\nconst tasks = issues.filter(i => i.labels.includes('type:task'));\nconst open = stories.filter(i => i.state === 'opened').length;\nconst merged = stories.filter(i => i.labels.includes('merged-to-release')).length;\nreturn [{json: {\n  version: $env.RELEASE_VERSION,\n  stories_total: stories.length,\n  stories_open: open,\n  stories_merged: merged,\n  tasks_open: tasks.filter(i => i.state === 'opened').length,\n  tasks_closed: tasks.filter(i => i.state === 'closed').length,\n  dag_paused: $env.DAG_PAUSED ?? false,\n  summary: `${merged}/${stories.length} stories merged, ${tasks.filter(i=>i.state==='opened').length} tasks open`\n}}];\n"
+        "jsCode": "\nconst items = $input.all().map(i => i.json);\nconst stories = items.filter(t => t._taigaType === 'userstory');\nconst tasks = items.filter(t => t._taigaType === 'task');\nconst open = stories.filter(t => !t.is_closed).length;\nconst merged = stories.filter(t => t.is_closed).length;\nconst tasksOpen = tasks.filter(t => !t.is_closed).length;\nconst tasksClosed = tasks.filter(t => t.is_closed).length;\nreturn [{json: {\n  version: $env.RELEASE_VERSION,\n  stories_total: stories.length,\n  stories_open: open,\n  stories_merged: merged,\n  tasks_open: tasksOpen,\n  tasks_closed: tasksClosed,\n  dag_paused: $env.DAG_PAUSED ?? false,\n  summary: `${merged}/${stories.length} stories merged, ${tasksOpen} tasks open`\n}}];\n"
       }
     },
     {
@@ -82,7 +70,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",

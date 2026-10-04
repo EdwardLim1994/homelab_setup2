@@ -1,0 +1,88 @@
+# One phase's ArgoCD cluster registration. include_tasks'd in a loop by
+# argocd-clusters.yml — this ansible-core version doesn't support `loop`
+# directly on a `block`, only on include_tasks/import_tasks.
+- name: "{{ phase }}: compute vars"
+  ansible.builtin.set_fact:
+    context_name: "k3d-{{ phase }}"
+    cluster_entry: "{{ (kubeconfig_data.clusters | selectattr('name', 'equalto', 'k3d-' + phase) | first) }}"
+
+- name: "{{ phase }}: ensure argocd-manager ServiceAccount"
+  kubernetes.core.k8s:
+    kubeconfig: "{{ external_kubeconfig }}"
+    context: "{{ context_name }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: argocd-manager
+        namespace: kube-system
+
+- name: "{{ phase }}: ensure cluster-admin binding"
+  kubernetes.core.k8s:
+    kubeconfig: "{{ external_kubeconfig }}"
+    context: "{{ context_name }}"
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: argocd-manager
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: cluster-admin
+      subjects:
+        - kind: ServiceAccount
+          name: argocd-manager
+          namespace: kube-system
+
+- name: "{{ phase }}: ensure long-lived token Secret (SA tokens don't auto-mint one from 1.24+)"
+  kubernetes.core.k8s:
+    kubeconfig: "{{ external_kubeconfig }}"
+    context: "{{ context_name }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/service-account-token
+      metadata:
+        name: argocd-manager-token
+        namespace: kube-system
+        annotations:
+          kubernetes.io/service-account.name: argocd-manager
+
+- name: "{{ phase }}: read the minted token"
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ external_kubeconfig }}"
+    context: "{{ context_name }}"
+    api_version: v1
+    kind: Secret
+    name: argocd-manager-token
+    namespace: kube-system
+  register: token_secret
+  until: "'token' in (token_secret.resources[0].data | default({}))"
+  retries: 10
+  delay: 3
+
+- name: "{{ phase }}: register with ArgoCD (Secret in argocd namespace, ambient in-cluster SA)"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "cluster-{{ phase }}"
+        namespace: argocd
+        labels:
+          argocd.argoproj.io/secret-type: cluster
+      stringData:
+        name: "{{ phase }}"
+        server: "{{ cluster_entry.cluster.server }}"
+        # ponytail: skip TLS verification instead of wiring the CA —
+        # host.docker.internal never matches the cluster cert's SANs
+        # anyway, so it's insecure-or-nothing here. Revisit if this
+        # stack ever leaves a single trusted docker host.
+        # to_json (not a hand-folded string) so this is guaranteed a plain
+        # string value, not a nested YAML mapping under stringData.
+        config: "{{ {'bearerToken': token_secret.resources[0].data.token | b64decode, 'tlsClientConfig': {'insecure': true}} | to_json }}"

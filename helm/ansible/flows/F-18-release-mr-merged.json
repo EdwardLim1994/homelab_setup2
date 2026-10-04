@@ -44,15 +44,91 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
-              "value": "🎯 Release MR merged — production CI building"
+              "value": "🎯 Release MR merged — deploying full-version images to production (no rebuild, retagged image already in the registry)"
             },
             {
               "name": "notes",
               "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f18000001-0000-0000-0000-000000000001",
+      "name": "DevOps Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "devops-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Deploy release {{ $env.RELEASE_VERSION }} to production — no rebuild, the full-version image was already retagged and pushed during promotion, and already redeployed to UAT for staging checks. For every service under env/uat/*, read its current image tag from env/uat/{service}/values.yaml, and write that same tag into env/production/{service}/values.yaml on main (create the file if this is the service's first production deploy — copy the shape of an existing env/production/*/values.yaml, or env/uat/*/values.yaml if none exists yet). Commit all edited files in one commit ('chore: deploy {{ $env.RELEASE_VERSION }} to production') and push to main — ArgoCD's automated syncPolicy on each production Application picks it up from there (no image-updater on production, explicit sync only, same as UAT). Then wait for each service's production Deployment rollout to complete (kubectl --context $PRODUCTION_CLUSTER_CONTEXT rollout status deployment/<service> -n hr-portal --timeout=120s) before reporting done — do not report success until rollout is actually confirmed, not just committed.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $env.RELEASE_VERSION }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f18000001-0000-0000-0000-000000000002",
+      "name": "DevOps: Deploy Production",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "f18000001-0000-0000-0000-000000000003",
+      "name": "→ F-19 Production Deployed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/production-deployed",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "version",
+              "value": "={{ $env.RELEASE_VERSION }}"
             }
           ]
         }
@@ -65,6 +141,39 @@
         [
           {
             "node": "Notify: Release MR merged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Release MR merged": {
+      "main": [
+        [
+          {
+            "node": "DevOps Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DevOps Input": {
+      "main": [
+        [
+          {
+            "node": "DevOps: Deploy Production",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DevOps: Deploy Production": {
+      "main": [
+        [
+          {
+            "node": "→ F-19 Production Deployed",
             "type": "main",
             "index": 0
           }

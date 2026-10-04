@@ -1,0 +1,50 @@
+harbor:
+  fullnameOverride: "harbor"
+
+  # ponytail: must be the external browser-facing URL, not the in-cluster
+  # one — Harbor computes its OIDC redirect_uri FROM this value, and that
+  # redirect has to (a) be reachable by the browser and (b) match what's
+  # registered in Authentik (STRICT redirect-uri matching). This does NOT
+  # affect in-cluster CI push / image-updater / phase-cluster pulls — those
+  # connect directly to harbor.harbor.svc.cluster.local:80 regardless of
+  # what Harbor thinks its own external URL is.
+  externalURL: "__APP_URL__"
+
+  harborAdminPassword: "__HARBOR_ADMIN_PASSWORD__"
+
+  # ponytail: no chart-owned Ingress — clusterIP only. Both the tailnet and
+  # `.local` LAN ingresses are created directly in terraform/internal/harbor.tf
+  # (same kubectl_manifest shape as tailscale-ingress.tf) pointing at the
+  # chart's own unified `harbor` Service, sidestepping this chart's own
+  # ingress value schema entirely.
+  expose:
+    type: clusterIP
+    tls:
+      enabled: false
+
+  # shared postgres (helm/postgres) — not the chart's bundled database,
+  # matching every other internal-cluster app's convention.
+  database:
+    type: external
+    external:
+      host: postgres.postgres.svc.cluster.local
+      port: "5432"
+      username: harbor
+      password: "__SHARED_DB_PASSWORD__"
+      coreDatabase: harbor
+      sslmode: disable
+
+  # shared redis (helm/redis) — DB 2 (gitlab=0, authentik=1, see
+  # helm/redis/values.yaml's comment).
+  redis:
+    type: external
+    external:
+      addr: "redis.redis.svc.cluster.local:6379"
+      db: "2"
+
+  # ponytail: vulnerability scanning is real extra weight (its own DB of CVEs
+  # to sync/store) a homelab registry doesn't need.
+  trivy:
+    enabled: false
+  notary:
+    enabled: false

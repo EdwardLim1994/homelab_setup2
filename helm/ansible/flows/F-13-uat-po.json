@@ -31,7 +31,7 @@
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            { "name": "flow_id", "value": "={{ $json.flow_id ?? '' }}" },
+            { "name": "flow_id", "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}" },
             { "name": "message", "value": "📦 UAT PO sign-off stage" },
             { "name": "notes", "value": "" }
           ]
@@ -84,27 +84,32 @@
       }
     },
     {
-      "id": "8494549e-9d8f-44ca-b852-a008f9bae0f1",
-      "name": "Label: po:uat-approved",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1520, 200],
+      "id": "b13000002-0000-0000-0000-000000000001",
+      "name": "RM Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1520, 120],
       "parameters": {
-        "method": "PUT",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $env.RELEASE_TICKET_ID }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "PRIVATE-TOKEN", "value": "={{ $env.GITLAB_TOKEN }}" },
-            { "name": "Content-Type", "value": "application/json" }
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "role", "value": "release-manager", "type": "string" },
+            { "id": "2", "name": "prompt", "value": "=All 3 UAT sign-offs are now confirmed for {{ $node['Webhook Trigger'].json.body.version }} (QA passed, Security cleared, PO just approved — this chain only reaches here if all three passed in order). Create the release ticket now in Taiga (`$TAIGA_URL`/`$TAIGA_TOKEN`/`$TAIGA_PROJECT_ID`, `Authorization: Bearer $TAIGA_TOKEN` — see AGENTS.md's Ticket & MR Conventions and release-manager/SKILL.md's Release Ticket Creation section for the exact curl/jq shape, mirror it exactly). Steps: 1) find the parent epic for this release via `GET /api/v1/epics?project=$TAIGA_PROJECT_ID&tags={{ $node['Webhook Trigger'].json.body.version }}`. 2) Resolve the 'PO UAT Approved' status id via `GET /api/v1/task-statuses?project=$TAIGA_PROJECT_ID` — this one status now carries all 3 sign-offs at once, replacing GitLab's old three-labels-together convention (the release ticket itself is always a Task, not an Epic — see release-manager/SKILL.md). 3) `POST /api/v1/tasks` with subject '[release] {{ $node['Webhook Trigger'].json.body.version }}', `project` set to $TAIGA_PROJECT_ID, `status` set to the PO UAT Approved status id, and `tags: [\"{{ $node['Webhook Trigger'].json.body.version }}\"]`. Description per release-manager/SKILL.md's Release Ticket Creation template (scope/services/rollback/deployment window/staging sign-offs pending/monitoring thresholds/observation window/comms/dependencies) — pull the stories-in-scope list from the user stories tagged with this version (`GET /api/v1/userstories?project=$TAIGA_PROJECT_ID&tags={{ $node['Webhook Trigger'].json.body.version }}`). If a release ticket for this version already exists (re-run — find it via `GET /api/v1/tasks?project=$TAIGA_PROJECT_ID&tags={{ $node['Webhook Trigger'].json.body.version }}` filtered client-side by subject starting with '[release]'), skip creation and just report its id. Report the release ticket's id.", "type": "string" },
+            { "id": "3", "name": "story", "value": "={{ $node['Webhook Trigger'].json.body.version }}", "type": "string" }
           ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [{ "name": "__json", "value": "={\"add_labels\":\"po:uat-approved\"}" }]
         }
+      }
+    },
+    {
+      "id": "b13000002-0000-0000-0000-000000000002",
+      "name": "RM: Create Release Ticket",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1700, 120],
+      "parameters": {
+        "source": "database",
+        "workflowId": { "mode": "id", "value": "jAv16SAzGy9fA5G4" },
+        "mode": "once"
       }
     },
     {
@@ -169,11 +174,14 @@
     },
     "PO Approved?": {
       "main": [
-        [{ "node": "Label: po:uat-approved", "type": "main", "index": 0 }],
+        [{ "node": "RM Input", "type": "main", "index": 0 }],
         [{ "node": "Notify: PO rejected UAT", "type": "main", "index": 0 }]
       ]
     },
-    "Label: po:uat-approved": {
+    "RM Input": {
+      "main": [[{ "node": "RM: Create Release Ticket", "type": "main", "index": 0 }]]
+    },
+    "RM: Create Release Ticket": {
       "main": [[{ "node": "Notify: UAT complete", "type": "main", "index": 0 }]]
     }
   },

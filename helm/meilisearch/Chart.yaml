@@ -1,0 +1,9 @@
+apiVersion: v2
+name: meilisearch
+version: 0.1.0
+dependencies:
+  # ponytail: version not network-verified this session - run
+  # `helm dependency update` / `tofu init` and bump if it errors.
+  - name: meilisearch
+    version: "0.12.0"
+    repository: "https://meilisearch.github.io/meilisearch-kubernetes"

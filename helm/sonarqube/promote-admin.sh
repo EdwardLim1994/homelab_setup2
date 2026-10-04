@@ -1,6 +1,6 @@
 #!/bin/sh
 # ponytail: no-op until ADMIN_EMAIL has logged in via SSO at least once
-# (JIT-creates the account) — safe to re-run on every Tilt reload. Uses the
+# (JIT-creates the account) — safe to re-run on every reload. Uses the
 # default admin/admin credentials (never changed in this dev cluster).
 #
 # ponytail: runs INSIDE the sonarqube pod (kubectl exec -i ... sh <) against

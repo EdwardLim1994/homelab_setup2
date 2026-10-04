@@ -97,30 +97,54 @@ $logProc = Start-Process $self -PassThru -NoNewWindow -ArgumentList @(
 )
 
 # ponytail: poll the job's terminal condition. A job that TTL-reaps after
-# succeeding disappears entirely - treat "gone" as complete, not a hang.
+# succeeding disappears entirely - treat "gone" as complete, not a hang. A
+# single failed `kubectl get job` is frequently just a transient API-server
+# blip (TLS handshake timeout, brief network flake), NOT proof the job
+# vanished - require 3 CONSECUTIVE failures before concluding that, and
+# track every blip so the final RESULT line can flag "succeeded, but polling
+# was flaky" instead of silently hiding it.
 $rc = 1
 $seen = ''
+$goneStreak = 0
+$blips = 0
 foreach ($i in 1..400) {
   kubectl -n $ns get job $job 2>$null | Out-Null
   if ($LASTEXITCODE -ne 0) {
-    if ($seen -match '\bComplete\b') { Write-Host "[$Playbook] Job complete (reaped)."; $rc = 0 }
-    else { Write-Host "[$Playbook] Job vanished before completing - kubectl -n $ns get events"; $rc = 1 }
+    $goneStreak++; $blips++
+    if ($goneStreak -lt 3) { Start-Sleep 2; continue }
+    if ($seen -match '\bComplete\b') { $rc = 0 } else { $rc = 1 }
     break
   }
+  $goneStreak = 0
   $types = kubectl -n $ns get job $job -o "jsonpath={.status.conditions[*].type}" 2>$null
+  if (-not $types) { $blips++ }
   $seen = $types
   if ($types -match '\bComplete\b') {
-    Write-Host "[$Playbook] Job complete."
     kubectl -n $ns delete job $job --ignore-not-found 2>$null | Out-Null
     $rc = 0; break
   }
-  if ($types -match '\bFailed\b') {
-    Write-Host "[$Playbook] Job FAILED - kubectl -n $ns describe job/$job"
-    $rc = 1; break
-  }
+  if ($types -match '\bFailed\b') { $rc = 1; break }
   if ($i % 40 -eq 0) { Write-Host "[$Playbook] ...still running ($($i * 3)s)" }
   Start-Sleep 3
 }
 if ($logProc -and -not $logProc.HasExited) { Stop-Process -Id $logProc.Id -Force 2>$null }
-if ($i -ge 400) { Write-Host "[$Playbook] Job timed out after 20m - kubectl -n $ns describe job/$job"; exit 1 }
+
+if ($i -ge 400) {
+  Write-Host "[$Playbook] RESULT: FAILED - timed out after 20m - kubectl -n $ns describe job/$job"
+  exit 1
+}
+if ($rc -eq 0) {
+  if ($blips -gt 0) {
+    Write-Host "[$Playbook] RESULT: WARNING - job Complete, but $blips transient kubectl API blip(s) occurred while polling (not a real failure; verify yourself if unsure: kubectl -n $ns get job $job -o yaml)"
+  } else {
+    Write-Host "[$Playbook] RESULT: SUCCESS - job Complete"
+  }
+} else {
+  if ($goneStreak -ge 3) {
+    $lastSeen = if ($seen) { $seen } else { 'none' }
+    Write-Host "[$Playbook] RESULT: FAILED - job genuinely vanished (confirmed gone across 3 consecutive checks, last seen condition: '$lastSeen') - kubectl -n $ns get events"
+  } else {
+    Write-Host "[$Playbook] RESULT: FAILED - job condition Failed - kubectl -n $ns describe job/$job"
+  }
+}
 exit $rc

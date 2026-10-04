@@ -109,6 +109,17 @@ apps = [
     dict(name='OpenWebUI', slug='openwebui',
          client_id=os.environ['OPENWEBUI_OIDC_CLIENT_ID'], client_secret=os.environ['OPENWEBUI_OIDC_CLIENT_SECRET'],
          redirect_uris=[app_url('openwebui') + '/oauth/oidc/callback'], extra_scopes=['openwebui_roles']),
+    dict(name='Kafbat Kafka UI', slug='kafka-ui',
+         client_id=os.environ['KAFKA_UI_OIDC_CLIENT_ID'], client_secret=os.environ['KAFKA_UI_OIDC_CLIENT_SECRET'],
+         redirect_uris=[app_url('kafka-ui') + '/login/oauth2/code/authentik']),
+    dict(name='Harbor', slug='harbor',
+         client_id=os.environ['HARBOR_OIDC_CLIENT_ID'], client_secret=os.environ['HARBOR_OIDC_CLIENT_SECRET'],
+         redirect_uris=[app_url('harbor') + '/c/oidc/callback']),
+    dict(name='Taiga', slug='taiga',
+         client_id=os.environ['TAIGA_OIDC_CLIENT_ID'], client_secret=os.environ['TAIGA_OIDC_CLIENT_SECRET'],
+         # mozilla_django_oidc's standard callback path, mounted at /oidc/ by
+         # taiga-contrib-oidc-auth's urls.py (see helm/taiga/README notes).
+         redirect_uris=[app_url('taiga') + '/oidc/callback/']),
 ]
 
 for a in apps:

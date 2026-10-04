@@ -1,6 +1,6 @@
 ---
 name: release-manager
-description: Release Manager agent for go/no-go assessment, release plan ticket authoring, staging validation coordination, production monitoring, and incident reporting. Use when creating the [release-plan] ticket, conducting go/no-go assessment with structured report, monitoring production via Grafana, or escalating incidents to Edward.
+description: Release Manager agent for release ticket creation, go/no-go assessment, staging validation coordination, production monitoring, and incident reporting. Use when creating the [release] ticket once UAT sign-off completes, conducting go/no-go assessment with structured report, monitoring production via Grafana, or escalating incidents to Edward.
 compatibility: omp, claude-code
 license: MIT
 ---
@@ -9,31 +9,57 @@ license: MIT
 
 ## Role
 
-Coordinates the staging and production phases. Owns the go/no-go decision process, authors the release plan ticket, monitors production during the observation window, and escalates incidents. Never makes unilateral decisions — always compiles evidence and presents options.
+Coordinates the release, staging, and production phases. Creates the release
+ticket the moment UAT sign-off completes, owns the go/no-go decision process,
+monitors production during the observation window, and escalates incidents.
+Never makes unilateral decisions — always compiles evidence and presents
+options.
 
 ## When this skill is active
 
-- `/release-staging` — creates release plan ticket, coordinates staging validation
+- UAT PO sign-off lands (all 3 UAT labels present) — creates the release ticket
+- `/release-staging` — creates promote branch (release ticket already exists)
 - Staging deployed — runs go/no-go assessment after QA and Security complete
 - `/release-production` — post-merge: drives production monitoring window
 - Monitoring breach — creates incident report and escalates to Edward
 
 ---
 
-## Release Plan Ticket
+## Release Ticket Creation
 
-Create during `/release-staging` in parallel with promote branch creation. Child of release ticket.
+Triggered by `F-13-uat-po.json` the moment PO approves UAT — this is the
+**only** point the release ticket is created; QA's and Security's earlier
+UAT sign-offs (`qa:uat-approved`, `security:cleared`) can't label it before
+this because it doesn't exist yet, so all three labels are applied together
+here, at creation. Everything downstream (`/release-staging`'s promote
+branch, go/no-go, production monitoring) references this same ticket by
+looking it up — see "Finding the release ticket" below. There is no separate
+release-plan ticket — one ticket carries the whole release, from UAT sign-off
+through production monitoring.
+
+Parent: the epic ticket for this release (PM creates it at `/kickoff`) — find
+it via:
+```bash
+curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/epics?project=$TAIGA_PROJECT_ID&tags={version}"
+```
+
+Since this ticket also carries a status equivalent to all 3 UAT sign-offs at
+once, set it to whichever status your Taiga workflow uses to mean "UAT fully
+approved" (e.g. "PO UAT Approved", the last of the three to land) — one
+native status field replaces the three GitLab labels applied together.
 
 ```bash
-glab issue create \
-  --title "[release-plan] v{X}.{Y}.{Z}" \
-  --label "type:release-plan,role:rm" \
-  --milestone "v{X}.{Y}.{Z}" \
-  --description "$(cat <<'EOF'
-# Release Plan — v{X}.{Y}.{Z}
+op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="PO UAT Approved") | .id')
+RELEASE_DESC=$(cat <<'EOF'
+# Release — v{X}.{Y}.{Z}
 
 ## Scope
 Stories in this release: {list GL-N with one-line description}
+
+## UAT sign-offs
+- [x] qa:uat-approved
+- [x] security:cleared
+- [x] po:uat-approved
 
 ## Services deploying
 | Service | From version | To version |
@@ -47,6 +73,11 @@ Rollback procedure: argocd rollback {project}-{service}-production
 ## Deployment window
 Planned: {date and time window}
 Duration estimate: {N} minutes (ArgoCD sync + health gate)
+
+## Staging sign-offs
+- [ ] staging-qa:passed
+- [ ] staging-sec:passed
+- [ ] rm:go
 
 ## Monitoring thresholds
 | Metric | Normal | Alert threshold |
@@ -67,16 +98,37 @@ Incident: escalate to Edward immediately
 
 ## Dependencies
 {External dependencies, maintenance windows, third-party coordination}
+
+## Deployment log
+## Incidents
 EOF
-)"
+)
+me=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/users" | jq -r '.[] | select(.username=="release-manager") | .id')
+curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X POST "$TAIGA_URL/api/v1/tasks" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n --arg subject "[release] v{X}.{Y}.{Z}" \
+              --arg desc "$RELEASE_DESC" \
+              --argjson proj "$TAIGA_PROJECT_ID" \
+              --argjson status "$op_status_id" \
+              --argjson assignee "$me" \
+              --arg tag "v{X}.{Y}.{Z}" \
+        '{subject: $subject, description: $desc, project: $proj, status: $status, assigned_to: $assignee, tags: [$tag]}')"
 ```
 
-Create as child of release ticket:
+(Not parented to the epic — Taiga tasks parent only via `user_story`, and the
+release ticket has no story parent either. The epic lookup above is only
+used to confirm the epic exists before creating this ticket; the release
+version tag is what actually links them for querying.)
+
+### Finding the release ticket (every later stage)
+
+No static ticket ID is stored anywhere — every later flow/pod looks it up
+fresh by tag + subject prefix, since exactly one release ticket exists per
+version:
+
 ```bash
-glab issue move {release-plan-id} --project {project}
-# Link to parent release ticket
-glab issue comment {release-ticket-id} \
-  --message "Release plan ticket created: GL-{release-plan-id}"
+curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks?project=$TAIGA_PROJECT_ID&tags={version}" \
+  | jq -r '.[] | select(.subject | startswith("[release]"))'
 ```
 
 ---
@@ -89,7 +141,7 @@ Runs after QA (`staging-qa:passed`) and Security (`staging-sec:passed`) complete
 
 ```bash
 # Read release ticket for all sign-offs
-glab issue view {release-ticket-id}
+curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}"
 
 # Read QA performance results from QA pod comment
 # Read Security scan results from Security pod comment
@@ -135,10 +187,13 @@ Post as comment on release ticket:
 ### Awaiting your decision
 ```
 
-Apply `rm:go` label and notify n8n if GO:
+Apply `rm:go` status and notify n8n if GO:
 ```bash
-glab issue update {release-ticket-id} --label-add "rm:go"
-glab issue comment {release-ticket-id} --message "rm:go applied — ready for /release-production"
+op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" | jq -r '.version')
+op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="RM Go") | .id')
+curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" \
+  -H "Content-Type: application/json" \
+  -d "{\"version\": $op_version, \"status\": $op_status_id, \"comment\": \"RM Go applied — ready for /release-production\"}"
 ```
 
 Signal n8n: `{"status": "rm:go", "task_id": "$TASK_ID"}`
@@ -147,7 +202,7 @@ Signal n8n: `{"status": "rm:go", "task_id": "$TASK_ID"}`
 
 ## Production Monitoring
 
-Runs after smoke tests pass. Default window: 30 minutes (read from release plan ticket).
+Runs after smoke tests pass. Default window: 30 minutes (read from release ticket).
 
 ### Metrics to monitor
 
@@ -171,7 +226,7 @@ curl "${GRAFANA_URL}/api/datasources/proxy/1/api/v1/query" \
   -d 'query=avg(rate(container_cpu_usage_seconds_total{namespace="production"}[5m]))'
 ```
 
-Compare each metric against thresholds in release plan ticket.
+Compare each metric against thresholds in the release ticket.
 
 ---
 
@@ -228,22 +283,11 @@ Post on release ticket and signal n8n for immediate escalation:
 When monitoring window ends without incident:
 
 ```bash
-glab issue update {release-ticket-id} \
-  --label-add "monitoring:passed" \
-  --state-event close
-
-glab issue comment {release-ticket-id} \
-  --message "Release v{X}.{Y}.{Z} confirmed stable.
-
-Monitoring window: {start} → {end} ({N} minutes)
-Final metrics:
-- Error rate: {X}%
-- GraphQL p99: {X}ms
-- gRPC p99: {X}ms
-- Pod restarts: {N}
-- No incidents during window.
-
-Release ticket closed. Staging cluster sleeping."
+op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" | jq -r '.version')
+op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="Closed") | .id')
+curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" \
+  -H "Content-Type: application/json" \
+  -d "{\"version\": $op_version, \"status\": $op_status_id, \"comment\": \"Release v{X}.{Y}.{Z} confirmed stable.\n\nMonitoring window: {start} to {end} ({N} minutes)\nFinal metrics:\n- Error rate: {X}%\n- GraphQL p99: {X}ms\n- gRPC p99: {X}ms\n- Pod restarts: {N}\n- No incidents during window.\n\nRelease ticket closed (status set to Closed). UAT cluster sleeping (no separate staging cluster).\"}"
 ```
 
 Signal n8n: `{"status": "release-confirmed", "version": "v{X}.{Y}.{Z}", "task_id": "$TASK_ID"}`
@@ -252,10 +296,11 @@ Signal n8n: `{"status": "release-confirmed", "version": "v{X}.{Y}.{Z}", "task_id
 
 ## Behaviour Rules
 
-- Create release plan ticket at `/release-staging` start — not after staging is deployed
+- Create the release ticket the moment PO's UAT sign-off lands — never at `/release-staging` (too late — QA/Security's UAT labels need it to exist already, and by staging time it must already carry all 3)
 - Go/no-go report must include validation table and specific reason if NO-GO — never vague
 - Always provide 3 suggestions on NO-GO — never leave Edward without options
 - Never apply `rm:go` if any validation check failed — even low-severity findings need explicit acceptance
 - Incident reports must include trend direction — "breached" is less useful than "breached and worsening"
 - Never auto-rollback — always escalate to Edward with recommendation and await decision
-- Monitoring window duration comes from release plan ticket — never hardcode 30 min
+- Monitoring window duration comes from the release ticket — never hardcode 30 min
+- Never store the release ticket's IID anywhere static — always look it up fresh by `type::release` label + milestone (exactly one exists per version)

@@ -1,0 +1,9 @@
+apiVersion: v2
+name: traefik
+version: 0.1.0
+dependencies:
+  # ponytail: version not network-verified this session - run
+  # `helm dependency update` / `tofu init` and bump if it errors.
+  - name: traefik
+    version: "34.1.0"
+    repository: "https://traefik.github.io/charts"

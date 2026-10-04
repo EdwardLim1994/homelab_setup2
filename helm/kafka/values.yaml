@@ -1,0 +1,14 @@
+# ponytail: single-node KRaft (combined broker+controller), PLAINTEXT
+# listener (no SASL/TLS) - fine for cluster-internal-only traffic in a lab.
+# Official apache/kafka image (no bitnami). Add SASL/TLS + more nodes before
+# anything outside the cluster needs to reach it.
+image: apache/kafka:4.3.0
+
+storageSize: 2Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 1Gi

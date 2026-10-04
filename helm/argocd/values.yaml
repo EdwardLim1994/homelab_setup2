@@ -109,6 +109,11 @@ argo-cd:
       server.insecure: true
 
     cm:
+      # ponytail: n8n's F-10/F-21/F-27 flows call the ArgoCD API directly
+      # (sync triggers, cluster-lifecycle) — apiKey capability lets `admin`
+      # mint a non-expiring token via `/api/v1/account/admin/token` for that,
+      # separate from interactive OIDC login.
+      accounts.admin: "apiKey, login"
       # ponytail: url must match the external Tailscale URL — ArgoCD embeds
       # it in the OIDC redirect_uri sent to Authentik. Wrong url = callback
       # mismatch error after login.
@@ -135,3 +140,31 @@ argo-cd:
       policy.default: role:readonly
       policy.csv: |
         g, __ADMIN_EMAIL__, role:admin
+
+# ponytail: image-updater polls the registries on each app's
+# argocd-image-updater.argoproj.io/image-list annotation and patches the
+# running Application's image tag directly via the ArgoCD API
+# (writeBackMethod defaults to "argocd", not git) — no git commit, no
+# separate CI step, no kickoff-flow re-run needed per release.
+argocd-image-updater:
+  config:
+    argocd:
+      serverAddress: argocd-server.argocd.svc.cluster.local:80
+      # ponytail: server.insecure=true above means plain HTTP + grpc-web
+      insecure: true
+      grpcWeb: true
+      # ponytail: reuse the same long-lived admin token n8n already uses
+      # (F-10/F-21/F-27 ARGOCD_TOKEN) instead of minting a second one.
+      token: "__ARGOCD_TOKEN__"
+    registries:
+      - name: in-cluster-harbor
+        api_url: http://harbor.harbor.svc.cluster.local:80
+        prefix: harbor.harbor.svc.cluster.local:80
+        insecure: true
+        credentials: secret:argocd/argocd-image-updater-registry#creds
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      memory: 128Mi

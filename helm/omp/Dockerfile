@@ -6,8 +6,19 @@ FROM debian:bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl git unzip xz-utils gnupg python3 \
-      build-essential pkg-config libssl-dev \
+      build-essential pkg-config libssl-dev pandoc \
     && rm -rf /var/lib/apt/lists/*
+
+# --- mc (MinIO client): plan_release/kickoff report hand-off via MinIO ---
+# ponytail: the mc/minio-server/kes OSS projects are archived upstream —
+# dl.min.io's client CDN now 410s every release, including old ones. Pull
+# the final tagged binary straight from its GitHub release instead (still
+# served); pinned since there will never be a newer one.
+ARG MC_VERSION=RELEASE.2025-08-13T08-35-41Z
+RUN curl -fsSL --retry 3 --retry-delay 2 \
+      "https://github.com/minio/mc/releases/download/${MC_VERSION}/mc.linux-amd64.${MC_VERSION}" \
+      -o /usr/local/bin/mc \
+    && chmod +x /usr/local/bin/mc
 
 # --- docker CLI + buildx + compose plugin ---
 RUN install -m 0755 -d /etc/apt/keyrings \
@@ -139,6 +150,20 @@ RUN mkdir -p /root/.claude/skills /root/.omp/agent/skills \
 
 # --- OpenAI-compatible shim: omp RPC session on :4096 ---
 COPY adapter/pod-openai.py /opt/pod-openai.py
+
+# --- publish-pdf.sh: plan_release's PDF-to-Nextcloud step ---
+# ponytail: a ready-made script instead of asking the agent to author a
+# 6-step raw-curl Kubernetes Job orchestration from prose at runtime — the
+# prose version was fragile (first live test stalled mid-task). Agent just
+# calls `publish-pdf.sh <project> <version> <revision> <markdown-file>`.
+COPY scripts/publish-pdf.sh /usr/local/bin/publish-pdf.sh
+RUN chmod +x /usr/local/bin/publish-pdf.sh
+
+# --- render-mermaid.sh: plan_release's Mermaid-diagram-to-PNG step ---
+# Wakes the scale-to-zero mermaid-render microservice (helm/mermaid-render),
+# renders one diagram, scales it back down. See the script's own comments.
+COPY scripts/render-mermaid.sh /usr/local/bin/render-mermaid.sh
+RUN chmod +x /usr/local/bin/render-mermaid.sh
 
 WORKDIR /workspace
 EXPOSE 4096

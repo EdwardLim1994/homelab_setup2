@@ -10,16 +10,14 @@ gitlab:
     initialRootPassword:
       secret: ""  # set via terraform
 
-    # ponytail: the top-level `registry:` component toggle (below, outside
-    # global) only skips deploying the registry pod — gitlab.yml still
-    # renders registry.enabled: true pointing at
-    # gitlab-registry.gitlab.svc:5000 unless global.registry is also told, so
-    # any project with container_registry_access_level enabled (the default)
-    # fails HARD on *deletion*: GitLab checks the registry for image tags to
-    # purge, DNS lookup for the nonexistent service fails
-    # (Faraday::ConnectionFailed), and the whole delete 500s with no UI error.
+    # ponytail: re-enabled for CI docker-build/push (F-09/.gitlab-ci.yml need
+    # a real registry). Known ceiling: deleting a project that ever had images
+    # pushed still 500s on purge (Faraday::ConnectionFailed talking to the
+    # registry) if the registry pod is down/removed later — don't disable this
+    # again without also cleaning up pushed images first, or just don't delete
+    # projects with images.
     registry:
-      enabled: false
+      enabled: true
 
     # ponytail: shared postgres + redis (helm/postgres, helm/redis). db + role
     # `gitlab`/`gitlabhq_production` on the shared postgres (initdb also creates
@@ -40,6 +38,13 @@ gitlab:
       port: 6379
       auth:
         enabled: false
+    # ponytail: chart 10.x defaults to Gateway API (envoy-gateway subchart +
+    # gatewayapi.io CRDs) instead of plain Ingress -> hard-fails with "no
+    # matches for kind ... ensure CRDs are installed first" since this
+    # cluster has neither. We stay on classic Traefik Ingress below.
+    gatewayApi:
+      enabled: false
+      installEnvoy: false
     ingress:
       enabled: true
       # ponytail: helm template has no live cluster to auto-detect API
@@ -57,7 +62,7 @@ gitlab:
       configureCertmanager: false
     # ponytail: backed by the standalone minio app (helm/minio), not the
     # gitlab chart's own bundled minio subchart (global.minio stays
-    # disabled below) — connection secret wired in gitlab/Tiltfile.
+    # disabled below) — connection secret wired in terraform/internal/gitlab.tf.
     # Per-feature blocks below must leave `connection` empty and only set
     # `bucket` for the chart to treat object_store.connection as the
     # consolidated one they all inherit (see charts/gitlab/_objectStorage.tpl).
@@ -94,22 +99,30 @@ gitlab:
       enabled: false
     kas:
       enabled: false
-    # ponytail: Tilt's helm() runs `helm template` with no cluster connection,
-    # so Capabilities-based API auto-detection can't run and falls back to the
-    # long-removed policy/v1beta1 PDB kind. Pin explicitly.
+    # ponytail: pin explicitly rather than rely on the chart's
+    # Capabilities-based API auto-detection, which can fall back to the
+    # long-removed policy/v1beta1 PDB kind depending on how/when it runs.
     pdb:
       apiVersion: policy/v1
     hpa:
       apiVersion: autoscaling/v2
     # ponytail: gitlab-shell's SSH IngressRouteTCP only renders once
-    # ingress.provider is traefik; same live-cluster-detection gap as above,
+    # ingress.provider is traefik; same auto-detection gap as above,
     # this cluster's Traefik (v3) only registers the newer traefik.io group
     traefik:
       apiVersion: traefik.io/v1alpha1
 
-  # disable non-essential components
   registry:
-    enabled: false
+    enabled: true
+    # ponytail: chart 10.x dropped its bundled object-storage default for the
+    # registry (was local filesystem PVC before) -> must point it at MinIO
+    # explicitly or the chart hard-fails at render with "no object storage
+    # solution". Secret (key: config) wired in terraform/internal/gitlab.tf,
+    # same MinIO backend every other gitlab feature (artifacts/lfs/uploads)
+    # already uses via appConfig.object_store above.
+    storage:
+      secret: gitlab-registry-storage
+      key: config
   # ponytail: chart 9.x renamed certmanager.install -> top-level
   # installCertmanager. We run our own ClusterIssuer
   # (global.ingress.configureCertmanager: false above) — no bundled
@@ -123,8 +136,8 @@ gitlab:
   # tailnet hostname — the job/runner pods aren't on the tailnet and
   # `tailscale serve` is tailnet-only, so the external URL is unreachable
   # from inside k3d.
-  # GitLab 18 removed registration tokens: the Tiltfile's
-  # gitlab-runner-auth-token step mints a glrt- auth token post-deploy and
+  # GitLab 18 removed registration tokens: terraform/internal/gitlab.tf's
+  # gitlab_runner_auth_token step mints a glrt- auth token post-deploy and
   # writes it into gitlab-gitlab-runner-secret (key: runner-token).
   gitlab-runner:
     install: true
@@ -185,19 +198,24 @@ gitlab:
           memory: 1Gi
         # ponytail: 2Gi leaves no headroom for a second Rails boot, so
         # `rails runner` (gitlab-promote-admin) gets OOMKilled (exit 137) and
-        # the Web IDE OAuth redirect_uri realign silently never runs. 3Gi fits
-        # puma + one runner. Node has room; bump back down if it doesn't.
+        # the Web IDE OAuth redirect_uri realign silently never runs. 3Gi
+        # still wasn't enough (puma alone sits ~1.6Gi resident, a concurrent
+        # rails runner exec pushed it over) — bumped to 4Gi. Node has room
+        # (22Gi capacity, no MemoryPressure); bump back down if it doesn't.
         limits:
-          memory: 3Gi
+          memory: 4Gi
     sidekiq:
       minReplicas: 1
       maxReplicas: 1
       resources:
         requests:
           cpu: 50m
-          memory: 512Mi
+          memory: 768Mi
+        # ponytail: 1Gi OOMKilled sidekiq mid-job (exit 137) processing a
+        # real CI pipeline event, leaving MergeRequests::UpdateHeadPipelineWorker
+        # unfinished and MR merge_status stuck at "preparing" forever. 2Gi fits.
         limits:
-          memory: 1Gi
+          memory: 2Gi
     gitaly:
       resources:
         requests:

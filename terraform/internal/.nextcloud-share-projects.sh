@@ -1,0 +1,1 @@
+kubectl --context k3d-internal exec -i -n nextcloud deploy/nextcloud -- env ADMIN_EMAIL='edwardlimkoksiong1994@gmail.com' NEXTCLOUD_ADMIN_PASSWORD='dev-nextcloud-admin-password' bash < 'C:/Users/User/Desktop/projects/homelab_setup2/terraform/internal/../../helm/nextcloud/share-projects.sh'

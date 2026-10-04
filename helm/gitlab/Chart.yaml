@@ -1,7 +1,7 @@
 apiVersion: v2
 name: gitlab
-version: 0.1.0
+version: 0.2.1
 dependencies:
   - name: gitlab
-    version: "9.11.12"
+    version: "10.2.7"
     repository: "https://charts.gitlab.io"

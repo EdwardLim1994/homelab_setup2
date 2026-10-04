@@ -1,0 +1,89 @@
+# Logs + traces for this phase cluster, bridged to internal's Grafana stack
+# via host.docker.internal (same pattern opencost.tf's Mimir remote_write
+# bridge uses) — see terraform/modules/platform-apps/log-shipper.tf.
+alloy:
+  alloy:
+    # ponytail: extraPorts so generated apps in THIS cluster can reach this
+    # Alloy's OTLP receiver (traces only — logs are scraped from stdout
+    # automatically below, apps don't push those). Same reasoning as
+    # helm/observability's own Alloy Service (values.yaml's alloy.extraPorts).
+    extraPorts:
+      - name: otlp-grpc
+        port: 4317
+        targetPort: 4317
+        protocol: TCP
+      - name: otlp-http
+        port: 4318
+        targetPort: 4318
+        protocol: TCP
+
+    configMap:
+      content: |
+        // ── K8s pod logs → internal Loki ─────────────────────────────────────
+        discovery.kubernetes "pods" {
+          role = "pod"
+        }
+
+        discovery.relabel "pod_logs" {
+          targets = discovery.kubernetes.pods.targets
+          rule {
+            source_labels = ["__meta_kubernetes_pod_node_name"]
+            target_label  = "node"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_namespace"]
+            target_label  = "namespace"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_name"]
+            target_label  = "pod"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_container_name"]
+            target_label  = "container"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+            target_label  = "app"
+          }
+          rule {
+            target_label = "cluster_id"
+            replacement  = "__CLUSTER_ID__"
+          }
+        }
+
+        loki.source.kubernetes "pods" {
+          targets    = discovery.relabel.pod_logs.output
+          forward_to = [loki.write.default.receiver]
+        }
+
+        loki.write "default" {
+          endpoint {
+            url = "__LOKI_PUSH_URL__"
+          }
+        }
+
+        // ── OTLP traces (apps in this cluster → Alloy → internal Tempo) ──────
+        otelcol.receiver.otlp "default" {
+          http { endpoint = "0.0.0.0:4318" }
+          grpc { endpoint = "0.0.0.0:4317" }
+          output {
+            traces = [otelcol.exporter.otlp.tempo.input]
+          }
+        }
+
+        otelcol.exporter.otlp "tempo" {
+          client {
+            endpoint = "__TEMPO_PUSH_ENDPOINT__"
+            tls {
+              insecure = true
+            }
+          }
+        }
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi

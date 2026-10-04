@@ -44,7 +44,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -59,16 +59,56 @@
       }
     },
     {
-      "id": "dd6553b5-1c7c-4578-941d-3ed60f516ca0",
+      "id": "b5169753-b180-42c7-ab43-cd5b82ce59a7",
+      "name": "DevOps Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        900,
+        220
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "devops-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Using glab against the in-cluster GitLab (`--hostname gitlab-webservice-default.gitlab.svc.cluster.local`, project {{ $node['Webhook Trigger'].json.body.gitlab_project_path ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }}), first find the release branch for this version (formatted 'release/vMAJOR.MINOR.PATCH', matching {{ $node['Webhook Trigger'].json.body.body.version }} — list via `glab api projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/repository/branches` if you need to confirm the exact name). Verify the release branch's CI pipeline is green (`glab api projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/pipelines?ref=<release-branch>`), confirm the SIT k3d cluster's core pods are healthy, and confirm secrets referenced by the deployment are current. Report pass/fail and any blocking issue.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f4796745-ea8f-4bcf-afb3-b6b26203c0ee",
       "name": "Gate A: DevOps preflight",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
         900,
         300
       ],
       "parameters": {
-        "command": "omp --role devops-engineer --model default --project {{ $env.REPO_DIR }} --prompt 'Verify CI pipelines green, SIT cluster healthy, secrets in Vault current for {{ $json.body.version }}.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
@@ -97,7 +137,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -112,16 +152,56 @@
       }
     },
     {
-      "id": "f0545535-45d5-4a11-a37a-a8fd8cb51521",
+      "id": "199e9318-09b3-4ec8-bf48-2a2d78fa7d51",
+      "name": "Data Engineer Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1340,
+        220
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "data-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Using glab against the in-cluster GitLab (`--hostname gitlab-webservice-default.gitlab.svc.cluster.local`, project {{ $node['Webhook Trigger'].json.body.gitlab_project_path ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }}), first find the release branch for this version (formatted 'release/vMAJOR.MINOR.PATCH', matching {{ $node['Webhook Trigger'].json.body.body.version }} — list via `glab api projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/repository/branches` if you need to confirm the exact name). Apply any pending schema migrations for this release's task branches, push updated schemas to Apicurio if configured, and verify Debezium connectors are healthy. Report what was applied.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "01a58b71-3d98-4cb8-a90e-1463a51be44c",
       "name": "Gate B: Data Engineer",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
         1340,
         300
       ],
       "parameters": {
-        "command": "omp --role data-engineer --model default --project {{ $env.REPO_DIR }} --prompt 'Apply migrations, push schema to Apicurio, verify Debezium connectors for {{ $json.body.version }}.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
@@ -150,7 +230,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -165,16 +245,56 @@
       }
     },
     {
-      "id": "cc2cf0c2-8da6-4e50-9ae5-00186e7ca6b7",
+      "id": "8f65bb27-a325-4a97-86f1-7a8bfd9dc809",
+      "name": "TL Pseudocode Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1780,
+        220
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "tech-lead",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Using glab against the in-cluster GitLab (`--hostname gitlab-webservice-default.gitlab.svc.cluster.local`, project {{ $node['Webhook Trigger'].json.body.gitlab_project_path ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }}), first find the release branch for this version (formatted 'release/vMAJOR.MINOR.PATCH', matching {{ $node['Webhook Trigger'].json.body.body.version }} — list via `glab api projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/repository/branches` if you need to confirm the exact name). For every task branch off this release (branch name `task/GL-{N}`, {N} is the Taiga task id), review the openspec/<task-slug>.md pseudocode, confirm the task still carries the \"OpenSpec Ready\" status (`curl -sH \"Authorization: Bearer {{ $env.TAIGA_TOKEN }}\" \"{{ $env.TAIGA_URL }}/api/v1/tasks/{N}\"` and check `.status_extra_info.name`), and flag any cross-task dependency the developer pods need to know about before implementing. Report per-task status.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a06cf52f-cd84-4f20-bdec-7b28eafd0e47",
       "name": "Gate C: TL Pseudocode",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
         1780,
         300
       ],
       "parameters": {
-        "command": "omp --role tech-lead --model slow --project {{ $env.REPO_DIR }} --prompt 'Review all openspec pseudocode for {{ $json.body.version }} tasks. Confirm openspec:ready labels. Identify cross-task dependencies.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
@@ -203,7 +323,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -218,55 +338,215 @@
       }
     },
     {
-      "id": "95b3b524-ad23-4843-aec0-d90688264fa6",
+      "id": "08027a0f-9007-4762-bdfc-1ff424fa2a40",
+      "name": "Backend Developer Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2220,
+        60
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "backend-developer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Using glab against the in-cluster GitLab (`--hostname gitlab-webservice-default.gitlab.svc.cluster.local`, project {{ $node['Webhook Trigger'].json.body.gitlab_project_path ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }}), first find the release branch for this version (formatted 'release/vMAJOR.MINOR.PATCH', matching {{ $node['Webhook Trigger'].json.body.body.version }} — list via `glab api projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/repository/branches` if you need to confirm the exact name). Clone the repo, and for each task branch under this release whose Taiga task (id {N} parsed from its `task/GL-{N}` branch name, `GET {{ $env.TAIGA_URL }}/api/v1/tasks/{N}` and check `.status_extra_info.name`) carries status \"OpenSpec Ready\", checkout that task branch. Step 1, before implementing anything: mark the task \"In progress\" — resolve the status id via `curl -sH \"Authorization: Bearer {{ $env.TAIGA_TOKEN }}\" \"{{ $env.TAIGA_URL }}/api/v1/task-statuses?project={{ $env.TAIGA_PROJECT_ID }}\" | jq -r '.[] | select(.name==\"In progress\") | .id'`, then `PATCH {{ $env.TAIGA_URL }}/api/v1/tasks/{N}` with `{\"version\": <current version from a GET>, \"status\": <that id>}` (bearer `{{ $env.TAIGA_TOKEN }}`). Then implement backend (NestJS) tasks per the SKILL.md workflow — translate the openspec pseudocode, do not redesign it. Run `nx affected -t test,lint,typecheck --base=main` before committing. Commit to the task branch and open a merge request from the task branch into its parent story branch, in the same {{ $node['Webhook Trigger'].json.body.gitlab_project_path ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }} repository. Report every MR opened.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "96361545-9bbb-454a-a424-a59e2c85221a",
       "name": "Backend Developer",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
         2220,
         160
       ],
       "parameters": {
-        "command": "omp --role backend-developer --model smol --project {{ $env.REPO_DIR }} --prompt 'Implement backend tasks for {{ $json.body.version }} from pseudocode. No design reasoning — translate only.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
-      "id": "8e105bcc-5ee0-409c-92a1-21994617786a",
+      "id": "82141c65-c5af-4e9b-8e3a-5b3b5e450d75",
+      "name": "Frontend Developer Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2220,
+        220
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "frontend-developer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Using glab against the in-cluster GitLab (`--hostname gitlab-webservice-default.gitlab.svc.cluster.local`, project {{ $node['Webhook Trigger'].json.body.gitlab_project_path ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }}), first find the release branch for this version (formatted 'release/vMAJOR.MINOR.PATCH', matching {{ $node['Webhook Trigger'].json.body.body.version }} — list via `glab api projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/repository/branches` if you need to confirm the exact name). Clone the repo, and for each task branch under this release whose Taiga task (id {N} parsed from its `task/GL-{N}` branch name, `GET {{ $env.TAIGA_URL }}/api/v1/tasks/{N}` and check `.status_extra_info.name`) carries status \"OpenSpec Ready\", checkout that task branch. Step 1, before implementing anything: mark the task \"In progress\" — resolve the status id via `curl -sH \"Authorization: Bearer {{ $env.TAIGA_TOKEN }}\" \"{{ $env.TAIGA_URL }}/api/v1/task-statuses?project={{ $env.TAIGA_PROJECT_ID }}\" | jq -r '.[] | select(.name==\"In progress\") | .id'`, then `PATCH {{ $env.TAIGA_URL }}/api/v1/tasks/{N}` with `{\"version\": <current version from a GET>, \"status\": <that id>}` (bearer `{{ $env.TAIGA_TOKEN }}`). Then implement frontend (React) tasks per the SKILL.md workflow — translate the openspec pseudocode, do not redesign it. Run `nx affected -t test,lint,typecheck --base=main` before committing. Commit to the task branch and open a merge request from the task branch into its parent story branch, in the same {{ $node['Webhook Trigger'].json.body.gitlab_project_path ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }} repository. Report every MR opened.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "72f2b8fb-7241-4840-a415-f53566de006b",
       "name": "Frontend Developer",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
         2220,
         300
       ],
       "parameters": {
-        "command": "omp --role frontend-developer --model smol --project {{ $env.REPO_DIR }} --prompt 'Implement frontend tasks for {{ $json.body.version }} from pseudocode.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
-      "id": "0c0438f2-1867-4ab7-a43d-31ee8184c056",
+      "id": "5c891012-80b2-4304-ace6-67fb5ea2ec2f",
+      "name": "QA Write Tests Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2220,
+        380
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "qa-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Using glab against the in-cluster GitLab (`--hostname gitlab-webservice-default.gitlab.svc.cluster.local`, project {{ $node['Webhook Trigger'].json.body.gitlab_project_path ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }}), first find the release branch for this version (formatted 'release/vMAJOR.MINOR.PATCH', matching {{ $node['Webhook Trigger'].json.body.body.version }} — list via `glab api projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/repository/branches` if you need to confirm the exact name). For each task branch under this release, write test suites from its tests.pseudo.ts (nx test runner), commit to the task branch, and comment coverage results on the task (GET `{{ $env.TAIGA_URL }}/api/v1/tasks/{N}` for its current `.version` first, then `curl -sH \"Authorization: Bearer {{ $env.TAIGA_TOKEN }}\" -X PATCH \"{{ $env.TAIGA_URL }}/api/v1/tasks/{N}\" -H \"Content-Type: application/json\" -d '{\"version\": V, \"comment\": \"...\"}'`, {N} is the Taiga task id parsed from the `task/GL-{N}` branch name).",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b12f7fca-73a7-4aeb-bbf0-1f05c2beba6d",
       "name": "QA: Write Tests",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
         2220,
         440
       ],
       "parameters": {
-        "command": "omp --role qa-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Write test suites for {{ $json.body.version }} tasks from tests.pseudo.ts.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
-      "id": "e1c6efed-804b-40fb-8da6-9ebf6ed8dabc",
+      "id": "53af3bfe-0987-4203-a7dd-c41d47dfb0a9",
+      "name": "Security SAST Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2220,
+        540
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "security-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Using glab against the in-cluster GitLab (`--hostname gitlab-webservice-default.gitlab.svc.cluster.local`, project {{ $node['Webhook Trigger'].json.body.gitlab_project_path ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }}), first find the release branch for this version (formatted 'release/vMAJOR.MINOR.PATCH', matching {{ $node['Webhook Trigger'].json.body.body.version }} — list via `glab api projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/repository/branches` if you need to confirm the exact name). Run SAST and secrets scanning across every task branch under this release, verify no new CVEs were introduced by dependency changes, and comment any finding on the relevant task via `PATCH {{ $env.TAIGA_URL }}/api/v1/tasks/{N}` with a `comment` field (GET first for its current `.version` — Taiga's optimistic-lock field required on every PATCH; {N} parsed from the `task/GL-{N}` branch name).",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "04706c86-fd3b-4275-86e4-05251a8ac8e7",
       "name": "Security: SAST",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
         2220,
         580
       ],
       "parameters": {
-        "command": "omp --role security-engineer --model smol --project {{ $env.REPO_DIR }} --prompt 'Run SAST, check secrets scanning, verify no new CVEs for {{ $json.body.version }}.' --non-interactive"
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
@@ -310,7 +590,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -341,6 +621,17 @@
       "main": [
         [
           {
+            "node": "DevOps Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DevOps Input": {
+      "main": [
+        [
+          {
             "node": "Gate A: DevOps preflight",
             "type": "main",
             "index": 0
@@ -360,6 +651,17 @@
       ]
     },
     "Notify: Gate A done": {
+      "main": [
+        [
+          {
+            "node": "Data Engineer Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Engineer Input": {
       "main": [
         [
           {
@@ -385,6 +687,17 @@
       "main": [
         [
           {
+            "node": "TL Pseudocode Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TL Pseudocode Input": {
+      "main": [
+        [
+          {
             "node": "Gate C: TL Pseudocode",
             "type": "main",
             "index": 0
@@ -407,20 +720,64 @@
       "main": [
         [
           {
-            "node": "Backend Developer",
+            "node": "Backend Developer Input",
             "type": "main",
             "index": 0
           },
+          {
+            "node": "Frontend Developer Input",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "QA Write Tests Input",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Security SAST Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backend Developer Input": {
+      "main": [
+        [
+          {
+            "node": "Backend Developer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Frontend Developer Input": {
+      "main": [
+        [
           {
             "node": "Frontend Developer",
             "type": "main",
             "index": 0
-          },
+          }
+        ]
+      ]
+    },
+    "QA Write Tests Input": {
+      "main": [
+        [
           {
             "node": "QA: Write Tests",
             "type": "main",
             "index": 0
-          },
+          }
+        ]
+      ]
+    },
+    "Security SAST Input": {
+      "main": [
+        [
           {
             "node": "Security: SAST",
             "type": "main",

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: unleash
+version: 0.1.0
+dependencies:
+  - name: unleash
+    version: "5.6.8"
+    repository: "https://docs.getunleash.io/helm-charts"

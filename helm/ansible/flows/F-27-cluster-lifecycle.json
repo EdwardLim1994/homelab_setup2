@@ -57,34 +57,15 @@
     },
     {
       "id": "79e04b85-1fa7-40b2-b7f3-044e08807cf6",
-      "name": "ArgoCD: Scale Up",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "name": "kubectl: Scale Up",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         900,
         200
       ],
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.ARGOCD_URL }}/api/v1/applications/{{ $env.ARGOCD_PROJECT }}-{{ $json.body.cluster }}/sync",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "Bearer {{ $env.ARGOCD_TOKEN }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "revision",
-              "value": "HEAD"
-            }
-          ]
-        }
+        "command": "=kubectl scale deploy --all --replicas=1 -n {{ $node['Webhook Trigger'].json.body.deploy_namespace ?? $env.DEPLOY_NAMESPACE }} --context=k3d-{{ $json.body.cluster }}"
       }
     },
     {
@@ -97,7 +78,7 @@
         400
       ],
       "parameters": {
-        "command": "kubectl scale deploy --all --replicas=0 -n {{ $json.body.cluster }} --context={{ $json.body.cluster }}-ctx"
+        "command": "=kubectl scale deploy --all --replicas=0 -n {{ $node['Webhook Trigger'].json.body.deploy_namespace ?? $env.DEPLOY_NAMESPACE }} --context=k3d-{{ $json.body.cluster }}"
       }
     },
     {
@@ -126,7 +107,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -166,7 +147,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -197,7 +178,7 @@
       "main": [
         [
           {
-            "node": "ArgoCD: Scale Up",
+            "node": "kubectl: Scale Up",
             "type": "main",
             "index": 0
           }
@@ -211,7 +192,7 @@
         ]
       ]
     },
-    "ArgoCD: Scale Up": {
+    "kubectl: Scale Up": {
       "main": [
         [
           {

@@ -20,32 +20,20 @@
     },
     {
       "id": "574de774-cf51-4be9-ad69-eedf5b6c17ce",
-      "name": "UAT Safeguard",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "name": "Find Release Ticket",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         680,
         300
       ],
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $env.RELEASE_TICKET_ID }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
-            }
-          ]
-        }
+        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst tasks = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks`, qs: { project: $env.TAIGA_PROJECT_ID, tags: $env.RELEASE_VERSION }, headers: taigaAuth, json: true });\nconst ticket = tasks.find(t => t.subject.startsWith('[release]')) || null;\n// Ticket only exists once all 3 UAT sign-offs landed (F-13 creates it with\n// status \"PO UAT Approved\" at creation) — existence alone is the safeguard,\n// no need to re-check the status.\nreturn [{ json: { ...$json, found: !!ticket, release_ticket_id: ticket ? ticket.id : null } }];"
       }
     },
     {
       "id": "94b7463d-558e-4d36-b9d0-4ebd90fda8a3",
-      "name": "All UAT Labels?",
+      "name": "Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
@@ -55,7 +43,7 @@
       "parameters": {
         "conditions": {
           "options": {
-            "leftValue": "={{ $json.labels.includes('po:uat-approved') && $json.labels.includes('security:cleared') && $json.labels.includes('qa:uat-approved') }}",
+            "leftValue": "={{ $json.found }}",
             "operation": "equals",
             "rightValue": "true"
           }
@@ -88,7 +76,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -103,41 +91,6 @@
       }
     },
     {
-      "id": "b14000001-0000-0000-0000-000000000001",
-      "name": "RM Input",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        1120,
-        120
-      ],
-      "parameters": {
-        "mode": "manual",
-        "assignments": {
-          "assignments": [
-            { "id": "1", "name": "role", "value": "release-manager", "type": "string" },
-            { "id": "2", "name": "prompt", "value": "=Create a release-plan child ticket for {{ $env.RELEASE_VERSION }} under release ticket {{ $env.RELEASE_TICKET_ID }} via glab. Include a go-live checklist.", "type": "string" },
-            { "id": "3", "name": "story", "value": "={{ $env.RELEASE_VERSION }}", "type": "string" }
-          ]
-        }
-      }
-    },
-    {
-      "id": "3ebdd3bd-7d83-4eff-a970-27c4e24e8a4e",
-      "name": "RM: Create Release Plan Ticket",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.1,
-      "position": [
-        1300,
-        200
-      ],
-      "parameters": {
-        "source": "database",
-        "workflowId": { "mode": "id", "value": "jAv16SAzGy9fA5G4" },
-        "mode": "once"
-      }
-    },
-    {
       "id": "ff579f3b-661a-417b-9ffe-bb6608d5d5cb",
       "name": "Create promote/ branch",
       "type": "n8n-nodes-base.httpRequest",
@@ -148,7 +101,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/repository/branches",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_id ?? $env.GITLAB_PROJECT_ID }}/repository/branches",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -201,7 +154,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -221,29 +174,29 @@
       "main": [
         [
           {
-            "node": "UAT Safeguard",
+            "node": "Find Release Ticket",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "UAT Safeguard": {
+    "Find Release Ticket": {
       "main": [
         [
           {
-            "node": "All UAT Labels?",
+            "node": "Found?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "All UAT Labels?": {
+    "Found?": {
       "main": [
         [
           {
-            "node": "RM Input",
+            "node": "Create promote/ branch",
             "type": "main",
             "index": 0
           }
@@ -251,28 +204,6 @@
         [
           {
             "node": "Notify: Staging blocked",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "RM Input": {
-      "main": [
-        [
-          {
-            "node": "RM: Create Release Plan Ticket",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "RM: Create Release Plan Ticket": {
-      "main": [
-        [
-          {
-            "node": "Create promote/ branch",
             "type": "main",
             "index": 0
           }

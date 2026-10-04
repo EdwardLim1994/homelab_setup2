@@ -21,26 +21,14 @@
     {
       "id": "bb687645-4875-4fbc-af27-97ea0a50318f",
       "name": "UAT Safeguard: All Stories Merged?",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         680,
         300
       ],
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues?milestone={{ $env.RELEASE_VERSION }}&labels=type:user-story&state=opened",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
-            }
-          ]
-        }
+        "jsCode": "const auth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst res = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/userstories?project=${$env.TAIGA_PROJECT_ID}`, headers: auth, json: true });\nconst openStories = (res || []).filter(s => !s.is_closed);\nreturn [{ json: { ...$json, length: openStories.length } }];"
       }
     },
     {
@@ -88,7 +76,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -100,6 +88,59 @@
             }
           ]
         }
+      }
+    },
+    {
+      "id": "c1000001-0000-0000-0000-000000000001",
+      "name": "Pre-UAT Deploy Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        60
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "devops-engineer",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Promote the exact tested images for release {{ $env.RELEASE_VERSION }} to UAT — using glab against gitlab-webservice-default.gitlab.svc.cluster.local (project {{ $node['Webhook Trigger'].json.body.gitlab_project_path ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }}). Step 1: list merged story MRs targeting `release/{{ $env.RELEASE_VERSION }}` (`glab api \"projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/merge_requests?target_branch=release/{{ $env.RELEASE_VERSION }}&state=merged&labels=type:story\"`). Step 2: for each, fetch its notes (`glab api projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/merge_requests/<iid>/notes`) and find QA's comment containing a 'Tested image tags:' block (format `- {service}: v{X}.{Y}.{Z}-rc{N}` per line, one per changed service — see qa-engineer SKILL.md). If a merged story MR has no such comment, STOP and signal n8n blocked with `{\"status\": \"blocked\", \"reason\": \"no tested image tags recorded\", \"mr_iid\": \"<iid>\"}` — never fall back to whatever is currently on SIT, never guess a tag. Step 3: for every {service}:{tag} pair collected across all story MRs, edit `env/uat/{service}/values.yaml` on `main` (create the file if this is the service's first UAT deploy — copy the shape of an existing `env/uat/*/values.yaml` in the repo) setting the image tag field to the exact tag from the comment. Step 4: commit all edited files in one commit (`chore: promote tested images to UAT for {{ $env.RELEASE_VERSION }}`) and push to main — ArgoCD's automated syncPolicy on each `{{ $node['Webhook Trigger'].json.body.argocd_project ?? $env.ARGOCD_PROJECT }}-<service>-uat` Application picks up the change from there, no image-updater involved (UAT is explicit-sync only). Report which services were updated and to which tags.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $env.RELEASE_VERSION }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c1000001-0000-0000-0000-000000000002",
+      "name": "Deploy Tested Images to UAT",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        200
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
       }
     },
     {
@@ -140,9 +181,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.ARGOCD_URL }}/api/v1/applications/{{ $env.ARGOCD_PROJECT }}-uat/sync",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "url": "={{ $env.ARGOCD_URL }}/api/v1/applications/{{ $node['Webhook Trigger'].json.body.argocd_project ?? $env.ARGOCD_PROJECT }}-uat/sync",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -180,7 +219,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -245,7 +284,7 @@
       "main": [
         [
           {
-            "node": "Wake UAT Cluster",
+            "node": "Pre-UAT Deploy Input",
             "type": "main",
             "index": 0
           }
@@ -253,6 +292,28 @@
         [
           {
             "node": "Notify: UAT blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pre-UAT Deploy Input": {
+      "main": [
+        [
+          {
+            "node": "Deploy Tested Images to UAT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deploy Tested Images to UAT": {
+      "main": [
+        [
+          {
+            "node": "Wake UAT Cluster",
             "type": "main",
             "index": 0
           }

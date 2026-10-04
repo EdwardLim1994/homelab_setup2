@@ -10,7 +10,7 @@ sonarqube:
   initSysctl:
     enabled: false
 
-  # monitoringPasscode set via Tiltfile/terraform (.env)
+  # monitoringPasscode set via terraform (.env)
 
   # ponytail: chart's 1s probe timeout is too tight on this RPi under load
   # (JVM GC pauses, concurrent image pulls) — caused a liveness-kill restart
@@ -51,7 +51,7 @@ sonarqube:
     sonar.core.serverBaseURL: "__APP_URL__"
     sonar.auth.oidc.enabled: "true"
     sonar.auth.oidc.issuerUri: "__AUTHENTIK_URL__/application/o/sonarqube/"
-    # sonar.auth.oidc.clientId.secured set via Tiltfile/terraform (.env)
+    # sonar.auth.oidc.clientId.secured set via terraform (.env)
     sonar.auth.oidc.loginButtonText: "Log in with Authentik"
     # ponytail: Authentik's "groups" scope claim (provision-app-providers.py)
     # returns ["sonar-administrators"] for admin_email, ["sonar-users"] for
@@ -75,8 +75,7 @@ sonarqube:
   # ponytail: sonarSecretProperties is a *reference* to an existing Secret
   # (key "secret.properties"), not inline content — the chart concatenates
   # it after sonarProperties above, so it can override the same keys.
-  # Secret itself is created in the Tiltfile alongside the other apps'
-  # dev-fixed OIDC secrets.
+  # Secret itself is created by terraform/internal/sonarqube.tf.
   sonarSecretProperties: sonarqube-oidc-secret
 
   # ponytail: shared postgres (helm/postgres), database + role `sonarqube`.

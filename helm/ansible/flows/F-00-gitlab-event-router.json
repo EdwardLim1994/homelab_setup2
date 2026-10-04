@@ -58,7 +58,7 @@
     },
     {
       "id": "bf887a71-2a7c-4b8d-b8c0-8e348e2fc1d1",
-      "name": "\u2192 F-09 CI Pipeline",
+      "name": "→ F-09 CI Pipeline",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -120,7 +120,7 @@
     },
     {
       "id": "a87bc4a2-87f4-4982-9594-d03eb4bb5f28",
-      "name": "\u2192 F-04 Task MR Opened",
+      "name": "→ F-04 Task MR Opened",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -150,7 +150,7 @@
           "conditions": [
             {
               "leftValue": "={{ $json.body.object_attributes.source_branch }}",
-              "rightValue": "us/",
+              "rightValue": "story/",
               "operator": {
                 "type": "string",
                 "operation": "startsWith"
@@ -163,7 +163,7 @@
     },
     {
       "id": "fdd65090-3cbd-41ee-9f7d-7d5b54d135de",
-      "name": "\u2192 F-07 Story MR Opened",
+      "name": "→ F-07 Story MR Opened",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -206,7 +206,7 @@
     },
     {
       "id": "5151b54a-8ec8-480e-b605-8dabe194f962",
-      "name": "\u2192 F-05 Task MR Merged",
+      "name": "→ F-05 Task MR Merged",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -236,7 +236,7 @@
           "conditions": [
             {
               "leftValue": "={{ $json.body.object_attributes.source_branch }}",
-              "rightValue": "us/",
+              "rightValue": "story/",
               "operator": {
                 "type": "string",
                 "operation": "startsWith"
@@ -249,7 +249,7 @@
     },
     {
       "id": "4610489a-5bd5-4d0c-a1bd-11e6440d2e22",
-      "name": "\u2192 F-08 Story MR Merged",
+      "name": "→ F-08 Story MR Merged",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -292,7 +292,7 @@
     },
     {
       "id": "12ea3777-57b4-49f8-b954-fc5bef46c8e1",
-      "name": "\u2192 F-23 Revert Merged",
+      "name": "→ F-23 Revert Merged",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -335,7 +335,7 @@
     },
     {
       "id": "50002362-72ec-45a0-899f-e1ab704f9954",
-      "name": "\u2192 F-18 Release MR Merged",
+      "name": "→ F-18 Release MR Merged",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -387,7 +387,7 @@
         ],
         [
           {
-            "node": "\u2192 F-09 CI Pipeline",
+            "node": "→ F-09 CI Pipeline",
             "type": "main",
             "index": 0
           }
@@ -416,7 +416,7 @@
       "main": [
         [
           {
-            "node": "\u2192 F-04 Task MR Opened",
+            "node": "→ F-04 Task MR Opened",
             "type": "main",
             "index": 0
           }
@@ -434,7 +434,7 @@
       "main": [
         [
           {
-            "node": "\u2192 F-07 Story MR Opened",
+            "node": "→ F-07 Story MR Opened",
             "type": "main",
             "index": 0
           }
@@ -446,7 +446,7 @@
       "main": [
         [
           {
-            "node": "\u2192 F-05 Task MR Merged",
+            "node": "→ F-05 Task MR Merged",
             "type": "main",
             "index": 0
           }
@@ -464,7 +464,7 @@
       "main": [
         [
           {
-            "node": "\u2192 F-08 Story MR Merged",
+            "node": "→ F-08 Story MR Merged",
             "type": "main",
             "index": 0
           }
@@ -482,7 +482,7 @@
       "main": [
         [
           {
-            "node": "\u2192 F-23 Revert Merged",
+            "node": "→ F-23 Revert Merged",
             "type": "main",
             "index": 0
           }
@@ -500,7 +500,7 @@
       "main": [
         [
           {
-            "node": "\u2192 F-18 Release MR Merged",
+            "node": "→ F-18 Release MR Merged",
             "type": "main",
             "index": 0
           }

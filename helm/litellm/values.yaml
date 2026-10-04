@@ -15,6 +15,10 @@ mcpSonarqubeAuthToken: "__SONARQUBE_MCP_TOKEN__"
 # Same value as TF_VAR_n8n_mcp_auth_token.
 mcpN8nAuthToken: "__N8N_MCP_AUTH_TOKEN__"
 
+# ponytail: per-caller bearer for the taiga MCP server (its AUTH_TOKEN).
+# Same value as TF_VAR_taiga_mcp_auth_token.
+mcpTaigaAuthToken: "__TAIGA_MCP_AUTH_TOKEN__"
+
 # ponytail: the host's Ollama, reached from the cluster via k3d's built-in
 # host alias. `ollama_chat/*` provider — no /v1 suffix. `ollamaModels` are the
 # tags listed by name; add/remove to match `ollama list`.

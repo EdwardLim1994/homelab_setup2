@@ -18,3 +18,15 @@ secrets:
   gitlabToken: ""
   claudeCodeToken: ""
   gitlabRepoUrl: ""
+  taigaToken: ""
+  taigaUrl: ""
+  grafanaUrl: ""
+  # per-caller bearer into the taiga MCP server (mcp-servers-taiga's
+  # AUTH_TOKEN) — lets omp pods build an --mcp-config pointing at it.
+  taigaMcpAuthToken: ""
+  nextcloudUrl: ""
+  nextcloudUser: ""
+  nextcloudPassword: ""
+  minioEndpoint: ""
+  minioRootUser: ""
+  minioRootPassword: ""

@@ -5,9 +5,15 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# ponytail: KUBE_CONTEXT is optional — Terraform passes it to pin this at the
+# target cluster regardless of kubectl's ambient current-context; unset falls
+# back to whatever context is already current.
+KCTL_ARGS=()
+[ -n "${KUBE_CONTEXT:-}" ] && KCTL_ARGS=(--context "$KUBE_CONTEXT")
+
 # ponytail: pass the root password through so runner-auth-token.sh can create
 # the root admin if the chart never seeded one.
-ROOT_PW=$(kubectl get secret -n gitlab gitlab-initial-root-password -o jsonpath='{.data.password}' | base64 -d)
+ROOT_PW=$(kubectl "${KCTL_ARGS[@]}" get secret -n gitlab gitlab-initial-root-password -o jsonpath='{.data.password}' | base64 -d)
 
 # ponytail: after a redeploy the shared postgres can still be in crash recovery
 # for ~2-3 min on local-path storage ("the database system is starting up" /
@@ -15,7 +21,7 @@ ROOT_PW=$(kubectl get secret -n gitlab gitlab-initial-root-password -o jsonpath=
 # whole thing instead of failing the apply — 40 x 15s = 10 min ceiling.
 TOKEN=""
 for i in $(seq 1 40); do
-  OUT=$(kubectl exec -i -n gitlab deploy/gitlab-webservice-default -c webservice -- \
+  OUT=$(kubectl "${KCTL_ARGS[@]}" exec -i -n gitlab deploy/gitlab-webservice-default -c webservice -- \
     env GITLAB_ROOT_PASSWORD="$ROOT_PW" sh < runner-auth-token.sh 2>&1 || true)
   TOKEN=$(printf '%s' "$OUT" | grep -o 'RUNNER_AUTH_TOKEN=[^[:space:]]*' | cut -d= -f2 || true)
   [ -n "$TOKEN" ] && break
@@ -28,8 +34,8 @@ if [ -z "${TOKEN:-}" ]; then
   exit 1
 fi
 
-kubectl patch secret -n gitlab gitlab-gitlab-runner-secret --type merge \
+kubectl "${KCTL_ARGS[@]}" patch secret -n gitlab gitlab-gitlab-runner-secret --type merge \
   -p "{\"stringData\":{\"runner-token\":\"${TOKEN}\",\"runner-registration-token\":\"\"}}"
 
-kubectl rollout restart -n gitlab deploy/gitlab-gitlab-runner
+kubectl "${KCTL_ARGS[@]}" rollout restart -n gitlab deploy/gitlab-gitlab-runner
 echo "runner auth token installed (glrt-…), runner restarting"

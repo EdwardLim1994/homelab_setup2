@@ -1,0 +1,84 @@
+# ponytail: taiga-back's official image supports overriding
+# settings/local.py and settings/urls.py by volume mount (no rebuild needed
+# for config — see ../Dockerfile, only the pip package itself is baked in).
+# Mounted into both taiga-back and taiga-async (they share identical settings).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-back-settings
+  namespace: {{ .Release.Namespace }}
+data:
+  local.py: |
+    from .config import *
+    import os
+    from datetime import timedelta
+
+    # ponytail: default ACCESS_TOKEN_LIFETIME is 24h (settings/common.py) —
+    # every other bootstrap-once token in this repo (GITLAB_TOKEN,
+    # N8N_MCP_API_KEY, OPENWEBUI_API_KEY) is long-lived with no refresh
+    # logic anywhere; TAIGA_TOKEN needs the same shape or it 401s a day
+    # after being pasted into .env.
+    SIMPLE_JWT = {
+        **SIMPLE_JWT,
+        "ACCESS_TOKEN_LIFETIME": timedelta(days=3650),
+    }
+
+    DATABASES["default"].update({
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": {{ .Values.postgresql.database | quote }},
+        "USER": {{ .Values.postgresql.user | quote }},
+        "PASSWORD": {{ .Values.postgresql.password | quote }},
+        "HOST": {{ .Values.postgresql.host | quote }},
+        "PORT": {{ .Values.postgresql.port | quote }},
+    })
+
+    SECRET_KEY = {{ .Values.taiga.secretKey | quote }}
+    SITES["front"]["scheme"] = {{ .Values.taiga.siteScheme | quote }}
+    SITES["front"]["domain"] = {{ .Values.taiga.siteDomain | quote }}
+
+    STATIC_ROOT = "/taiga-back/static"
+    MEDIA_ROOT = "/taiga-back/media"
+
+    # ponytail: gateway terminates plain HTTP to taiga-back and sets
+    # X-Forwarded-Proto (see templates/gateway.yaml) — without this, Django's
+    # request.is_secure() is False and mozilla-django-oidc builds the OIDC
+    # redirect_uri as http://..., which doesn't match the https:// redirect_uri
+    # registered in Authentik ("Redirect URI Error").
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+    # ponytail: config.py already builds CELERY_BROKER_URL / EVENTS_PUSH_BACKEND_URL
+    # from RABBITMQ_USER/RABBITMQ_PASS/TAIGA_ASYNC_RABBITMQ_HOST/
+    # TAIGA_EVENTS_RABBITMQ_HOST env vars (os.getenv, read directly — not
+    # settings — see /taiga-back/settings/config.py) — set via back-env
+    # ConfigMap (templates/back.yaml), not here. Its default hostnames
+    # (taiga-async-rabbitmq / taiga-events-rabbitmq) assume taiga-docker's
+    # two-rabbitmq split; this chart runs one consolidated instance
+    # (taiga-rabbitmq), hence the env var overrides.
+
+    ROOT_URLCONF = "settings.urls"
+
+    INSTALLED_APPS += [
+        "mozilla_django_oidc",
+        "taiga_contrib_oidc_auth",
+    ]
+    AUTHENTICATION_BACKENDS = list(AUTHENTICATION_BACKENDS) + [
+        "taiga_contrib_oidc_auth.oidc.TaigaOIDCAuthenticationBackend",
+    ]
+
+    OIDC_CALLBACK_CLASS = "taiga_contrib_oidc_auth.views.TaigaOIDCAuthenticationCallbackView"
+    OIDC_RP_SCOPES = "openid profile email"
+    OIDC_RP_SIGN_ALGO = "RS256"
+    OIDC_RP_CLIENT_ID = {{ .Values.taiga.oidc.clientId | quote }}
+    OIDC_RP_CLIENT_SECRET = {{ .Values.taiga.oidc.clientSecret | quote }}
+    OIDC_OP_AUTHORIZATION_ENDPOINT = {{ .Values.taiga.oidc.authorizationEndpoint | quote }}
+    OIDC_OP_TOKEN_ENDPOINT = {{ .Values.taiga.oidc.tokenEndpoint | quote }}
+    OIDC_OP_USER_ENDPOINT = {{ .Values.taiga.oidc.userInfoEndpoint | quote }}
+    OIDC_OP_JWKS_ENDPOINT = {{ .Values.taiga.oidc.jwksEndpoint | quote }}
+
+  urls.py: |
+    from taiga.urls import *
+    from django.urls import include, re_path
+
+    urlpatterns += [
+        re_path(r"^oidc/", include("mozilla_django_oidc.urls")),
+    ]

@@ -3,11 +3,11 @@ nextcloud:
     # ponytail: ingress rule host stays the LAN name; the tailnet name is the
     # "real" external URL Nextcloud bakes into generated links, injected via
     # OVERWRITEHOST/CLIURL below. __APP_HOST__ (no scheme) / __APP_URL__ (with
-    # https) are string-replaced by terraform + Tiltfile with the tailscale
+    # https) are string-replaced by terraform with the tailscale
     # operator MagicDNS name (nextcloud.<tailnet>.ts.net).
     host: nextcloud.local
     username: admin
-    password: ""  # set via Tiltfile/terraform
+    password: ""  # set via terraform
     extraEnv:
       # ponytail: both names must be trusted or Nextcloud 400s the request whose
       # Host header it doesn't recognise (tailnet host arrives via the operator).
@@ -43,7 +43,7 @@ nextcloud:
   # then every boot re-applies the Social Login provider so URL changes take
   # effect. Key is nextcloud.lifecycle (chart root), NOT nextcloud.nextcloud.*.
   # __AUTHENTIK_URL__ / __NEXTCLOUD_OIDC_CLIENT_ID__ / _SECRET__ are string-
-  # replaced on the rendered YAML by terraform + Tiltfile (not --set — this is
+  # replaced on the rendered YAML by terraform (not --set — this is
   # one multi-line shell string). authorizeUrl is the external tailnet URL (the
   # browser hits it); token + userinfo are in-cluster http (the pod hits them).
   lifecycle:
@@ -101,7 +101,7 @@ nextcloud:
     host: nextcloud-mariadb
     database: nextcloud
     user: nextcloud
-    password: ""  # set via Tiltfile/terraform
+    password: ""  # set via terraform
 
   redis:
     enabled: false
@@ -134,8 +134,8 @@ mariadb:
   image: mariadb:11.4
   database: nextcloud
   username: nextcloud
-  password: ""       # set via terraform / Tiltfile
-  rootPassword: ""   # set via terraform / Tiltfile
+  password: ""       # set via terraform
+  rootPassword: ""   # set via terraform
   storageSize: 4Gi
   resources:
     requests:

@@ -1,0 +1,6 @@
+# ponytail: MEILI_MASTER_KEY set via terraform `set_sensitive`
+# (meilisearch.tf), not in this file.
+meilisearch:
+  persistence:
+    enabled: true
+    size: 1Gi

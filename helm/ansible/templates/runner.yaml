@@ -35,6 +35,13 @@ spec:
         spec:
           restartPolicy: Never
           serviceAccountName: {{ .Release.Name }}-runner
+          # ponytail: argocd-clusters.yml only. `host.docker.internal` resolves
+          # to both an IPv6 and IPv4 address on Docker Desktop; pods have no
+          # IPv6 route and the k8s Python client doesn't fall back — pin it to
+          # the IPv4 literal so that lookup doesn't even happen.
+          hostAliases:
+            - ip: "192.168.65.254"
+              hostnames: ["host.docker.internal"]
           containers:
             - name: ansible
               image: {{ .Values.image | quote }}
@@ -72,6 +79,8 @@ spec:
                   mountPath: /flows
                 - name: pipe
                   mountPath: /pipe
+                - name: external-kubeconfig
+                  mountPath: /kube
           volumes:
             - name: playbooks
               configMap:
@@ -86,3 +95,11 @@ spec:
               # terraform's kubernetes_config_map.ansible_pipe.
               configMap:
                 name: ansible-pipe
+            - name: external-kubeconfig
+              # argocd-clusters.yml only. Not terraform-managed — k3d contexts
+              # are host-machine kubeconfig data, not something tofu apply can
+              # generate. Create by hand once (see argocd-clusters.yml header),
+              # optional so every other playbook still runs without it.
+              secret:
+                secretName: external-cluster-kubeconfig
+                optional: true

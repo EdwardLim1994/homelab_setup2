@@ -4,14 +4,14 @@ charts/*.tgz
 # cluster bind-mounts it, and `git clean -fdx` deleting it breaks every PVC.
 /k3d-storage/*
 !/k3d-storage/.gitkeep
-terraform/local.auto.tfvars
-terraform/.authentik-app-providers.sh
-terraform/.nextcloud-promote-admin.sh
-terraform/.gitlab-promote-admin.sh
-terraform/.gitlab-runner-auth-token.sh
+terraform/**/local.auto.tfvars
+terraform/**/.authentik-app-providers.sh
+terraform/**/.nextcloud-promote-admin.sh
+terraform/**/.gitlab-promote-admin.sh
+terraform/**/.gitlab-runner-auth-token.sh
+terraform/**/.terraform/
+terraform/**/tfplan
 
 /**/*/node_modules/
-terraform/terraform.tfstate
-terraform/terraform.tfstate.backup
-terraform/tfplan
 helm/**/tmpcharts*/
+/.registries-mirror-*.yaml

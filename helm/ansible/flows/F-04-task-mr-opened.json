@@ -19,6 +19,19 @@
       "webhookId": "1bedb63f-c0bb-4844-8ac9-f02ab71fd289"
     },
     {
+      "id": "d4000001-0000-0000-0000-000000000001",
+      "name": "Extract MR Info",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const attrs = $json.body.object_attributes;\nconst branch = attrs.source_branch || '';\nconst m = branch.match(/^task\\/GL-(\\d+)$/);\nreturn [{ json: { mr_iid: attrs.iid, task_iid: m ? m[1] : null, source_branch: branch, flow_id: $json.body.flow_id ?? '', retry_count: $json.body.retry_count ?? 0 } }];"
+      }
+    },
+    {
       "id": "2af57f60-e829-44b7-86c2-c0b297b48990",
       "name": "Notify: Task MR opened",
       "type": "n8n-nodes-base.httpRequest",
@@ -44,7 +57,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $node[\"Extract MR Info\"].json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -59,29 +72,148 @@
       }
     },
     {
-      "id": "daddf81f-124d-4c3d-9762-6b66c98649cf",
-      "name": "TL: MR Review",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "d4000003-0000-0000-0000-000000000001",
+      "name": "TL Review Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         900,
-        200
+        140
       ],
       "parameters": {
-        "command": "omp --role tech-lead --model slow --project {{ $env.REPO_DIR }} --prompt 'Review MR {{ $json.object_attributes.iid }} against pseudocode. Check correctness, style, test coverage. Output: APPROVE or REQUEST_CHANGES with notes.' --non-interactive"
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "role",
+              "value": "tech-lead",
+              "type": "string"
+            },
+            {
+              "id": "1b",
+              "name": "skipWikiVerify",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Review merge request !{{ $node[\"Extract MR Info\"].json.mr_iid }} (`glab mr view {{ $node[\"Extract MR Info\"].json.mr_iid }} --hostname gitlab-webservice-default.gitlab.svc.cluster.local`, diff via `glab mr diff {{ $node[\"Extract MR Info\"].json.mr_iid }} --hostname gitlab-webservice-default.gitlab.svc.cluster.local`) against the pseudocode spec the developer was given — fetch `openspec/<task-slug>.md` from the MR's source branch (`glab api projects/{{ $env.GITLAB_PROJECT_PATH }}/repository/files/openspec%2F<task-slug>.md/raw?ref={{ $node[\"Extract MR Info\"].json.source_branch }} --hostname gitlab-webservice-default.gitlab.svc.cluster.local`, URL-encode the slug; list `openspec/` on that branch first if you don't know the exact filename). Check: does the diff actually implement what the spec describes (not just something plausible-looking), is there test coverage for the changed logic, does it follow this repo's existing conventions (see AGENTS.md), and does it avoid obvious correctness bugs. Do NOT check CI/pipeline status yourself — that is handled separately in parallel, your review is code-against-spec only.\n\nOutput your verdict as the FIRST line of your response, exactly `APPROVE` or `REQUEST_CHANGES` (nothing else on that line), followed by your notes. If REQUEST_CHANGES, the notes MUST name the specific file(s)/function(s) and what's wrong or missing — \"needs improvement\" alone is not acceptable feedback, the developer re-reading this has no other context. Then, regardless of verdict, leave that same verdict + notes as a comment on Taiga task {{ $node[\"Extract MR Info\"].json.task_iid }} so the developer sees it where they already work: `GET $TAIGA_URL/api/v1/tasks/{{ $node[\"Extract MR Info\"].json.task_iid }}` for its current `version`, then `PATCH $TAIGA_URL/api/v1/tasks/{{ $node[\"Extract MR Info\"].json.task_iid }}` with `{\"version\": <version>, \"comment\": \"TL review: <verdict>\\n\\n<notes>\"}` (bearer `$TAIGA_TOKEN`).",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node[\"Extract MR Info\"].json.mr_iid }}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
-      "id": "a0f3dfde-0892-429f-9fc9-96f2d31289d5",
-      "name": "Wait CI Result",
-      "type": "n8n-nodes-base.wait",
+      "id": "daddf81f-124d-4c3d-9762-6b66c98649cf",
+      "name": "TL: MR Review",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
+        140
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "d4000002-0000-0000-0000-000000000001",
+      "name": "Parse TL Review",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// ponytail: agent sometimes narrates (\"Comment posted successfully...\")\n// before the verdict instead of leading with it despite the prompt asking\n// for verdict-first -- scan every line for an exact verdict token instead\n// of trusting output.startsWith().\nconst out = ($json.output || '').trim();\nconst lines = out.split('\\n').map(l => l.trim());\nlet tl_result = 'UNKNOWN';\nif (!$json.succeeded) tl_result = 'JOB_FAILED';\nelse if (lines.includes('REQUEST_CHANGES')) tl_result = 'REQUEST_CHANGES';\nelse if (lines.includes('APPROVE')) tl_result = 'APPROVE';\nreturn [{ json: { tl_result, tl_notes: out || '(tech-lead review job produced no output — check the Job logs in the sdlc namespace)' } }];"
+      }
+    },
+    {
+      "id": "a0f3dfde-0892-429f-9fc9-96f2d31289d6",
+      "name": "Set CI Deadline",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [
         900,
         400
       ],
       "parameters": {
-        "resume": "webhook"
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ponytail: GitLab's pipeline webhook never gets routed back to this\n// execution's dynamic wait-resume URL (nothing in F-00/F-09 does that) --\n// a resume:webhook Wait node here would just hang forever. Poll instead,\n// same deadline+Wait+IF-loop shape F-31 already uses for Job status.\nreturn [{ json: { deadline: Date.now() + 15 * 60 * 1000 } }];"
+      }
+    },
+    {
+      "id": "a0f3dfde-0892-429f-9fc9-96f2d31289d5",
+      "name": "Wait CI Result",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1020,
+        400
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 15,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "a0f3dfde-0892-429f-9fc9-96f2d31289d7",
+      "name": "Check CI Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const deadline = $node[\"Set CI Deadline\"].json.deadline;\nconst mrIid = $node[\"Extract MR Info\"].json.mr_iid;\nconst projectId = $node['Webhook Trigger'].json.body.project?.id ?? $env.GITLAB_PROJECT_ID;\nconst pipelines = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `${$env.GITLAB_URL}/api/v4/projects/${projectId}/merge_requests/${mrIid}/pipelines`,\n  headers: { 'PRIVATE-TOKEN': $env.GITLAB_TOKEN },\n  json: true,\n});\nconst latest = Array.isArray(pipelines) && pipelines.length ? pipelines[0] : null;\nconst rawStatus = latest ? latest.status : 'none';\nconst stillRunning = ['running', 'pending', 'created', 'waiting_for_resource', 'preparing'].includes(rawStatus);\nconst timedOut = Date.now() > deadline;\nconst done = !stillRunning || timedOut;\nconst status = (timedOut && stillRunning) ? 'timeout' : rawStatus;\nreturn [{ json: { done, status, pipeline_url: latest?.web_url ?? '' } }];"
+      }
+    },
+    {
+      "id": "a0f3dfde-0892-429f-9fc9-96f2d31289d8",
+      "name": "CI Done?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1260,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.done }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        }
       }
     },
     {
@@ -103,7 +235,7 @@
       "id": "e4024f3c-704d-498f-8ae0-e3a7c504191a",
       "name": "All Passed?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
+      "typeVersion": 2.2,
       "position": [
         1340,
         300
@@ -111,10 +243,29 @@
       "parameters": {
         "conditions": {
           "options": {
-            "leftValue": "={{ $json.tl_result }}",
-            "operation": "equals",
-            "rightValue": "APPROVE"
-          }
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.tl_result }}",
+              "rightValue": "APPROVE",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
         }
       }
     },
@@ -129,9 +280,8 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/merge_requests/{{ $json.mr_iid }}/approve",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $node['Webhook Trigger'].json.body.project?.id ?? $env.GITLAB_PROJECT_ID }}/merge_requests/{{ $node[\"Extract MR Info\"].json.mr_iid }}/approve",
+        "authentication": "none",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -148,22 +298,120 @@
       }
     },
     {
+      "id": "d1000001-0000-0000-0000-000000000001",
+      "name": "GitLab: Merge MR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        120
+      ],
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $node['Webhook Trigger'].json.body.project?.id ?? $env.GITLAB_PROJECT_ID }}/merge_requests/{{ $node[\"Extract MR Info\"].json.mr_iid }}/merge",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "should_remove_source_branch",
+              "value": "true"
+            },
+            {
+              "name": "merge_when_pipeline_succeeds",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "d1000002-0000-0000-0000-000000000001",
+      "name": "Taiga: Task status Closed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        60
+      ],
+      "parameters": {
+        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst id = $node[\"Extract MR Info\"].json.task_iid;\nconst task = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: taigaAuth, json: true });\nconst statusesRes = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/task-statuses?project=${$env.TAIGA_PROJECT_ID}`, headers: taigaAuth, json: true });\nconst status = statusesRes.find(s => s.name === 'Closed');\nawait this.helpers.httpRequest({ method: 'PATCH', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: { ...taigaAuth, 'Content-Type': 'application/json' }, body: { version: task.version, status: status.id }, json: true });\nreturn [{ json: $json }];"
+      }
+    },
+    {
+      "id": "c7a1a001-0000-0000-0000-000000000001",
+      "name": "Count TL Attempts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        400
+      ],
+      "parameters": {
+        "jsCode": "// ponytail: retry_count was read from the inbound webhook body, but\n// nothing anywhere ever sets/increments it -- every real GitLab webhook\n// call is stateless and arrives with no such field, so the escalate\n// branch below was permanently unreachable. Count actual \"TL review:\"\n// comments already posted on the Taiga task instead (TL Review Input's\n// own prompt always posts one with that exact prefix) -- self-contained,\n// no external counter needed.\nconst taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst taskId = $node[\"Extract MR Info\"].json.task_iid;\nconst history = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/history/task/${taskId}`, headers: taigaAuth, json: true });\nconst attempt_count = (Array.isArray(history) ? history : []).filter(h => typeof h.comment === 'string' && h.comment.startsWith('TL review:')).length;\nreturn [{ json: { ...$json, attempt_count } }];"
+      }
+    },
+    {
       "id": "d0a7a36e-9e01-4236-8b03-c4f4505130d7",
       "name": "Retry < 3?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
+      "typeVersion": 2.2,
       "position": [
-        1560,
+        1620,
         400
       ],
       "parameters": {
         "conditions": {
           "options": {
-            "leftValue": "={{ $json.retry_count ?? 0 }}",
-            "operation": "smallerEqual",
-            "rightValue": "2"
-          }
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.attempt_count ?? 1 }}",
+              "rightValue": 2,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ]
         }
+      }
+    },
+    {
+      "id": "026275d2-92c9-4a4f-a9a8-888bbe28b92e",
+      "name": "Comment CI Status if Failed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        400
+      ],
+      "parameters": {
+        "jsCode": "// ponytail: TL's own review (and its Taiga comment) only covers code vs\n// spec -- it never checks CI, so a CI-only failure needs its own comment\n// or the developer only sees \"TL review: APPROVE\" and no clue why the MR\n// is still blocked.\nif ($json.status === 'success') return [{ json: $json }];\nconst taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst id = $node[\"Extract MR Info\"].json.task_iid;\nconst task = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: taigaAuth, json: true });\nconst comment = `CI pipeline ${$json.status}${$json.pipeline_url ? ' — ' + $json.pipeline_url : ''}. Fix the pipeline and push again; this MR cannot be merged until it's green.`;\nawait this.helpers.httpRequest({ method: 'PATCH', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: { ...taigaAuth, 'Content-Type': 'application/json' }, body: { version: task.version, comment }, json: true });\nreturn [{ json: $json }];"
       }
     },
     {
@@ -192,15 +440,15 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $node[\"Extract MR Info\"].json.flow_id ?? '' }}"
             },
             {
               "name": "message",
-              "value": "🔄 MR {{ $json.mr_iid }} needs changes — retry {{ $json.retry_count }}/3"
+              "value": "=🔄 MR {{ $node[\"Extract MR Info\"].json.mr_iid }} needs changes — attempt {{ $json.attempt_count }}/3{{ $json.status !== 'success' ? ' — CI pipeline ' + $json.status + ($json.pipeline_url ? ' (' + $json.pipeline_url + ')' : '') : '' }}{{ $json.tl_result === 'APPROVE' && $json.status !== 'success' ? ' — TL approved the code, this is blocked on CI only' : '' }}"
             },
             {
               "name": "notes",
-              "value": ""
+              "value": "={{ $json.tl_notes || '' }}"
             }
           ]
         }
@@ -223,10 +471,60 @@
           "parameters": [
             {
               "name": "reason",
-              "value": "MR {{ $json.mr_iid }} exceeded 3 review retries"
+              "value": "=MR {{ $node[\"Extract MR Info\"].json.mr_iid }} (Taiga task {{ $node[\"Extract MR Info\"].json.task_iid }}) exceeded 3 review attempts"
             }
           ]
         }
+      }
+    },
+    {
+      "id": "c7a1a001-0000-0000-0000-000000000002",
+      "name": "Comment MR: Handover",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        640
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $node['Webhook Trigger'].json.body.project?.id ?? $env.GITLAB_PROJECT_ID }}/merge_requests/{{ $node[\"Extract MR Info\"].json.mr_iid }}/notes",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "PRIVATE-TOKEN",
+              "value": "={{ $env.GITLAB_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "body",
+              "value": "=⚠️ TL review has gone through 3 attempts without reaching APPROVE+green-CI — handing this MR over to a human reviewer. Last TL verdict: `{{ $json.tl_result }}`{{ $json.status !== 'success' ? ' — CI pipeline ' + $json.status + ($json.pipeline_url ? ' (' + $json.pipeline_url + ')' : '') : '' }}. See Taiga task {{ $node[\"Extract MR Info\"].json.task_iid }} for the full review history."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c7a1a001-0000-0000-0000-000000000003",
+      "name": "Comment Taiga: Handover",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        720
+      ],
+      "parameters": {
+        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst id = $node[\"Extract MR Info\"].json.task_iid;\nconst mrIid = $node[\"Extract MR Info\"].json.mr_iid;\nconst task = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: taigaAuth, json: true });\nconst comment = `⚠️ TL review failed 3 times on MR !${mrIid} — handing over to a human reviewer for manual review and merge decision. Last TL verdict: ${$json.tl_result}${$json.status !== 'success' ? ' — CI pipeline ' + $json.status : ''}.`;\nawait this.helpers.httpRequest({ method: 'PATCH', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: { ...taigaAuth, 'Content-Type': 'application/json' }, body: { version: task.version, comment }, json: true });\nreturn [{ json: $json }];"
       }
     },
     {
@@ -255,11 +553,11 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $node[\"Extract MR Info\"].json.flow_id ?? '' }}"
             },
             {
               "name": "message",
-              "value": "✅ Task MR {{ $json.mr_iid }} approved"
+              "value": "✅ Task MR {{ $node[\"Extract MR Info\"].json.mr_iid }} approved and merged — TL review + unit tests + static analysis (biome/tsc) + SonarQube all passed"
             },
             {
               "name": "notes",
@@ -275,6 +573,17 @@
       "main": [
         [
           {
+            "node": "Extract MR Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract MR Info": {
+      "main": [
+        [
+          {
             "node": "Notify: Task MR opened",
             "type": "main",
             "index": 0
@@ -286,23 +595,23 @@
       "main": [
         [
           {
-            "node": "TL: MR Review",
+            "node": "TL Review Input",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Wait CI Result",
+            "node": "Set CI Deadline",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "TL: MR Review": {
+    "Set CI Deadline": {
       "main": [
         [
           {
-            "node": "Merge TL+CI",
+            "node": "Wait CI Result",
             "type": "main",
             "index": 0
           }
@@ -313,9 +622,71 @@
       "main": [
         [
           {
+            "node": "Check CI Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check CI Status": {
+      "main": [
+        [
+          {
+            "node": "CI Done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CI Done?": {
+      "main": [
+        [
+          {
             "node": "Merge TL+CI",
             "type": "main",
             "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Wait CI Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TL Review Input": {
+      "main": [
+        [
+          {
+            "node": "TL: MR Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TL: MR Review": {
+      "main": [
+        [
+          {
+            "node": "Parse TL Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse TL Review": {
+      "main": [
+        [
+          {
+            "node": "Merge TL+CI",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -342,6 +713,17 @@
         ],
         [
           {
+            "node": "Count TL Attempts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count TL Attempts": {
+      "main": [
+        [
+          {
             "node": "Retry < 3?",
             "type": "main",
             "index": 0
@@ -350,6 +732,28 @@
       ]
     },
     "GitLab: Approve MR": {
+      "main": [
+        [
+          {
+            "node": "GitLab: Merge MR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitLab: Merge MR": {
+      "main": [
+        [
+          {
+            "node": "Taiga: Task status Closed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Taiga: Task status Closed": {
       "main": [
         [
           {
@@ -364,6 +768,11 @@
       "main": [
         [
           {
+            "node": "Comment CI Status if Failed",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "Notify: Review feedback",
             "type": "main",
             "index": 0
@@ -372,6 +781,16 @@
         [
           {
             "node": "→ Escalate",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Comment MR: Handover",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Comment Taiga: Handover",
             "type": "main",
             "index": 0
           }

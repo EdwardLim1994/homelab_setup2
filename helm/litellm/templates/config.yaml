@@ -17,6 +17,12 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   config.yaml: |
+    # ponytail: enables LiteLLM's built-in /metrics endpoint (port 4000) -
+    # token/spend/latency counters the pod annotations in deployment.yaml
+    # tell observability's Prometheus to scrape. See dashboards/litellm.json.
+    litellm_settings:
+      callbacks: ["prometheus"]
+
     model_list:
       {{- range $m := .Values.ollamaModels }}
       - model_name: {{ $m.name | quote }}
@@ -62,6 +68,12 @@ data:
         description: "n8n workflow docs + management"
         auth_type: "bearer_token"
         auth_value: {{ .Values.mcpN8nAuthToken | quote }}
+      taiga:
+        url: "http://mcp-servers-taiga.mcp-servers.svc.cluster.local:8300/mcp"
+        transport: "http"
+        description: "Taiga ticket/wiki tracker"
+        auth_type: "bearer_token"
+        auth_value: {{ .Values.mcpTaigaAuthToken | quote }}
 
     # ponytail: the /omp pass-through (helm/omp's standing chat pod) is gone —
     # that chart was removed. OpenWebUI talks to Ollama models directly now;

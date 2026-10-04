@@ -1,0 +1,9 @@
+apiVersion: v2
+name: vault
+version: 0.1.0
+dependencies:
+  # ponytail: version not network-verified this session - run
+  # `helm dependency update` / `tofu init` and bump if it errors.
+  - name: vault
+    version: "0.28.1"
+    repository: "https://helm.releases.hashicorp.com"

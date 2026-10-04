@@ -1,4 +1,4 @@
-# THIS FILE IS A REFERENCE TEMPLATE — not deployed by Helm/Tilt (lives
+# THIS FILE IS A REFERENCE TEMPLATE — not deployed by Helm (lives
 # outside templates/ for exactly that reason — anything under templates/
 # gets installed as-is, and these {{ }} tokens are n8n's, not Helm's).
 # n8n reads this structure and substitutes values before calling the K8s API.
@@ -69,6 +69,26 @@ spec:
                 secretKeyRef:
                   name: omp-agent-secrets
                   key: claude_code_token
+            - name: TAIGA_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: omp-agent-secrets
+                  key: taiga_token
+            - name: TAIGA_URL
+              valueFrom:
+                secretKeyRef:
+                  name: omp-agent-secrets
+                  key: taiga_url
+            - name: GRAFANA_URL
+              valueFrom:
+                secretKeyRef:
+                  name: omp-agent-secrets
+                  key: grafana_url
+            - name: TAIGA_MCP_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: omp-agent-secrets
+                  key: taiga_mcp_auth_token
           volumeMounts:
             - name: workspace
               mountPath: /workspace

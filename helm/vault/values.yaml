@@ -1,0 +1,15 @@
+# ponytail: dev mode - in-memory, single known root token, no unseal, data
+# lost on pod restart. Fine for testing "does my app read a secret from Vault
+# at boot" - not a real secret store. Swap server.dev.enabled for
+# server.standalone.enabled + a file/raft storage block before this holds
+# anything that matters. devRootToken set via terraform `set_sensitive`
+# (vault.tf), not in this file.
+vault:
+  server:
+    dev:
+      enabled: true
+    ha:
+      enabled: false
+
+  injector:
+    enabled: false

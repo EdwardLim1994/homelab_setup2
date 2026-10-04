@@ -20,27 +20,15 @@
     },
     {
       "id": "40bb0ef7-c057-436b-b123-c9de5c9d2271",
-      "name": "rm:go Safeguard",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "name": "Find Release Ticket",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         680,
         300
       ],
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $env.RELEASE_TICKET_ID }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
-            }
-          ]
-        }
+        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst tasks = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks`, qs: { project: $env.TAIGA_PROJECT_ID, tags: $env.RELEASE_VERSION }, headers: taigaAuth, json: true });\nconst ticket = tasks.find(t => t.subject.startsWith('[release]')) || null;\nreturn [{ json: { ...$json, rm_go: !!ticket && ticket.status_extra_info && ticket.status_extra_info.name === 'RM Go', release_ticket_id: ticket ? ticket.id : null } }];"
       }
     },
     {
@@ -55,7 +43,7 @@
       "parameters": {
         "conditions": {
           "options": {
-            "leftValue": "={{ $json.labels.includes('rm:go') }}",
+            "leftValue": "={{ $json.rm_go }}",
             "operation": "equals",
             "rightValue": "true"
           }
@@ -88,11 +76,11 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
-              "value": "🚫 /release_production blocked — rm:go label missing"
+              "value": "🚫 /release_production blocked — release ticket not at RM Go status"
             },
             {
               "name": "notes",
@@ -100,6 +88,19 @@
             }
           ]
         }
+      }
+    },
+    {
+      "id": "f17000001-0000-0000-0000-000000000001",
+      "name": "Find Edward's User ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        200
+      ],
+      "parameters": {
+        "jsCode": "const res = await this.helpers.httpRequest({ method: 'GET', url: `${$env.GITLAB_URL}/api/v4/users?search=edwardlimkoksiong1994@gmail.com`, headers: { 'PRIVATE-TOKEN': $env.GITLAB_TOKEN }, json: true });\nconst user = Array.isArray(res) ? res[0] : null;\nreturn [{ json: { ...$json, edward_user_id: user ? user.id : null } }];"
       }
     },
     {
@@ -113,7 +114,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/merge_requests",
+        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_id ?? $env.GITLAB_PROJECT_ID }}/merge_requests",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -134,7 +135,7 @@
           "parameters": [
             {
               "name": "__json",
-              "value": "{\"source_branch\":\"promote/{{ $env.RELEASE_VERSION }}\",\"target_branch\":\"main\",\"title\":\"Release {{ $env.RELEASE_VERSION }}\",\"labels\":\"type:release\"}"
+              "value": "={\"source_branch\":\"promote/{{ $env.RELEASE_VERSION }}\",\"target_branch\":\"main\",\"title\":\"[release] {{ $env.RELEASE_VERSION }}\",\"description\":\"## Ticket\\n{{ $env.TAIGA_URL }}/project/{{ $env.TAIGA_PROJECT_ID }}/task/{{ $node[\"Find Release Ticket\"].json.release_ticket_id }}\\n\\n## What's done\\nAll UAT + staging sign-offs passed (QA UAT Approved, Security Cleared, PO UAT Approved, Staging QA Passed, Staging Security Passed, RM Go — tracked as the release ticket's Taiga status, not GitLab labels). Promotes rc images to full version v{{ $env.RELEASE_VERSION }} by retag, no rebuild.\\n\\n## Proof of success\\nSee release ticket for k6/ZAP staging confirmation reports and go/no-go assessment.\\n\\n## Potential risk\\nSee release ticket's rollback target and monitoring thresholds.\",\"labels\":\"type:release\",\"assignee_id\":{{ $node[\"Find Edward's User ID\"].json.edward_user_id }},\"reviewer_ids\":[{{ $node[\"Find Edward's User ID\"].json.edward_user_id }}]}"
             }
           ]
         }
@@ -166,7 +167,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -186,14 +187,14 @@
       "main": [
         [
           {
-            "node": "rm:go Safeguard",
+            "node": "Find Release Ticket",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "rm:go Safeguard": {
+    "Find Release Ticket": {
       "main": [
         [
           {
@@ -208,7 +209,7 @@
       "main": [
         [
           {
-            "node": "Create promote→main MR",
+            "node": "Find Edward's User ID",
             "type": "main",
             "index": 0
           }
@@ -216,6 +217,17 @@
         [
           {
             "node": "Notify: Production blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Edward's User ID": {
+      "main": [
+        [
+          {
+            "node": "Create promote→main MR",
             "type": "main",
             "index": 0
           }

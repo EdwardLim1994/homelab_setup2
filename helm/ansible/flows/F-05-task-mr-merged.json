@@ -39,13 +39,25 @@
             {
               "id": "1a559a8c-2f91-4920-bb69-64a9162496e2",
               "name": "mr_iid",
-              "value": "={{ $json.object_attributes.iid }}",
+              "value": "={{ $json.body.object_attributes.iid }}",
               "type": "string"
             },
             {
               "id": "d2ea9e0d-c2de-4d30-a817-9b25facee345",
               "name": "branch",
-              "value": "={{ $json.object_attributes.source_branch }}",
+              "value": "={{ $json.body.object_attributes.source_branch }}",
+              "type": "string"
+            },
+            {
+              "id": "e3f5a6b7-1234-4abc-9def-0123456789ab",
+              "name": "story_branch",
+              "value": "={{ $json.body.object_attributes.target_branch }}",
+              "type": "string"
+            },
+            {
+              "id": "f4a6b7c8-2345-4bcd-8ef0-123456789abc",
+              "name": "story_id",
+              "value": "={{ $json.body.object_attributes.target_branch.replace('story/', '') }}",
               "type": "string"
             }
           ]
@@ -55,26 +67,14 @@
     {
       "id": "2ba76ce2-cdb6-4d7b-92ba-a9a2b10d3726",
       "name": "All Story Tasks Done?",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         900,
         300
       ],
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues?labels=type:task,status:open&milestone={{ $env.RELEASE_VERSION }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
-            }
-          ]
-        }
+        "jsCode": "const storyBranch = $json.story_branch;\nconst url = `${$env.GITLAB_URL}/api/v4/projects/${$json.body.project?.id ?? $env.GITLAB_PROJECT_PATH}/merge_requests?target_branch=${encodeURIComponent(storyBranch)}&state=opened`;\nconst res = await this.helpers.httpRequest({\n  method: 'GET',\n  url,\n  headers: { 'PRIVATE-TOKEN': $env.GITLAB_TOKEN },\n  json: true,\n});\nreturn [{ json: { ...$json, remaining: Array.isArray(res) ? res.length : 0 } }];"
       }
     },
     {
@@ -89,7 +89,7 @@
       "parameters": {
         "conditions": {
           "options": {
-            "leftValue": "={{ $json.length }}",
+            "leftValue": "={{ $json.remaining }}",
             "operation": "equals",
             "rightValue": "0"
           }
@@ -112,8 +112,16 @@
         "bodyParameters": {
           "parameters": [
             {
-              "name": "version",
-              "value": "={{ $env.RELEASE_VERSION }}"
+              "name": "story_id",
+              "value": "={{ $json.story_id }}"
+            },
+            {
+              "name": "story_branch",
+              "value": "={{ $json.story_branch }}"
+            },
+            {
+              "name": "gitlab_project_path",
+              "value": "={{ $node['Webhook Trigger'].json.body.project?.path_with_namespace ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }}"
             }
           ]
         }
@@ -145,7 +153,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",

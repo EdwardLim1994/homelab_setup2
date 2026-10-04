@@ -1,0 +1,6 @@
+dependencies:
+- name: apicurio-registry
+  repository: oci://ghcr.io/eshepelyuk/helm
+  version: 3.8.0
+digest: sha256:1273117e1739d9146e84324f330b714cd54b849600b4dc847157c59bf2518239
+generated: "2026-09-22T16:39:54.9436228+08:00"

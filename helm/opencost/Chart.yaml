@@ -1,0 +1,17 @@
+apiVersion: v2
+name: opencost
+version: 0.1.0
+dependencies:
+  - name: opencost
+    alias: oc
+    version: "2.5.32"
+    repository: "https://opencost.github.io/opencost-helm-chart"
+  # ponytail: opencost only reads cost data from an existing Prometheus, it
+  # doesn't scrape kube-state-metrics/cadvisor itself. internal already has a
+  # Prometheus doing that (helm/observability) - only sit/uat/production need
+  # this bundled one, toggled on via prometheus.enabled in their opencost.tf
+  # (matches helm/observability's own pinned version of the same chart).
+  - name: prometheus
+    condition: prometheus.enabled
+    version: "29.27.0"
+    repository: "https://prometheus-community.github.io/helm-charts"

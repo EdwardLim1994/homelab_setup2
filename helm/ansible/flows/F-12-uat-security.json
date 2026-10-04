@@ -31,7 +31,7 @@
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            { "name": "flow_id", "value": "={{ $json.flow_id ?? '' }}" },
+            { "name": "flow_id", "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}" },
             { "name": "message", "value": "🔐 UAT Security stage running" },
             { "name": "notes", "value": "" }
           ]
@@ -80,30 +80,6 @@
             "operation": "equals",
             "rightValue": "true"
           }
-        }
-      }
-    },
-    {
-      "id": "e23bbdf9-1b15-4db9-98c5-ef749da6215e",
-      "name": "Label: security:cleared",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1520, 200],
-      "parameters": {
-        "method": "PUT",
-        "url": "={{ $env.GITLAB_URL }}/api/v4/projects/{{ $env.GITLAB_PROJECT_ID }}/issues/{{ $env.RELEASE_TICKET_ID }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "PRIVATE-TOKEN", "value": "={{ $env.GITLAB_TOKEN }}" },
-            { "name": "Content-Type", "value": "application/json" }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [{ "name": "__json", "value": "={\"add_labels\":\"security:cleared\"}" }]
         }
       }
     },
@@ -163,12 +139,9 @@
     },
     "Security Cleared?": {
       "main": [
-        [{ "node": "Label: security:cleared", "type": "main", "index": 0 }],
+        [{ "node": "→ F-13 PO UAT", "type": "main", "index": 0 }],
         [{ "node": "Notify: Security UAT blocked", "type": "main", "index": 0 }]
       ]
-    },
-    "Label: security:cleared": {
-      "main": [[{ "node": "→ F-13 PO UAT", "type": "main", "index": 0 }]]
     }
   },
   "active": true,

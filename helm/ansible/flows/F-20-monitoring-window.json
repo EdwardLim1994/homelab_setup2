@@ -44,7 +44,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -153,7 +153,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -203,33 +203,6 @@
       }
     },
     {
-      "id": "92d4e149-dcac-4fd2-8901-6200e8a17f2e",
-      "name": "Sleep Staging Cluster",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2000,
-        200
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/cluster-lifecycle",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "action",
-              "value": "sleep"
-            },
-            {
-              "name": "cluster",
-              "value": "staging"
-            }
-          ]
-        }
-      }
-    },
-    {
       "id": "2a2e3751-6b2e-42b1-96dd-3ae59acc461d",
       "name": "Notify: Incident detected",
       "type": "n8n-nodes-base.httpRequest",
@@ -255,7 +228,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -383,17 +356,6 @@
         [
           {
             "node": "PM: Release Comms",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "PM: Release Comms": {
-      "main": [
-        [
-          {
-            "node": "Sleep Staging Cluster",
             "type": "main",
             "index": 0
           }

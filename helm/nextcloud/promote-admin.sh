@@ -1,6 +1,6 @@
 #!/bin/bash
 # ponytail: no-op until ADMIN_EMAIL has logged in via SSO once (Social Login
-# JIT-creates the account) — safe to run on every Tilt/terraform reload.
+# JIT-creates the account) — safe to run on every terraform reload.
 # Finds the Nextcloud user whose email matches ADMIN_EMAIL and adds them to the
 # built-in `admin` group. Social Login usernames are opaque (custom_oidc-<sub>),
 # so match on email, not uid.

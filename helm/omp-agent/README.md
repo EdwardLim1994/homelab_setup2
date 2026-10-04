@@ -93,12 +93,13 @@ posting the consolidated result to Mattermost.
 `omp-agent-secrets` (plain K8s Secret — no ExternalSecret operator in this
 cluster) carries `gitlab_token` (reuses `TF_VAR_omp_gitlab_token`),
 `claude_code_token` (reuses `TF_VAR_claude_code_token`), and
-`gitlab_repo_url` (new: `TF_VAR_omp_gitlab_repo_url`, set in `.env`).
+`gitlab_repo_url` (new: `TF_VAR_omp_gitlab_repo_url`, set in `.env`),
+`taiga_token` (`TF_VAR_taiga_api_token`, bootstrap-once via the
+browser like `openwebui_api_key`), and `taiga_url` (the in-cluster gateway
+address, not a `.env` value — pods can't reach the tailnet VIP).
 
 ## Not done here
 
 - No Deployment/StatefulSet — Jobs only, scale-to-zero.
-- No Tiltfile — Jobs aren't dev-iterated; only the ConfigMaps could
-  hot-reload, and nothing currently needs that during skill development.
 - n8n's actual "create Job" HTTP node isn't built — this is the contract
   doc for whoever wires that flow.

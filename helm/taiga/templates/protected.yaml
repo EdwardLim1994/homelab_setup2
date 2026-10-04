@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-protected
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-protected
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-protected
+    spec:
+      containers:
+        - name: taiga-protected
+          image: {{ .Values.image.protected }}
+          env:
+            - name: SECRET_KEY
+              value: {{ .Values.taiga.secretKey | quote }}
+            - name: MAX_AGE
+              value: "172800"
+          ports:
+            - containerPort: 8003
+          volumeMounts:
+            - name: static-media
+              mountPath: /taiga-back/media
+              subPath: media
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: static-media
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-static-media
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-protected
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: {{ .Release.Name }}-protected
+  ports:
+    - port: 8003
+      targetPort: 8003

@@ -1,0 +1,75 @@
+# Registers the 5 phase clusters (sit/uat/qa/staging/production) with ArgoCD,
+# which lives in k3d-internal alongside n8n/gitlab. Each phase is its own k3d
+# cluster on its own docker network — not reachable via in-cluster service
+# DNS — so ArgoCD talks to their API servers over host.docker.internal:<port>
+# (Docker Desktop resolves that hostname from any container on any network,
+# same trick already used for host Ollama access).
+#
+# Registration = one Secret per cluster in the argocd namespace, labeled
+# argocd.argoproj.io/secret-type: cluster (ArgoCD's own declarative format —
+# no `argocd` CLI, no ArgoCD API token needed for this part). Each cluster
+# gets a cluster-admin argocd-manager ServiceAccount + a long-lived token
+# Secret so ArgoCD can act on it.
+#
+# Needs external-cluster-kubeconfig (Secret, ansible namespace, key
+# "config") mounted at /kube/config — NOT terraform-managed, since k3d
+# context data (host.docker.internal ports) is host-machine state, not
+# something tofu apply can generate. Create by hand once, and again after
+# any `k3d cluster delete/create` since the port changes:
+#
+# ponytail: `host.docker.internal` resolves to BOTH an IPv6 and IPv4 address
+# on Docker Desktop. Pods have no IPv6 route, and Python's k8s client tries
+# the IPv6 hit first with no fallback — "Network unreachable", not a DNS
+# failure. Fixed via a `hostAliases` entry on the runner pod (helm/ansible/
+# templates/runner.yaml) pinning the hostname to its IPv4 literal — keep the
+# hostname as-is here (rewriting it to a bare IP breaks TLS SNI/cert
+# hostname verification against the k3d API server's cert instead).
+#
+#   kubectl config view --minify=false --flatten > /tmp/external-kubeconfig
+#   kubectl create secret generic external-cluster-kubeconfig \
+#     -n ansible --from-file=config=/tmp/external-kubeconfig
+#
+# (the full merged kubeconfig is fine to hand over as-is — this playbook only
+# ever reads the 5 phase contexts out of it)
+#
+#   scripts/ansible-run.sh argocd-clusters
+#   scripts/ansible-run.sh argocd-clusters --syntax-check
+- name: Register phase clusters with ArgoCD
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    external_kubeconfig: /kube/config
+    phases:
+      - sit
+      - uat
+      - qa
+      - staging
+      - production
+  tasks:
+    - name: Confirm external kubeconfig is mounted
+      ansible.builtin.stat:
+        path: "{{ external_kubeconfig }}"
+      register: kubeconfig_stat
+
+    - name: Fail with a clear message if it isn't
+      ansible.builtin.fail:
+        msg: >-
+          external-cluster-kubeconfig Secret not mounted at {{ external_kubeconfig }}.
+          See this playbook's header for the one-time `kubectl create secret` step.
+      when: not kubeconfig_stat.stat.exists
+
+    - name: Read merged kubeconfig
+      ansible.builtin.slurp:
+        src: "{{ external_kubeconfig }}"
+      register: kubeconfig_raw
+
+    - name: Parse kubeconfig
+      ansible.builtin.set_fact:
+        kubeconfig_data: "{{ kubeconfig_raw.content | b64decode | from_yaml }}"
+
+    - name: Per-phase cluster registration
+      ansible.builtin.include_tasks: argocd-clusters-register-phase.yml
+      loop: "{{ phases }}"
+      loop_control:
+        loop_var: phase

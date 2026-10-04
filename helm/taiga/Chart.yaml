@@ -1,0 +1,8 @@
+# ponytail: no upstream Helm chart exists for Taiga (taiga.io ships only
+# taiga-docker's docker-compose.yml) — hand-rolled, same convention as
+# helm/omp / helm/litellm / helm/postgres (no dependencies: block).
+apiVersion: v2
+name: taiga
+version: 0.1.0
+appVersion: "latest"
+description: Taiga project management (self-hosted, no upstream chart)

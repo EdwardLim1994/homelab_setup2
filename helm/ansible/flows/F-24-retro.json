@@ -44,7 +44,7 @@
           "parameters": [
             {
               "name": "flow_id",
-              "value": "={{ $json.flow_id ?? '' }}"
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
             },
             {
               "name": "message",
@@ -347,7 +347,7 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Synthesise an 11-section retrospective report for {{ $node['Webhook Trigger'].json.body.body.version }} from these inputs, then create a GitLab wiki page and post a summary via glab.\n\n--- Tech Lead retro ---\n{{ $node['TL: Tech Retro'].json.output }}\n\n--- QA retro ---\n{{ $node['QA: Quality Retro'].json.output }}\n\n--- Security retro ---\n{{ $node['Sec: Security Retro'].json.output }}\n\n--- Release Manager retro ---\n{{ $node['RM: Process Retro'].json.output }}",
+              "value": "=Synthesise an 11-section retrospective report for {{ $node['Webhook Trigger'].json.body.body.version }} from these inputs, then publish it as a GitLab wiki page titled '{{ $node['Webhook Trigger'].json.body.body.version }}/Retrospective' via `glab api projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/wikis --method POST -f title=\"{{ $node['Webhook Trigger'].json.body.body.version }}/Retrospective\" -f format=markdown -F content=@<content-file>` (note -F, not -f — -f sends the value as a literal string, -F substitutes the file's actual content) — the slash nests this page under the '{{ $node['Webhook Trigger'].json.body.body.version }}' wiki directory alongside its PRD/Architecture/UX-Design pages (if the page already exists, PUT to `glab api projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/wikis/{{ $node['Webhook Trigger'].json.body.body.version }}%2FRetrospective` instead — %2F, not a literal slash, in the URL path). Then post a summary via glab.\n\n--- Tech Lead retro ---\n{{ $node['TL: Tech Retro'].json.output }}\n\n--- QA retro ---\n{{ $node['QA: Quality Retro'].json.output }}\n\n--- Security retro ---\n{{ $node['Sec: Security Retro'].json.output }}\n\n--- Release Manager retro ---\n{{ $node['RM: Process Retro'].json.output }}",
               "type": "string"
             },
             {

@@ -21,11 +21,15 @@ servers:
     port: 8000
     env:
       GRAFANA_URL: http://observability-grafana.observability.svc.cluster.local
-      GRAFANA_SERVICE_ACCOUNT_TOKEN: ""  # set via Tiltfile/terraform
+      GRAFANA_SERVICE_ACCOUNT_TOKEN: ""  # set via terraform
 
   sonarqube:
     image: sonarsource/sonarqube-mcp:latest
     port: 8080
+    # ponytail: after a full cluster/host reboot this pod starts before the
+    # sonarqube-sonarqube JVM (slow boot) is listening — crashes hard
+    # (version-check connect refused) instead of retrying. Block on it.
+    waitFor: "sonarqube-sonarqube.sonarqube.svc.cluster.local:9000"
     # ponytail: JVM server + downloads analyzer plugins on boot — OOMKills
     # (exit 137, CrashLoopBackOff) at the 256Mi default. 1Gi limit gives the
     # container-aware JVM enough headroom; drop it if analyzer set shrinks.
@@ -45,7 +49,7 @@ servers:
       # mode the per-request token comes from the caller's `Authorization:
       # Bearer` header (LiteLLM sends it — see helm/litellm mcpSonarqubeAuthToken).
       # Must be a VALID SonarQube user token or bg init logs "Not authorized".
-      SONARQUBE_TOKEN: ""  # set via Tiltfile/terraform (TF_VAR_sonarqube_mcp_token)
+      SONARQUBE_TOKEN: ""  # set via terraform (TF_VAR_sonarqube_mcp_token)
 
   gitlab:
     # ponytail: NOT mcp/gitlab (Docker's own catalog wrapper, stdio-only) —
@@ -61,11 +65,11 @@ servers:
       # Host header isn't loopback — LiteLLM connects by this Service DNS name.
       MCP_SERVER_URL: "http://mcp-servers-gitlab.mcp-servers.svc.cluster.local:3002"
       GITLAB_API_URL: http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/api/v4
-      GITLAB_PERSONAL_ACCESS_TOKEN: ""  # set via Tiltfile/terraform
+      GITLAB_PERSONAL_ACCESS_TOKEN: ""  # set via terraform
       # ponytail: server holds a static PAT (not per-client OAuth), so this
       # is the "who's allowed to call this server" bearer token — required
       # by the image whenever STREAMABLE_HTTP + a static PAT are combined.
-      STREAMABLE_HTTP_AUTH_TOKEN: ""  # set via Tiltfile/terraform
+      STREAMABLE_HTTP_AUTH_TOKEN: ""  # set via terraform
 
   n8n:
     # ponytail: czlonkowski/n8n-mcp — node docs + workflow validation always,
@@ -78,10 +82,23 @@ servers:
       MCP_MODE: "http"
       PORT: "3000"
       # n8n-mcp refuses to start in http mode without this (per-request bearer).
-      AUTH_TOKEN: ""  # set via Tiltfile/terraform (TF_VAR_n8n_mcp_auth_token)
+      AUTH_TOKEN: ""  # set via terraform (TF_VAR_n8n_mcp_auth_token)
       N8N_API_URL: http://n8n.n8n.svc.cluster.local:5678
       N8N_API_KEY: ""  # patched in by playbooks/n8n.yml after it mints a key
       LOG_LEVEL: warn
+
+  taiga:
+    # ponytail: custom image (no maintained Taiga MCP server exists) — built
+    # by terraform/internal/mcp-servers.tf's null_resource. See
+    # helm/mcp-servers/taiga-mcp/ for source.
+    image: k3d-registry:5111/taiga-mcp:dev
+    port: 8300
+    env:
+      PORT: "8300"
+      TAIGA_URL: ""  # set via terraform
+      TAIGA_TOKEN: ""  # set via terraform (TF_VAR_taiga_api_token)
+      # per-caller bearer, same role as gitlab's STREAMABLE_HTTP_AUTH_TOKEN
+      AUTH_TOKEN: ""  # set via terraform (TF_VAR_taiga_mcp_auth_token)
 
   playwright:
     image: mcr.microsoft.com/playwright/mcp:latest

@@ -9,15 +9,24 @@ n8n:
     port: 5432
     username: n8n
     database: n8n
-    password: ""  # set via Tiltfile/terraform (shared_db_password)
+    password: ""  # set via terraform (shared_db_password)
 
   main:
+    # ponytail: after a full cluster/host reboot postgres isn't always up
+    # before n8n starts — n8n's own SIGTERM-during-DNS-retry path throws
+    # ("Cannot read properties of undefined (reading
+    # 'removeAllQueuedWorkflowActivations')") and it crash-loops instead of
+    # cleanly retrying. Block startup until postgres actually accepts TCP.
+    initContainers:
+      - name: wait-for-postgres
+        image: busybox:1.36
+        command: ["sh", "-c", "until nc -z postgres.postgres.svc.cluster.local 5432; do echo waiting for postgres; sleep 2; done"]
     persistence:
       enabled: true
       # ponytail: chart defaults this to "helm.sh/resource-policy: keep",
-      # which makes Tilt refuse to recreate the PVC after a manual delete
-      # (e.g. wiping it to reset the encryption key) — drop it so Tilt fully
-      # owns the PVC lifecycle like every other app's storage in this repo.
+      # which blocks recreating the PVC after a manual delete (e.g. wiping it
+      # to reset the encryption key) — drop it so Helm fully owns the PVC
+      # lifecycle like every other app's storage in this repo.
       annotations: {}
     resources:
       requests:
@@ -40,14 +49,15 @@ n8n:
     # ponytail: n8n gates native OIDC/SSO behind an Enterprise license.
     # cweagans/n8n-oidc (MIT) bolts it on via n8n's external-hooks system
     # instead — no license, no fork, just a JS file + env vars. hooks.js is
-    # mounted from a ConfigMap the Tiltfile builds from helm/n8n/hooks.js.
+    # mounted from a ConfigMap terraform/internal/n8n.tf builds from
+    # helm/n8n/hooks.js.
     volumes:
       - name: oidc-hooks
         configMap:
           name: n8n-oidc-hooks
-      # ponytail: homelab-ca Secret — optional so Tilt (no tailnet ingress,
-      # no coredns rewrite, OIDC_ISSUER_URL stays plain) still boots without
-      # it. See terraform/n8n.tf for the copy-in + NODE_EXTRA_CA_CERTS below.
+      # ponytail: homelab-ca Secret — always provided by
+      # terraform/internal/n8n.tf, `optional: true` is just defensive. See
+      # that file for the copy-in + NODE_EXTRA_CA_CERTS below.
       - name: homelab-ca
         secret:
           secretName: homelab-ca
@@ -102,16 +112,84 @@ n8n:
       # match what playbooks/gitlab-webhook.yml registers the hook with.
       # GITLAB_WEBHOOK_SECRET injected by terraform set_sensitive.
       EXTERNAL_HOOK_FILES: "/hooks/hooks.js"
+      # F-05/F-08 call the in-cluster GitLab API directly (Code nodes) instead
+      # of spawning an agent pod for a simple read. GITLAB_TOKEN is
+      # var.omp_gitlab_token (terraform set_sensitive) — same token the agent
+      # pods use, reused here since it's already scoped to this project.
+      GITLAB_URL: "http://gitlab-webservice-default.gitlab.svc.cluster.local:8181"
+      # ponytail: these 4 vars (+ ARGOCD_PROJECT/DEPLOY_NAMESPACE below) are
+      # only the FALLBACK now — F-03/04/05/06/07/10/14/17/24/27 each check
+      # gitlab_project_path/id, argocd_project, deploy_namespace from the
+      # triggering call first (chat body for chat-invoked flows, the GitLab
+      # webhook payload itself for F-04/05/07, forwarded flow-to-flow where
+      # one flow calls another — e.g. F-05 -> F-06). Only falls back to these
+      # static values when a caller omits them, so "one project in flight"
+      # still works with zero chat args for the dry-run fixture below. A new
+      # flow reading $env.GITLAB_PROJECT_PATH/_ID/ARGOCD_PROJECT/
+      # DEPLOY_NAMESPACE directly needs the same $node['Webhook
+      # Trigger'].json.body.<field> ?? $env.<VAR> pattern, not a bare $env read.
+      GITLAB_PROJECT_PATH: "sdlc%2Fhr-portal-dryrun"
+      GITLAB_PROJECT_ID: "4"
+      RELEASE_VERSION: "v0.1.0"
+      # Ticket calls moved off GitLab issues onto Taiga (wiki also moved to
+      # Taiga's own wiki module — see AGENTS.md's "GitLab compliance
+      # history"). In-cluster address, same reason ARGOCD_URL below is
+      # in-cluster: pods can't route to the Tailscale Service VIP, so the
+      # external tailnet URL just times out (see AGENT.md's "in-cluster
+      # can't reach the tailnet hostname"). Plain default, no __PLACEHOLDER__
+      # needed. TAIGA_PROJECT_ID below is only the fallback (same role as
+      # GITLAB_PROJECT_PATH/_ID above) — F-02's new "Ensure Taiga Project"
+      # step get-or-creates a real Taiga project per kickoff (by_slug lookup,
+      # POST if missing) and threads its id as taiga_project_id through every
+      # role spawn from there; F-31 prefers that over this env var. Only a
+      # kickoff run with no Taiga project step (an old workflow version still
+      # loaded) falls back to this id. TAIGA_TOKEN is terraform set_sensitive
+      # (var.taiga_api_token) — see n8n.tf.
+      TAIGA_URL: "http://taiga-gateway.taiga.svc.cluster.local"
+      TAIGA_PROJECT_ID: "11"
+      # plan_release/kickoff report hand-off bucket (release-reports, see
+      # helm/minio/values.yaml) — same in-cluster-address, plain-default
+      # convention as TAIGA_URL above. MINIO_ROOT_PASSWORD is terraform
+      # set_sensitive (var.minio_root_password) — see n8n.tf.
+      MINIO_ENDPOINT: "http://minio.minio.svc.cluster.local:9000"
+      MINIO_ROOT_USER: "admin"
+      # sit/uat/qa/staging/production are now separate k3d clusters (k3d-sit,
+      # k3d-uat, ...), each on its own docker network — NOT reachable from
+      # n8n/argocd (running in k3d-internal) via in-cluster service DNS. Argo
+      # itself lives in k3d-internal alongside n8n, so ARGOCD_URL stays
+      # in-cluster; ARGOCD_TOKEN is a per-account API token (mint by hand:
+      # `argocd account generate-token --account n8n`, see README env-var
+      # table), var.argocd_token (terraform set_sensitive).
+      ARGOCD_URL: "http://argocd-server.argocd.svc.cluster.local"
+      ARGOCD_PROJECT: "sdlc-hr-portal"
+      # F-27 cluster-lifecycle's kubectl step and any devops-engineer pod CLI
+      # work need real context names, not the old single-cluster "{cluster}-ctx"
+      # guess. Each context's API server resolves via host.docker.internal —
+      # Docker Desktop injects that hostname on every container regardless of
+      # which docker network it's on, so k3d-internal pods can reach these.
+      # ponytail: ports are whatever k3d assigned this run — `k3d cluster list`
+      # / `kubectl config view` to reconfirm after any cluster recreate.
+      # Only 4 clusters exist — no separate QA or staging cluster.
+      # QA-related tasks (story-level testing) target SIT_CLUSTER_CONTEXT;
+      # staging-related tasks (promotion retag, perf/security confirmation)
+      # target UAT_CLUSTER_CONTEXT.
+      SIT_CLUSTER_CONTEXT: "k3d-sit"
+      UAT_CLUSTER_CONTEXT: "k3d-uat"
+      PRODUCTION_CLUSTER_CONTEXT: "k3d-production"
+      # deploy namespace inside each of the 3 target clusters (each cluster is
+      # single-purpose for its phase, so one fixed namespace per cluster is
+      # enough — no per-phase name collision to worry about).
+      DEPLOY_NAMESPACE: "hr-portal"
       N8N_ADDITIONAL_NON_UI_ROUTES: "auth"
       EXTERNAL_FRONTEND_HOOKS_URLS: "/assets/oidc-frontend-hook.js"
       N8N_PROTOCOL: "https"
-      # __APP_URL__ / __AUTHENTIK_URL__ are string-replaced by terraform/Tiltfile
-      # with this app's and Authentik's tailscale-operator MagicDNS URLs
+      # __APP_URL__ / __AUTHENTIK_URL__ are string-replaced by terraform with
+      # this app's and Authentik's tailscale-operator MagicDNS URLs
       # (https://n8n.<tailnet>.ts.net etc).
       N8N_EDITOR_BASE_URL: "__APP_URL__/"
       WEBHOOK_URL: "__APP_URL__/"
       OIDC_ISSUER_URL: "__AUTHENTIK_URL__/application/o/n8n/"
-      # OIDC_CLIENT_ID / OIDC_CLIENT_SECRET set via Tiltfile/terraform (.env)
+      # OIDC_CLIENT_ID / OIDC_CLIENT_SECRET set via terraform (.env)
       OIDC_REDIRECT_URI: "__APP_URL__/auth/oidc/callback"
 
 # ponytail: flow seeding (and n8n owner setup + API-key minting) moved to the

@@ -1,7 +1,0 @@
-# ponytail: the one shared redis. authentik + gitlab Tiltfiles depend on this
-# instead of rendering their own.
-k8s_yaml(blob('apiVersion: v1\nkind: Namespace\nmetadata:\n  name: redis'))
-
-k8s_yaml(helm('.', name='redis', namespace='redis'))
-
-k8s_resource('redis')

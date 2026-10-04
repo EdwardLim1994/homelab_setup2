@@ -1,0 +1,9 @@
+# ponytail: bundled postgresql subchart (own DB, not the shared homelab one -
+# these phase clusters have no shared postgres). Admin bootstrap token set
+# via terraform `set_sensitive` (unleash.tf, INIT_ADMIN_API_TOKENS env var),
+# not in this file.
+unleash:
+  replicaCount: 1
+
+  postgresql:
+    enabled: true

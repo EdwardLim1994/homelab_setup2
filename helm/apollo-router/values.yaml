@@ -1,0 +1,35 @@
+image:
+  repository: ghcr.io/apollographql/router
+  tag: v1.61.1
+
+port: 4000
+
+# ponytail: composed by devops-engineer's CI `compose-supergraph` stage
+# (`rover supergraph compose`) and written here by that same CI job — never
+# hand-edited. Empty default so a fresh instance fails its readiness probe
+# loudly (bad schema) rather than serving an empty router silently.
+supergraphSchema: ""
+
+# ponytail: router.yaml's own config, not this chart's — CORS/telemetry/etc
+# per project if it ever needs to diverge from the default below.
+routerConfig: |
+  supergraph:
+    listen: 0.0.0.0:4000
+  health_check:
+    listen: 0.0.0.0:8088
+  cors:
+    allow_any_origin: true
+  telemetry:
+    exporters:
+      metrics:
+        prometheus:
+          enabled: true
+          listen: 0.0.0.0:9090
+          path: /metrics
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi

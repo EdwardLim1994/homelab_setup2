@@ -23,15 +23,19 @@ Business logic gatekeeper at UAT stage 3. Validates that what was built actually
 
 ```bash
 # Verify prerequisites are met before starting
-glab issue view {release-ticket-id} | grep "qa:uat-approved\|security:cleared"
-# Both must be present — do not start if either is missing
+release_status=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" | jq -r '.status_extra_info.name')
+# Must be "QA UAT Approved" (or later) AND "Security Cleared" already applied —
+# this tracker only holds one status value, so check whichever the release
+# ticket's flow encodes as "both gates passed" (e.g. a combined
+# "Security Cleared" status reached only after QA UAT Approved) — do not
+# start if the prerequisite status hasn't been reached
 
-# Read all stories in scope
-glab issue list --milestone "v{X}.{Y}.{Z}" --label "type:user-story"
+# Read all stories tagged for this release
+curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/userstories?project=$TAIGA_PROJECT_ID&tags=v{X}.{Y}.{Z}"
 
 # Read each story's acceptance criteria
 for story_id in {story-ids}; do
-  glab issue view $story_id
+  curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/userstories/$story_id"
 done
 
 # Note UAT cluster URL from release ticket
@@ -75,33 +79,12 @@ For each user story in the sprint milestone, validate every AC item:
 When an AC item is not fulfilled:
 
 ```bash
-glab issue create \
-  --title "[bugfix] PO: {AC description not met} — GL-{story-N}" \
-  --label "type:bugfix,role:po,sprint:v{X}.{Y}.{Z}" \
-  --milestone "v{X}.{Y}.{Z}" \
-  --description "**PO UAT finding — AC not fulfilled**
-
-**Story:** GL-{story-N} — {story title}
-**AC item:** {exact AC text from story}
-**Environment:** UAT cluster
-**RC version:** {service}:v{X}.{Y}.{Z}-rc{N}
-
-**Expected behaviour (per AC):**
-{what the AC says should happen}
-
-**Actual behaviour:**
-{what actually happens}
-
-**Business impact:**
-{why this matters — what user goal is not achieved}
-
-**Steps to reproduce:**
-1. {step}
-2. {step}
-3. {step}
-
-**Suggested fix:**
-{optional — if the fix is obvious from the AC}"
+curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X POST "$TAIGA_URL/api/v1/issues" \
+  -H "Content-Type: application/json" \
+  -d "{\"project\": $TAIGA_PROJECT_ID,
+       \"subject\": \"[bugfix] PO: {AC description not met} — GL-{story-N}\",
+       \"tags\": [\"v{X}.{Y}.{Z}\"],
+       \"description\": \"**PO UAT finding — AC not fulfilled**\n\n**Story:** GL-{story-N} — {story title}\n**AC item:** {exact AC text from story}\n**Environment:** UAT cluster\n**RC version:** {service}:v{X}.{Y}.{Z}-rc{N}\n\n**Expected behaviour (per AC):**\n{what the AC says should happen}\n\n**Actual behaviour:**\n{what actually happens}\n\n**Business impact:**\n{why this matters — what user goal is not achieved}\n\n**Steps to reproduce:**\n1. {step}\n2. {step}\n3. {step}\n\n**Suggested fix:**\n{optional — if the fix is obvious from the AC}\"}"
 ```
 
 After creating bug ticket:
@@ -117,16 +100,11 @@ Apply `po:uat-approved` only when ALL AC items across ALL stories in scope are v
 ```bash
 # Verify all stories have all AC items passing before signing off
 
-glab issue update {release-ticket-id} --label-add "po:uat-approved"
-
-glab issue comment {release-ticket-id} \
-  --message "PO UAT sign-off: all acceptance criteria verified across {N} stories.
-
-Validation summary:
-$(for story in {stories}; do echo "- GL-${story}: {N} AC items — all PASS"; done)
-
-Bugs found and resolved this UAT cycle: {N}
-po:uat-approved applied."
+op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" | jq -r '.version')
+op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="PO UAT Approved") | .id')
+curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" \
+  -H "Content-Type: application/json" \
+  -d "{\"version\": $op_version, \"status\": $op_status_id, \"comment\": \"PO UAT sign-off: all acceptance criteria verified across {N} stories.\n\nValidation summary:\n$(for story in {stories}; do echo \"- GL-${story}: {N} AC items — all PASS\"; done)\n\nBugs found and resolved this UAT cycle: {N}\nPO UAT Approved applied.\"}"
 ```
 
 Signal n8n: `{"status": "po:uat-approved", "task_id": "$TASK_ID"}`

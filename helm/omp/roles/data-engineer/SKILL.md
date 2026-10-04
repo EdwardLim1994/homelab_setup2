@@ -1,6 +1,6 @@
 ---
 name: data-engineer
-description: Data Engineer agent for API contract authoring. Use when writing proto3 contracts, GraphQL SDL, Kafka topic schemas, publishing to Apicurio schema registry, running buf generate, running graphql-codegen, and committing generated TypeScript types to the api repo. Runs at /develop gate B — all other developer pods are blocked until this completes.
+description: Data Engineer agent for API contract authoring. Use when writing proto3 contracts, GraphQL SDL, Kafka topic schemas, publishing to Apicurio schema registry, running buf generate, running graphql-codegen, and committing generated TypeScript types to packages/api-types. Runs at /develop gate B — all other developer pods are blocked until this completes.
 compatibility: omp, claude-code
 license: MIT
 ---
@@ -30,7 +30,7 @@ cat openspec/architecture.md
 
 ### Step 2 — Write proto3 contracts
 
-Location: `api/contracts/proto/{domain}/{service}.proto`
+Location: `schemas/api/proto/{domain}/{service}.proto`
 
 ```protobuf
 syntax = "proto3";
@@ -71,7 +71,7 @@ Proto conventions:
 
 ### Step 3 — Write GraphQL SDL
 
-Location: `api/contracts/graphql/{domain}.graphql`
+Location: `schemas/api/graphql/{domain}.graphql`
 
 ```graphql
 type User {
@@ -105,7 +105,7 @@ SDL conventions:
 
 ### Step 4 — Write Kafka event schemas
 
-Location: `api/contracts/events/{domain}.{entity}.{verb}.proto`
+Location: `schemas/kafka/{domain}.{entity}.{verb}.proto`
 
 ```protobuf
 syntax = "proto3";
@@ -122,33 +122,38 @@ message UserCreatedEvent {
 
 Topic naming: `{domain}.{entity}.{verb}` → `user.account.created`
 
-### Step 5 — Push schemas to Apicurio
+### Step 5 — Commit the schema files (do NOT push to Apicurio yourself)
 
-```bash
-# Register proto schema
-curl -X POST "${APICURIO_URL}/apis/registry/v2/groups/{group}/artifacts" \
-  -H "Content-Type: application/x-protobuf" \
-  -H "X-Registry-ArtifactId: {domain}-{service}-v1" \
-  --data-binary @api/contracts/proto/{domain}/{service}.proto
+Your job is authoring + committing `schemas/**` — the actual push to each
+environment's Apicurio Registry is a GitLab CI/CD stage DevOps Engineer
+wires (`schema-registry` stage, `push-schemas:sit/uat/production` jobs —
+see `devops-engineer/SKILL.md`), triggered by your commit landing on the
+story/release branch (SIT) or by env values changes reaching `main`
+(UAT/production). Just commit your files under `schemas/api/proto`,
+`schemas/api/graphql`, `schemas/kafka` and push — do not `curl` Apicurio
+directly, that duplicates what CI already does and can race it.
 
-# Register GraphQL schema
-curl -X POST "${APICURIO_URL}/apis/registry/v2/groups/{group}/artifacts" \
-  -H "Content-Type: application/graphql" \
-  -H "X-Registry-ArtifactId: {domain}-graphql-v1" \
-  --data-binary @api/contracts/graphql/{domain}.graphql
+For reference, the artifact-id/content-type mapping CI's job reuses:
 
-# Verify registration
-curl "${APICURIO_URL}/apis/registry/v2/groups/{group}/artifacts"
-```
+| Path | Content-Type | `X-Registry-ArtifactId` |
+|---|---|---|
+| `schemas/api/proto/{domain}/{service}.proto` | `application/x-protobuf` | `{domain}-{service}-v1` |
+| `schemas/api/graphql/{domain}.graphql` | `application/graphql` | `{domain}-graphql-v1` |
+| `schemas/kafka/{domain}.{entity}.{verb}.proto` | `application/x-protobuf` | `{domain}-{entity}-{verb}-v1` |
 
 ### Step 6 — Provision Kafka topics
 
+Generated client code (this step through Step 9) is shared across multiple
+apps, so it belongs in `packages/`, not a bare `api/` — see AGENTS.md's
+"Generated repo structure". `schemas/` (Steps 2-5) stays the source of
+truth; `packages/api-types/` holds only what's generated/consumed from it.
+
 ```bash
 # Using Jikkou
-jikkou apply -f api/config/kafka-topics.yaml
+jikkou apply -f packages/api-types/config/kafka-topics.yaml
 ```
 
-`api/config/kafka-topics.yaml`:
+`packages/api-types/config/kafka-topics.yaml`:
 
 ```yaml
 apiVersion: kafka.jikkou.io/v1beta2
@@ -166,9 +171,19 @@ spec:
 ### Step 7 — buf generate (proto → TypeScript stubs)
 
 ```bash
-cd api
+cd packages/api-types
 buf lint                    # must pass before generate
-buf generate                # reads buf.gen.yaml
+buf generate                # reads buf.gen.yaml, input is ../../schemas
+```
+
+`buf.yaml` (module config — points buf at the real proto source, `schemas/`,
+not this package's own dir):
+
+```yaml
+version: v2
+modules:
+  - path: ../../schemas/api/proto
+  - path: ../../schemas/kafka
 ```
 
 `buf.gen.yaml`:
@@ -182,12 +197,12 @@ plugins:
     out: generated/proto
 ```
 
-Output: `api/generated/proto/{domain}/{service}_pb.ts`
+Output: `packages/api-types/generated/proto/{domain}/{service}_pb.ts`
 
 ### Step 8 — graphql-codegen (SDL → TypeScript types)
 
 ```bash
-cd api
+cd packages/api-types
 bunx graphql-codegen         # reads codegen.ts
 ```
 
@@ -197,7 +212,7 @@ bunx graphql-codegen         # reads codegen.ts
 import type { CodegenConfig } from '@graphql-codegen/cli'
 
 const config: CodegenConfig = {
-  schema: './contracts/graphql/*.graphql',
+  schema: '../../schemas/api/graphql/*.graphql',
   generates: {
     './generated/graphql/types.ts': {
       plugins: ['typescript', 'typescript-resolvers']
@@ -207,13 +222,12 @@ const config: CodegenConfig = {
 export default config
 ```
 
-Output: `api/generated/graphql/types.ts`
+Output: `packages/api-types/generated/graphql/types.ts`
 
 ### Step 9 — Commit and signal
 
 ```bash
-cd api
-git add contracts/ generated/ config/
+git add schemas/ packages/api-types/generated/ packages/api-types/config/
 git commit -m "contracts: add v{X}.{Y}.{Z} API contracts and generated types
 
 - Proto: {list changed services}

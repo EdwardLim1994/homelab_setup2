@@ -1,0 +1,82 @@
+{{- if .Values.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-backup
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # ponytail: was 1 (2 total attempts) — a real scheduled run already hit
+      # a transient postgres/redis blip and gave up before the DB came back
+      # (recovers within ~1-2 min in practice). K8s backoff between attempts
+      # is exponential (10s, 20s, 40s, 80s, 160s...), so 5 spans several
+      # minutes — enough to ride out the blips actually seen so far.
+      backoffLimit: 5
+      # ponytail: without this, a failed run's pods sit forever instead of
+      # getting swept — bit us when a real outage outlasted backoffLimit's
+      # retry window and left 6 dead pods.
+      ttlSecondsAfterFinished: 3600
+      template:
+        spec:
+          restartPolicy: Never
+          # ponytail: initContainer dumps to a shared emptyDir, then the mc
+          # container uploads it and exits — Job succeeds only if both steps
+          # succeed, no separate glue script needed.
+          initContainers:
+            - name: dump
+              image: {{ .Values.image | quote }}
+              command:
+                - sh
+                - -c
+                - |
+                  set -euo pipefail
+                  pg_dumpall -h {{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local -U postgres \
+                    > /backup/postgres-$(date -u +%Y%m%dT%H%M%SZ).sql
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Release.Name }}
+                      key: password
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          containers:
+            - name: upload
+              image: minio/mc:latest
+              command:
+                - sh
+                - -c
+                - |
+                  set -euo pipefail
+                  mc alias set local {{ .Values.backup.minioEndpoint }} "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+                  mc cp /backup/*.sql local/{{ .Values.backup.bucket }}/
+              env:
+                - name: MINIO_ROOT_USER
+                  value: {{ .Values.backup.minioRootUser | quote }}
+                - name: MINIO_ROOT_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Release.Name }}-minio-backup
+                      key: password
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              emptyDir: {}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-minio-backup
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+stringData:
+  password: {{ .Values.backup.minioRootPassword | quote }}
+{{- end }}

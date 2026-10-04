@@ -1,6 +1,6 @@
 #!/bin/sh
 # ponytail: no-op until ADMIN_EMAIL has logged in via SSO once (creates the
-# GitLab user row) — safe to re-run on every Tilt reload regardless.
+# GitLab user row) — safe to re-run any time regardless.
 set -e
 cd /srv/gitlab
 bundle exec rails runner "

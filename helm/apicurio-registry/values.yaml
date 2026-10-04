@@ -1,0 +1,9 @@
+# ponytail: chart defaults already do what we want - registry.enabled=true,
+# in-memory storage (kafka/postgres persistence block left commented in the
+# upstream chart = mem image variant). Chart also ships a "sync" sidecar
+# component (k8s-resource sync) enabled by default - harmless, left as-is.
+# Migrate to the kafka-backed persistence block (against helm_release.kafka)
+# before production actually depends on schemas surviving a restart.
+apicurio-registry:
+  registry:
+    enabled: true

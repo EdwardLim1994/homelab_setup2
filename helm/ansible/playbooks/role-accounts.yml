@@ -1,0 +1,232 @@
+# One-time (idempotent, re-run-safe) migration: create a dedicated service
+# account per SDLC role in both GitLab and Taiga, so tickets/MRs can be
+# assigned to the role that actually did the work instead of the single
+# shared admin identity every omp pod authenticates as.
+#
+#   scripts/{linux,windows}/ansible-run.* role-accounts
+#
+# ponytail: GitLab username == role name verbatim (deterministic, lets
+# SKILL.md hardcode `--assignee "<role>"` with no lookup). GitLab group
+# membership is granted once at the `sdlc` GROUP level -- GitLab cascades
+# group membership to every project under it, present and future, so one
+# run here covers every generated project forever. Taiga has no such
+# group concept; per-project membership is handled separately in
+# F-02-kickoff.json at project-creation time, not here.
+#
+# No confirmed Taiga REST "create user" endpoint exists (self-registration
+# is likely disabled on this SSO-only instance) -- Taiga users are created
+# the same way helm/taiga/templates/back.yaml's own admin-bootstrap init
+# container does it: `manage.py shell` inside the taiga-back pod.
+#
+# RBAC: pods get/list + pods/exec in `gitlab` and `taiga`
+# (terraform/internal/ansible.tf: ansible_gitlab_exec, ansible_taiga_exec).
+- name: Per-role service accounts for GitLab + Taiga
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    gitlab_ns: gitlab
+    taiga_ns: taiga
+    gitlab_url: >-
+      {{ lookup('env', 'GITLAB_URL')
+         | default('http://gitlab-webservice-default.gitlab.svc.cluster.local:8181', true) }}
+    gitlab_api_base: "{{ gitlab_url }}/api/v4"
+    group_ref: "{{ lookup('env', 'gitlab_group_id') | default('sdlc', true) }}"
+    # ponytail: single source of truth is helm/omp/values.yaml's `roles:`
+    # list -- keep these in sync if a role is ever added/removed there.
+    sdlc_roles:
+      - backend-developer
+      - data-engineer
+      - devops-engineer
+      - frontend-developer
+      - product-owner
+      - project-manager
+      - qa-engineer
+      - release-manager
+      - security-engineer
+      - solution-architect
+      - tech-lead
+      - uiux-designer
+
+  tasks:
+    # --- GitLab: mint a scoped token (same technique as gitlab-webhook.yml) ---
+    - name: Find the gitlab webservice pod
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ gitlab_ns }}"
+        label_selectors: ["app=webservice"]
+        field_selectors: ["status.phase=Running"]
+      register: gl_pods
+      until: gl_pods.resources | length > 0
+      retries: 20
+      delay: 15
+
+    - name: Mint a fresh sdlc-role-accounts API token via rails
+      kubernetes.core.k8s_exec:
+        namespace: "{{ gitlab_ns }}"
+        pod: "{{ gl_pods.resources[0].metadata.name }}"
+        container: webservice
+        command: >-
+          /bin/sh -c "cd /srv/gitlab && bundle exec rails runner \"
+            u = User.find_by(username: 'root') or abort 'no root user';
+            u.personal_access_tokens.where(name: 'sdlc-role-accounts').delete_all;
+            t = u.personal_access_tokens.create!(name: 'sdlc-role-accounts', scopes: [:api], expires_at: 1.year.from_now);
+            puts %(PAT=#{t.token})
+          \""
+      register: pat_out
+      until: "'PAT=' in (pat_out.stdout | default(''))"
+      retries: 4
+      delay: 20
+      no_log: true
+
+    - name: Extract the token
+      ansible.builtin.set_fact:
+        gitlab_token: "{{ pat_out.stdout | regex_search('PAT=(\\S+)', '\\1') | first }}"
+      no_log: true
+
+    # --- GitLab: resolve (or create) the sdlc group ---
+    - name: Look up the group
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_ref | urlencode }}"
+        method: GET
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        status_code: [200, 404]
+      register: group_get
+      no_log: true
+
+    - name: Create the sdlc group
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups"
+        method: POST
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body: { name: sdlc, path: sdlc, visibility: private }
+        status_code: [201]
+      register: made_group
+      no_log: true
+      when: group_get.status == 404
+
+    - name: Resolve group id
+      ansible.builtin.set_fact:
+        group_id: "{{ made_group.json.id if group_get.status == 404 else group_get.json.id }}"
+
+    # --- GitLab: create one user per role (idempotent) ---
+    - name: Check whether each role's GitLab user already exists
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/users?username={{ item }}"
+        method: GET
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        return_content: true
+        status_code: [200]
+      register: gl_user_checks
+      loop: "{{ sdlc_roles }}"
+      no_log: true
+
+    - name: Create missing GitLab role users
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/users"
+        method: POST
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body:
+          username: "{{ item.item }}"
+          name: "{{ item.item }}"
+          email: "sdlc-{{ item.item }}@homelab.local"
+          password: "{{ lookup('ansible.builtin.password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
+          skip_confirmation: true
+        status_code: [201]
+      loop: "{{ gl_user_checks.results }}"
+      loop_control: { label: "{{ item.item }}" }
+      when: item.json | length == 0
+      no_log: true
+
+    - name: Re-resolve every role's GitLab user id
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/users?username={{ item }}"
+        method: GET
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        return_content: true
+        status_code: [200]
+      register: gl_user_ids
+      loop: "{{ sdlc_roles }}"
+      loop_control: { label: "{{ item }}" }
+      no_log: true
+
+    # --- GitLab: add every role user to the sdlc group (cascades to all projects) ---
+    - name: Add each role user to the sdlc group as Developer
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/groups/{{ group_id }}/members"
+        method: POST
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: form-urlencoded
+        body:
+          user_id: "{{ item.json[0].id }}"
+          access_level: 30
+        status_code: [201, 409]
+      loop: "{{ gl_user_ids.results }}"
+      loop_control: { label: "{{ item.item }}" }
+      when: item.json | length > 0
+      no_log: true
+
+    # --- Taiga: create one user per role via manage.py shell (idempotent) ---
+    - name: Find the taiga-back pod
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ taiga_ns }}"
+        label_selectors: ["app=taiga-back"]
+        field_selectors: ["status.phase=Running"]
+      register: taiga_pods
+      until: taiga_pods.resources | length > 0
+      retries: 20
+      delay: 15
+
+    # ponytail: password resolved once, outside the loop/shell string -- the
+    # command below went through a double-quoted k8s_exec `command` string
+    # AND a python -c argument AND a set_password(...) call; nesting a third
+    # lookup('...', "...") with its own quotes in there broke shlex-splitting
+    # for every item (k8s_exec only wraps the whole thing in /bin/sh -c
+    # correctly when that's the ENTIRE command string, same as the GitLab
+    # rails task above -- this task originally skipped that wrapper).
+    - name: Resolve a throwaway Taiga role-account password
+      ansible.builtin.set_fact:
+        taiga_role_password: "{{ lookup('ansible.builtin.password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
+      no_log: true
+
+    - name: Create missing Taiga role users
+      kubernetes.core.k8s_exec:
+        namespace: "{{ taiga_ns }}"
+        pod: "{{ taiga_pods.resources[0].metadata.name }}"
+        container: taiga-back
+        # ponytail: `|-` (literal block), NOT `>-` (folded) -- folding joins
+        # every line with a space, which destroys Python's indentation-
+        # dependent syntax (the GitLab rails task above gets away with `>-`
+        # because Ruby statements are `;`-joined and don't care about layout).
+        command: |-
+          /bin/sh -c "python manage.py shell -c \"
+          from django.contrib.auth import get_user_model
+          User = get_user_model()
+          u, created = User.objects.get_or_create(username='{{ item }}', defaults={'email': 'sdlc-{{ item }}@homelab.local', 'full_name': '{{ item }}'})
+          if created:
+              u.set_password('{{ taiga_role_password }}')
+              u.save()
+          print('TAIGA_UID:{{ item }}:%d' % u.id)
+          \""
+      register: taiga_create_out
+      loop: "{{ sdlc_roles }}"
+      loop_control: { label: "{{ item }}" }
+      no_log: true
+
+    - name: Parse Taiga user ids
+      ansible.builtin.set_fact:
+        taiga_uid_map: "{{ taiga_uid_map | default({}) | combine({ item.item: (item.stdout | regex_search('TAIGA_UID:' + item.item + ':(\\d+)', '\\1') | first) }) }}"
+      loop: "{{ taiga_create_out.results }}"
+      loop_control: { label: "{{ item.item }}" }
+      no_log: true
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: >-
+          GitLab: {{ sdlc_roles | length }} role user(s) ensured, added to
+          group '{{ group_ref }}' (id {{ group_id }}) as Developer.
+          Taiga user ids: {{ taiga_uid_map }}

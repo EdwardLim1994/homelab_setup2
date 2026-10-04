@@ -3,6 +3,7 @@
 # datastore. No auth (cluster-internal). Consumers pick a logical DB:
 #   gitlab    -> DB 0   (its default; all components agree)
 #   authentik -> DB 1   (AUTHENTIK_REDIS__DB)
+#   harbor    -> DB 2   (helm/harbor/values.yaml's redis.external.db)
 # argocd keeps its own bundled redis (tightly coupled to the argo-cd chart).
 image: redis:7-alpine
 
