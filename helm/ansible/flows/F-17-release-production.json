@@ -28,7 +28,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst tasks = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks`, qs: { project: $env.TAIGA_PROJECT_ID, tags: $env.RELEASE_VERSION }, headers: taigaAuth, json: true });\nconst ticket = tasks.find(t => t.subject.startsWith('[release]')) || null;\nreturn [{ json: { ...$json, rm_go: !!ticket && ticket.status_extra_info && ticket.status_extra_info.name === 'RM Go', release_ticket_id: ticket ? ticket.id : null } }];"
+        "jsCode": "// ponytail: label query param is the closest Kaneo equivalent to Taiga's\n// release-grouping tags, and Kaneo's task.status is a plain string (no\n// status_extra_info indirection) -- verify both against the deployed Kaneo version.\nconst kaneoAuth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst tasks = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/task/tasks/${$env.KANEO_PROJECT_ID}`, qs: { label: $env.RELEASE_VERSION }, headers: kaneoAuth, json: true });\nconst ticket = tasks.find(t => t.title.startsWith('[release]')) || null;\nreturn [{ json: { ...$json, rm_go: !!ticket && ticket.status === 'rm-go', release_ticket_id: ticket ? ticket.id : null } }];"
       }
     },
     {
@@ -135,7 +135,7 @@
           "parameters": [
             {
               "name": "__json",
-              "value": "={\"source_branch\":\"promote/{{ $env.RELEASE_VERSION }}\",\"target_branch\":\"main\",\"title\":\"[release] {{ $env.RELEASE_VERSION }}\",\"description\":\"## Ticket\\n{{ $env.TAIGA_URL }}/project/{{ $env.TAIGA_PROJECT_ID }}/task/{{ $node[\"Find Release Ticket\"].json.release_ticket_id }}\\n\\n## What's done\\nAll UAT + staging sign-offs passed (QA UAT Approved, Security Cleared, PO UAT Approved, Staging QA Passed, Staging Security Passed, RM Go — tracked as the release ticket's Taiga status, not GitLab labels). Promotes rc images to full version v{{ $env.RELEASE_VERSION }} by retag, no rebuild.\\n\\n## Proof of success\\nSee release ticket for k6/ZAP staging confirmation reports and go/no-go assessment.\\n\\n## Potential risk\\nSee release ticket's rollback target and monitoring thresholds.\",\"labels\":\"type:release\",\"assignee_id\":{{ $node[\"Find Edward's User ID\"].json.edward_user_id }},\"reviewer_ids\":[{{ $node[\"Find Edward's User ID\"].json.edward_user_id }}]}"
+              "value": "={\"source_branch\":\"promote/{{ $env.RELEASE_VERSION }}\",\"target_branch\":\"main\",\"title\":\"[release] {{ $env.RELEASE_VERSION }}\",\"description\":\"## Ticket\\n{{ $env.KANEO_URL }}/task/{{ $node[\"Find Release Ticket\"].json.release_ticket_id }}\\n\\n## What's done\\nAll UAT + staging sign-offs passed (QA UAT Approved, Security Cleared, PO UAT Approved, Staging QA Passed, Staging Security Passed, RM Go — tracked as the release ticket's Kaneo status, not GitLab labels). Promotes rc images to full version v{{ $env.RELEASE_VERSION }} by retag, no rebuild.\\n\\n## Proof of success\\nSee release ticket for k6/ZAP staging confirmation reports and go/no-go assessment.\\n\\n## Potential risk\\nSee release ticket's rollback target and monitoring thresholds.\",\"labels\":\"type:release\",\"assignee_id\":{{ $node[\"Find Edward's User ID\"].json.edward_user_id }},\"reviewer_ids\":[{{ $node[\"Find Edward's User ID\"].json.edward_user_id }}]}"
             }
           ]
         }

@@ -87,18 +87,18 @@ servers:
       N8N_API_KEY: ""  # patched in by playbooks/n8n.yml after it mints a key
       LOG_LEVEL: warn
 
-  taiga:
-    # ponytail: custom image (no maintained Taiga MCP server exists) — built
+  kaneo:
+    # ponytail: custom image (Kaneo's own native MCP wants an OAuth-resolvable
+    # bearer, awkward for a static per-role token in a batch Job) — built
     # by terraform/internal/mcp-servers.tf's null_resource. See
-    # helm/mcp-servers/taiga-mcp/ for source.
-    image: k3d-registry:5111/taiga-mcp:dev
+    # helm/mcp-servers/kaneo-mcp/ for source. No static credential here —
+    # the server forwards whatever bearer the caller sends straight to
+    # Kaneo's API, so each role's own real API key is the auth, end to end.
+    image: k3d-registry:5111/kaneo-mcp:dev
     port: 8300
     env:
       PORT: "8300"
-      TAIGA_URL: ""  # set via terraform
-      TAIGA_TOKEN: ""  # set via terraform (TF_VAR_taiga_api_token)
-      # per-caller bearer, same role as gitlab's STREAMABLE_HTTP_AUTH_TOKEN
-      AUTH_TOKEN: ""  # set via terraform (TF_VAR_taiga_mcp_auth_token)
+      KANEO_URL: ""  # set via terraform
 
   playwright:
     image: mcr.microsoft.com/playwright/mcp:latest

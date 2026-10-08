@@ -285,44 +285,33 @@ variable "kafka_ui_oidc_client_secret" {
   default   = "dev-kafka-ui-oidc-client-secret-not-for-prod-use"
 }
 
-variable "taiga_api_token" {
-  # bootstrap-from-this-stack, like n8n_mcp_api_key/openwebui_api_key — leave
-  # blank, mint by hand once Taiga is up (admin user's API token).
+variable "kaneo_admin_password" {
+  # bootstrap-from-this-stack, like n8n_mcp_api_key/openwebui_api_key — first
+  # signup becomes Kaneo's instance admin (hasUsers flag), done once by hand
+  # via the browser before DISABLE_PASSWORD_REGISTRATION locks it down.
   type      = string
   sensitive = true
-  default   = ""
+  default   = "dev-kaneo-admin-password-not-for-prod-use"
 }
 
-variable "taiga_admin_password" {
+variable "kaneo_auth_secret" {
+  # Better Auth AUTH_SECRET — 32+ chars, cryptographic signing, not an auth
+  # credential shared with anything else.
   type      = string
   sensitive = true
-  default   = "dev-taiga-admin-password-not-for-prod-use"
+  default   = "dev-kaneo-auth-secret-not-for-prod-use-needs-32-chars"
 }
 
-variable "taiga_secret_key" {
-  # Django SECRET_KEY (TAIGA_SECRET_KEY) — cryptographic signing, not an
-  # auth credential shared with anything else.
+variable "kaneo_oidc_client_id" {
   type      = string
   sensitive = true
-  default   = "dev-taiga-secret-key-not-for-prod-use"
+  default   = "dev-kaneo-oidc-client-id"
 }
 
-variable "taiga_rabbitmq_password" {
+variable "kaneo_oidc_client_secret" {
   type      = string
   sensitive = true
-  default   = "dev-taiga-rabbitmq-password-not-for-prod-use"
-}
-
-variable "taiga_oidc_client_id" {
-  type      = string
-  sensitive = true
-  default   = "dev-taiga-oidc-client-id"
-}
-
-variable "taiga_oidc_client_secret" {
-  type      = string
-  sensitive = true
-  default   = "dev-taiga-oidc-client-secret-not-for-prod-use"
+  default   = "dev-kaneo-oidc-client-secret-not-for-prod-use"
 }
 
 variable "harbor_admin_password" {
@@ -380,13 +369,18 @@ variable "gitlab_mcp_auth_token" {
 }
 
 # ponytail: per-caller bearer for the taiga MCP server (its AUTH_TOKEN). Not
-# a real credential — this repo invents it, same as gitlab_mcp_auth_token
-# above. Distinct from taiga_api_token, which is the upstream Taiga
-# credential the server itself holds (its TAIGA_TOKEN).
-variable "taiga_mcp_auth_token" {
+# ponytail: kaneo-mcp has no static credential of its own — it forwards
+# whatever bearer the caller sends straight to Kaneo's API (see its own
+# ponytail comment), so there's no AUTH_TOKEN-equivalent to invent here the
+# way taiga_mcp_auth_token was.
+variable "kaneo_api_token" {
+  # bootstrap-from-this-stack shared fallback (role-accounts.yml mints a
+  # real per-role key into omp-role-kaneo-tokens; this is only the fallback
+  # used before that playbook has run, same role taiga_api_token played) —
+  # leave blank, mint by hand once Kaneo is up (admin user's own API key).
   type      = string
   sensitive = true
-  default   = "dev-taiga-mcp-auth-token-not-for-prod-use"
+  default   = ""
 }
 
 # ponytail: per-caller bearer for the n8n MCP server (its AUTH_TOKEN). LiteLLM

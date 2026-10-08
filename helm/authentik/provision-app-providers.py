@@ -115,11 +115,11 @@ apps = [
     dict(name='Harbor', slug='harbor',
          client_id=os.environ['HARBOR_OIDC_CLIENT_ID'], client_secret=os.environ['HARBOR_OIDC_CLIENT_SECRET'],
          redirect_uris=[app_url('harbor') + '/c/oidc/callback']),
-    dict(name='Taiga', slug='taiga',
-         client_id=os.environ['TAIGA_OIDC_CLIENT_ID'], client_secret=os.environ['TAIGA_OIDC_CLIENT_SECRET'],
-         # mozilla_django_oidc's standard callback path, mounted at /oidc/ by
-         # taiga-contrib-oidc-auth's urls.py (see helm/taiga/README notes).
-         redirect_uris=[app_url('taiga') + '/oidc/callback/']),
+    dict(name='Kaneo', slug='kaneo',
+         client_id=os.environ['KANEO_OIDC_CLIENT_ID'], client_secret=os.environ['KANEO_OIDC_CLIENT_SECRET'],
+         # Better Auth's generic OAuth2/OIDC plugin callback path for a
+         # provider configured via CUSTOM_OAUTH_* (see helm/kaneo/values.yaml).
+         redirect_uris=[app_url('kaneo') + '/api/auth/oauth2/callback/custom']),
 ]
 
 for a in apps:
@@ -151,4 +151,32 @@ for a in apps:
     print('provider ready:', a['slug'], 'provider_created=', created, 'app_created=', created2)
 
 print('all providers done')
+
+# ponytail: real per-role Authentik accounts, so a role's SSO identity,
+# GitLab identity (role-accounts.yml), and Kaneo identity (role-accounts.yml)
+# are all the same named account. These are for human SSO login/debugging
+# only -- headless pod operations (git push, task API calls) still use
+# static PATs/API keys minted by role-accounts.yml, same split GitLab's own
+# OIDC-login-vs-PAT already has. Single source of truth for the role list is
+# helm/omp/values.yaml's `roles:`, mirrored here and in role-accounts.yml's
+# `sdlc_roles` -- keep all three in sync if a role is ever added/removed.
+sdlc_roles = [
+    'backend-developer', 'data-engineer', 'devops-engineer', 'frontend-developer',
+    'product-owner', 'project-manager', 'qa-engineer', 'release-manager',
+    'security-engineer', 'solution-architect', 'tech-lead', 'uiux-designer',
+]
+sdlc_roles_group, _ = Group.objects.get_or_create(name='sdlc-roles')
+import secrets as _secrets
+for role in sdlc_roles:
+    u, created = User.objects.get_or_create(
+        username=role,
+        defaults=dict(name=role, email=f'sdlc-{role}@homelab.local', type=UserTypes.INTERNAL),
+    )
+    if created:
+        u.set_password(_secrets.token_urlsafe(24))
+        u.save()
+    sdlc_roles_group.users.add(u)
+    print('authentik role user ready:', role, 'created=', created)
+sdlc_roles_group.save()
+print('all role users done')
 

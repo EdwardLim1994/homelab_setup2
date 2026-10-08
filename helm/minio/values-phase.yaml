@@ -19,3 +19,10 @@ minio:
     enabled: false
   consoleIngress:
     enabled: false
+
+  # ponytail: no ingress here, so this URL is never actually visited - just
+  # needs a valid scheme or minio FATALs on boot. values.yaml's __CONSOLE_URL__
+  # placeholder is only substituted by terraform/internal/minio.tf; phase
+  # clusters' minio.tf doesn't do that substitution, so override here instead.
+  environment:
+    MINIO_BROWSER_REDIRECT_URL: "http://localhost:9001"

@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: kaneo
+          image: {{ .Values.image | quote }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          env:
+            - name: KANEO_CLIENT_URL
+              value: {{ .Values.clientUrl | quote }}
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.postgresql.user }}:{{ .Values.postgresql.password }}@{{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.database }}"
+            - name: AUTH_SECRET
+              value: {{ .Values.auth.secret | quote }}
+            - name: CUSTOM_OAUTH_CLIENT_ID
+              value: {{ .Values.oidc.clientId | quote }}
+            - name: CUSTOM_OAUTH_CLIENT_SECRET
+              value: {{ .Values.oidc.clientSecret | quote }}
+            - name: CUSTOM_OAUTH_AUTHORIZATION_URL
+              value: {{ .Values.oidc.authorizationUrl | quote }}
+            - name: CUSTOM_OAUTH_TOKEN_URL
+              value: {{ .Values.oidc.tokenUrl | quote }}
+            - name: CUSTOM_OAUTH_USER_INFO_URL
+              value: {{ .Values.oidc.userInfoUrl | quote }}
+            - name: CUSTOM_OAUTH_AUTO_LOGIN
+              value: {{ .Values.oidc.autoLogin | quote }}
+            - name: DISABLE_LOGIN_FORM
+              value: {{ .Values.disableLoginForm | quote }}
+            - name: DISABLE_PASSWORD_REGISTRATION
+              value: {{ .Values.disablePasswordRegistration | quote }}
+            - name: S3_ENDPOINT
+              value: {{ .Values.s3.endpoint | quote }}
+            - name: S3_BUCKET
+              value: {{ .Values.s3.bucket | quote }}
+            - name: S3_ACCESS_KEY_ID
+              value: {{ .Values.s3.accessKeyId | quote }}
+            - name: S3_SECRET_ACCESS_KEY
+              value: {{ .Values.s3.secretAccessKey | quote }}
+            - name: S3_FORCE_PATH_STYLE
+              value: {{ .Values.s3.forcePathStyle | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

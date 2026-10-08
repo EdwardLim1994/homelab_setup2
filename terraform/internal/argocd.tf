@@ -66,6 +66,32 @@ resource "kubernetes_secret" "argocd_image_updater_registry" {
   depends_on = [kubernetes_namespace.argocd]
 }
 
+# ponytail: ArgoCD had zero git credentials registered -- found live when
+# the first-ever generated project's Applications all synced
+# ComparisonError: authentication required. url is a prefix match
+# (argocd.argoproj.io/secret-type: repo-creds), so this covers every
+# project's repo on this one GitLab instance, not just hr-portal-dryrun --
+# no new secret needed as future kickoffs create new projects/repos.
+# GitLab accepts any non-empty username with a PAT as the password over
+# HTTP basic auth (same var.omp_gitlab_token every omp-agent pod already
+# uses for `glab auth login`).
+resource "kubernetes_secret" "argocd_gitlab_repo_creds" {
+  metadata {
+    name      = "argocd-gitlab-repo-creds"
+    namespace = kubernetes_namespace.argocd.metadata[0].name
+    labels = {
+      "argocd.argoproj.io/secret-type" = "repo-creds"
+    }
+  }
+  data = {
+    type     = "git"
+    url      = "http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/"
+    username = "oauth2"
+    password = var.omp_gitlab_token
+  }
+  depends_on = [kubernetes_namespace.argocd]
+}
+
 # ponytail: chart renders an empty argocd-secret (no data), so ArgoCD
 # generates a random server.secretkey on first boot; every pod restart would
 # then invalidate all SSO sessions unless

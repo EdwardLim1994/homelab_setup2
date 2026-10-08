@@ -99,7 +99,7 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Review merge request !{{ $node[\"Extract MR Info\"].json.mr_iid }} (`glab mr view {{ $node[\"Extract MR Info\"].json.mr_iid }} --hostname gitlab-webservice-default.gitlab.svc.cluster.local`, diff via `glab mr diff {{ $node[\"Extract MR Info\"].json.mr_iid }} --hostname gitlab-webservice-default.gitlab.svc.cluster.local`) against the pseudocode spec the developer was given — fetch `openspec/<task-slug>.md` from the MR's source branch (`glab api projects/{{ $env.GITLAB_PROJECT_PATH }}/repository/files/openspec%2F<task-slug>.md/raw?ref={{ $node[\"Extract MR Info\"].json.source_branch }} --hostname gitlab-webservice-default.gitlab.svc.cluster.local`, URL-encode the slug; list `openspec/` on that branch first if you don't know the exact filename). Check: does the diff actually implement what the spec describes (not just something plausible-looking), is there test coverage for the changed logic, does it follow this repo's existing conventions (see AGENTS.md), and does it avoid obvious correctness bugs. Do NOT check CI/pipeline status yourself — that is handled separately in parallel, your review is code-against-spec only.\n\nOutput your verdict as the FIRST line of your response, exactly `APPROVE` or `REQUEST_CHANGES` (nothing else on that line), followed by your notes. If REQUEST_CHANGES, the notes MUST name the specific file(s)/function(s) and what's wrong or missing — \"needs improvement\" alone is not acceptable feedback, the developer re-reading this has no other context. Then, regardless of verdict, leave that same verdict + notes as a comment on Taiga task {{ $node[\"Extract MR Info\"].json.task_iid }} so the developer sees it where they already work: `GET $TAIGA_URL/api/v1/tasks/{{ $node[\"Extract MR Info\"].json.task_iid }}` for its current `version`, then `PATCH $TAIGA_URL/api/v1/tasks/{{ $node[\"Extract MR Info\"].json.task_iid }}` with `{\"version\": <version>, \"comment\": \"TL review: <verdict>\\n\\n<notes>\"}` (bearer `$TAIGA_TOKEN`).",
+              "value": "=Review merge request !{{ $node[\"Extract MR Info\"].json.mr_iid }} (`glab mr view {{ $node[\"Extract MR Info\"].json.mr_iid }} --hostname gitlab-webservice-default.gitlab.svc.cluster.local`, diff via `glab mr diff {{ $node[\"Extract MR Info\"].json.mr_iid }} --hostname gitlab-webservice-default.gitlab.svc.cluster.local`) against the pseudocode spec the developer was given — fetch `openspec/<task-slug>.md` from the MR's source branch (`glab api projects/{{ $env.GITLAB_PROJECT_PATH }}/repository/files/openspec%2F<task-slug>.md/raw?ref={{ $node[\"Extract MR Info\"].json.source_branch }} --hostname gitlab-webservice-default.gitlab.svc.cluster.local`, URL-encode the slug; list `openspec/` on that branch first if you don't know the exact filename). Check: does the diff actually implement what the spec describes (not just something plausible-looking), is there test coverage for the changed logic, does it follow this repo's existing conventions (see AGENTS.md), and does it avoid obvious correctness bugs. Do NOT check CI/pipeline status yourself — that is handled separately in parallel, your review is code-against-spec only.\n\nOutput your verdict as the FIRST line of your response, exactly `APPROVE` or `REQUEST_CHANGES` (nothing else on that line), followed by your notes. If REQUEST_CHANGES, the notes MUST name the specific file(s)/function(s) and what's wrong or missing — \"needs improvement\" alone is not acceptable feedback, the developer re-reading this has no other context. Then, regardless of verdict, leave that same verdict + notes as a comment on Kaneo task {{ $node[\"Extract MR Info\"].json.task_iid }} so the developer sees it where they already work: `POST $KANEO_URL/api/task/{{ $node[\"Extract MR Info\"].json.task_iid }}/comment` with `{\"content\": \"TL review: <verdict>\\n\\n<notes>\"}` (bearer `$KANEO_TOKEN`; // ponytail: verify exact comment path against the deployed Kaneo version).",
               "type": "string"
             },
             {
@@ -287,7 +287,7 @@
           "parameters": [
             {
               "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
+              "value": "={{ $env.GITLAB_TOKEN_TECH_LEAD || $env.GITLAB_TOKEN }}"
             },
             {
               "name": "Content-Type",
@@ -315,7 +315,7 @@
           "parameters": [
             {
               "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
+              "value": "={{ $env.GITLAB_TOKEN_TECH_LEAD || $env.GITLAB_TOKEN }}"
             },
             {
               "name": "Content-Type",
@@ -347,7 +347,7 @@
     },
     {
       "id": "d1000002-0000-0000-0000-000000000001",
-      "name": "Taiga: Task status Closed",
+      "name": "Kaneo: Task status Closed",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -355,7 +355,7 @@
         60
       ],
       "parameters": {
-        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst id = $node[\"Extract MR Info\"].json.task_iid;\nconst task = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: taigaAuth, json: true });\nconst statusesRes = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/task-statuses?project=${$env.TAIGA_PROJECT_ID}`, headers: taigaAuth, json: true });\nconst status = statusesRes.find(s => s.name === 'Closed');\nawait this.helpers.httpRequest({ method: 'PATCH', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: { ...taigaAuth, 'Content-Type': 'application/json' }, body: { version: task.version, status: status.id }, json: true });\nreturn [{ json: $json }];"
+        "jsCode": "// ponytail: Kaneo has one task resource with a plain status field, no\n// separate per-project status-id lookup like Taiga's task-statuses -- verify\n// 'done' is this deployment's actual closed-status value.\nconst kaneoAuth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst id = $node[\"Extract MR Info\"].json.task_iid;\nawait this.helpers.httpRequest({ method: 'PATCH', url: `${$env.KANEO_URL}/api/task/${id}`, headers: { ...kaneoAuth, 'Content-Type': 'application/json' }, body: { status: 'done' }, json: true });\nreturn [{ json: $json }];"
       }
     },
     {
@@ -368,7 +368,7 @@
         400
       ],
       "parameters": {
-        "jsCode": "// ponytail: retry_count was read from the inbound webhook body, but\n// nothing anywhere ever sets/increments it -- every real GitLab webhook\n// call is stateless and arrives with no such field, so the escalate\n// branch below was permanently unreachable. Count actual \"TL review:\"\n// comments already posted on the Taiga task instead (TL Review Input's\n// own prompt always posts one with that exact prefix) -- self-contained,\n// no external counter needed.\nconst taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst taskId = $node[\"Extract MR Info\"].json.task_iid;\nconst history = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/history/task/${taskId}`, headers: taigaAuth, json: true });\nconst attempt_count = (Array.isArray(history) ? history : []).filter(h => typeof h.comment === 'string' && h.comment.startsWith('TL review:')).length;\nreturn [{ json: { ...$json, attempt_count } }];"
+        "jsCode": "// ponytail: retry_count was read from the inbound webhook body, but\n// nothing anywhere ever sets/increments it -- every real GitLab webhook\n// call is stateless and arrives with no such field, so the escalate\n// branch below was permanently unreachable. Count actual \"TL review:\"\n// comments already posted on the Kaneo task instead (TL Review Input's\n// own prompt always posts one with that exact prefix) -- self-contained,\n// no external counter needed.\n// ponytail: verify this comment-list path/shape against the deployed Kaneo version.\nconst kaneoAuth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst taskId = $node[\"Extract MR Info\"].json.task_iid;\nconst comments = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/task/${taskId}/comment`, headers: kaneoAuth, json: true });\nconst attempt_count = (Array.isArray(comments) ? comments : []).filter(h => typeof h.content === 'string' && h.content.startsWith('TL review:')).length;\nreturn [{ json: { ...$json, attempt_count } }];"
       }
     },
     {
@@ -411,7 +411,7 @@
         400
       ],
       "parameters": {
-        "jsCode": "// ponytail: TL's own review (and its Taiga comment) only covers code vs\n// spec -- it never checks CI, so a CI-only failure needs its own comment\n// or the developer only sees \"TL review: APPROVE\" and no clue why the MR\n// is still blocked.\nif ($json.status === 'success') return [{ json: $json }];\nconst taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst id = $node[\"Extract MR Info\"].json.task_iid;\nconst task = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: taigaAuth, json: true });\nconst comment = `CI pipeline ${$json.status}${$json.pipeline_url ? ' — ' + $json.pipeline_url : ''}. Fix the pipeline and push again; this MR cannot be merged until it's green.`;\nawait this.helpers.httpRequest({ method: 'PATCH', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: { ...taigaAuth, 'Content-Type': 'application/json' }, body: { version: task.version, comment }, json: true });\nreturn [{ json: $json }];"
+        "jsCode": "// ponytail: TL's own review (and its Kaneo comment) only covers code vs\n// spec -- it never checks CI, so a CI-only failure needs its own comment\n// or the developer only sees \"TL review: APPROVE\" and no clue why the MR\n// is still blocked.\nif ($json.status === 'success') return [{ json: $json }];\nconst kaneoAuth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst id = $node[\"Extract MR Info\"].json.task_iid;\nconst content = `CI pipeline ${$json.status}${$json.pipeline_url ? ' — ' + $json.pipeline_url : ''}. Fix the pipeline and push again; this MR cannot be merged until it's green.`;\n// ponytail: verify this comment path against the deployed Kaneo version.\nawait this.helpers.httpRequest({ method: 'POST', url: `${$env.KANEO_URL}/api/task/${id}/comment`, headers: { ...kaneoAuth, 'Content-Type': 'application/json' }, body: { content }, json: true });\nreturn [{ json: $json }];"
       }
     },
     {
@@ -471,7 +471,7 @@
           "parameters": [
             {
               "name": "reason",
-              "value": "=MR {{ $node[\"Extract MR Info\"].json.mr_iid }} (Taiga task {{ $node[\"Extract MR Info\"].json.task_iid }}) exceeded 3 review attempts"
+              "value": "=MR {{ $node[\"Extract MR Info\"].json.mr_iid }} (Kaneo task {{ $node[\"Extract MR Info\"].json.task_iid }}) exceeded 3 review attempts"
             }
           ]
         }
@@ -495,7 +495,7 @@
           "parameters": [
             {
               "name": "PRIVATE-TOKEN",
-              "value": "={{ $env.GITLAB_TOKEN }}"
+              "value": "={{ $env.GITLAB_TOKEN_TECH_LEAD || $env.GITLAB_TOKEN }}"
             },
             {
               "name": "Content-Type",
@@ -508,7 +508,7 @@
           "parameters": [
             {
               "name": "body",
-              "value": "=⚠️ TL review has gone through 3 attempts without reaching APPROVE+green-CI — handing this MR over to a human reviewer. Last TL verdict: `{{ $json.tl_result }}`{{ $json.status !== 'success' ? ' — CI pipeline ' + $json.status + ($json.pipeline_url ? ' (' + $json.pipeline_url + ')' : '') : '' }}. See Taiga task {{ $node[\"Extract MR Info\"].json.task_iid }} for the full review history."
+              "value": "=⚠️ TL review has gone through 3 attempts without reaching APPROVE+green-CI — handing this MR over to a human reviewer. Last TL verdict: `{{ $json.tl_result }}`{{ $json.status !== 'success' ? ' — CI pipeline ' + $json.status + ($json.pipeline_url ? ' (' + $json.pipeline_url + ')' : '') : '' }}. See Kaneo task {{ $node[\"Extract MR Info\"].json.task_iid }} for the full review history."
             }
           ]
         }
@@ -516,7 +516,7 @@
     },
     {
       "id": "c7a1a001-0000-0000-0000-000000000003",
-      "name": "Comment Taiga: Handover",
+      "name": "Comment Kaneo: Handover",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -524,7 +524,7 @@
         720
       ],
       "parameters": {
-        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst id = $node[\"Extract MR Info\"].json.task_iid;\nconst mrIid = $node[\"Extract MR Info\"].json.mr_iid;\nconst task = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: taigaAuth, json: true });\nconst comment = `⚠️ TL review failed 3 times on MR !${mrIid} — handing over to a human reviewer for manual review and merge decision. Last TL verdict: ${$json.tl_result}${$json.status !== 'success' ? ' — CI pipeline ' + $json.status : ''}.`;\nawait this.helpers.httpRequest({ method: 'PATCH', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: { ...taigaAuth, 'Content-Type': 'application/json' }, body: { version: task.version, comment }, json: true });\nreturn [{ json: $json }];"
+        "jsCode": "const kaneoAuth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst id = $node[\"Extract MR Info\"].json.task_iid;\nconst mrIid = $node[\"Extract MR Info\"].json.mr_iid;\nconst content = `⚠️ TL review failed 3 times on MR !${mrIid} — handing over to a human reviewer for manual review and merge decision. Last TL verdict: ${$json.tl_result}${$json.status !== 'success' ? ' — CI pipeline ' + $json.status : ''}.`;\n// ponytail: verify this comment path against the deployed Kaneo version.\nawait this.helpers.httpRequest({ method: 'POST', url: `${$env.KANEO_URL}/api/task/${id}/comment`, headers: { ...kaneoAuth, 'Content-Type': 'application/json' }, body: { content }, json: true });\nreturn [{ json: $json }];"
       }
     },
     {
@@ -746,14 +746,14 @@
       "main": [
         [
           {
-            "node": "Taiga: Task status Closed",
+            "node": "Kaneo: Task status Closed",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Taiga: Task status Closed": {
+    "Kaneo: Task status Closed": {
       "main": [
         [
           {
@@ -790,7 +790,7 @@
             "index": 0
           },
           {
-            "node": "Comment Taiga: Handover",
+            "node": "Comment Kaneo: Handover",
             "type": "main",
             "index": 0
           }

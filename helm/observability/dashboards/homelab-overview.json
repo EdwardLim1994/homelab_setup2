@@ -29,14 +29,27 @@
   "templating": {
     "list": [
       {
+        "name": "cluster_id",
+        "label": "Cluster",
+        "type": "custom",
+        "query": "internal,sit,uat,production",
+        "includeAll": true,
+        "multi": false,
+        "sort": 1,
+        "current": {
+          "text": "internal",
+          "value": "internal"
+        }
+      },
+      {
         "name": "namespace",
         "label": "Namespace",
         "type": "query",
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus"
+          "uid": "mimir"
         },
-        "query": "label_values(kube_pod_info{namespace!~\"omp|sdlc|ansible|observability|kube-system|kube-node-lease|kube-public|cert-manager|local-path-storage\"}, namespace)",
+        "query": "label_values(kube_pod_info{cluster_id=~\"$cluster_id\", namespace!~\"omp|sdlc|ansible|observability|kube-system|kube-node-lease|kube-public|cert-manager|local-path-storage|sit|uat|production\"}, namespace)",
         "includeAll": true,
         "multi": true,
         "refresh": 2,
@@ -50,18 +63,63 @@
   },
   "panels": [
     {
-      "title": "App links",
-      "type": "text",
+      "title": "Cluster status",
+      "type": "row",
       "gridPos": {
-        "h": 3,
+        "h": 1,
         "w": 24,
         "x": 0,
         "y": 0
+      }
+    },
+    {
+      "title": "Cluster live",
+      "type": "stat",
+      "description": "Seconds since this cluster last pushed metrics into Mimir. internal scrapes its own Prometheus directly; sit/uat/production remote-write in - if their k3d cluster is stopped, this goes stale/red.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "mappings": [
+            {
+              "type": "range",
+              "options": {
+                "from": 180,
+                "to": 1000000000,
+                "result": { "text": "DOWN" }
+              }
+            }
+          ],
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 180 }
+            ]
+          }
+        }
       },
       "options": {
-        "mode": "html",
-        "content": "<a href=\"https://argocd.__TAILNET_DOMAIN__\" target=\"_blank\" rel=\"noopener\">argocd</a> &nbsp;&middot;&nbsp; <a href=\"https://authentik.__TAILNET_DOMAIN__\" target=\"_blank\" rel=\"noopener\">authentik</a> &nbsp;&middot;&nbsp; <a href=\"https://gitlab.__TAILNET_DOMAIN__\" target=\"_blank\" rel=\"noopener\">gitlab</a> &nbsp;&middot;&nbsp; <a href=\"https://grafana.__TAILNET_DOMAIN__\" target=\"_blank\" rel=\"noopener\">grafana</a> &nbsp;&middot;&nbsp; <a href=\"https://litellm.__TAILNET_DOMAIN__/ui\" target=\"_blank\" rel=\"noopener\">litellm</a> &nbsp;&middot;&nbsp; <a href=\"https://minio.__TAILNET_DOMAIN__\" target=\"_blank\" rel=\"noopener\">minio-api</a> &nbsp;&middot;&nbsp; <a href=\"https://minio-console.__TAILNET_DOMAIN__\" target=\"_blank\" rel=\"noopener\">minio-console</a> &nbsp;&middot;&nbsp; <a href=\"https://n8n.__TAILNET_DOMAIN__\" target=\"_blank\" rel=\"noopener\">n8n</a> &nbsp;&middot;&nbsp; <a href=\"https://mattermost.__TAILNET_DOMAIN__\" target=\"_blank\" rel=\"noopener\">mattermost</a> &nbsp;&middot;&nbsp; <a href=\"https://nextcloud.__TAILNET_DOMAIN__\" target=\"_blank\" rel=\"noopener\">nextcloud</a> &nbsp;&middot;&nbsp; <a href=\"https://sonarqube.__TAILNET_DOMAIN__\" target=\"_blank\" rel=\"noopener\">sonarqube</a>"
-      }
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(time() - max by (cluster_id) (timestamp(kube_pod_info{cluster_id=~\"$cluster_id\"}))) or (label_replace(vector(1000000000), \"cluster_id\", \"$cluster_id\", \"\", \"\"))",
+          "legendFormat": "{{cluster_id}}"
+        }
+      ]
     },
     {
       "title": "Health summary",
@@ -70,7 +128,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 3
+        "y": 5
       }
     },
     {
@@ -78,13 +136,13 @@
       "type": "stat",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "mimir"
       },
       "gridPos": {
         "h": 4,
         "w": 5,
         "x": 0,
-        "y": 4
+        "y": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -114,7 +172,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(kube_pod_status_ready{namespace=~\"$namespace\", condition=\"true\"})"
+          "expr": "sum(kube_pod_status_ready{namespace=~\"$namespace\", cluster_id=~\"$cluster_id\", condition=\"true\"})"
         }
       ]
     },
@@ -123,13 +181,13 @@
       "type": "stat",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "mimir"
       },
       "gridPos": {
         "h": 4,
         "w": 5,
         "x": 5,
-        "y": 4
+        "y": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -159,7 +217,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(kube_pod_status_phase{namespace=~\"$namespace\", phase!~\"Running|Succeeded\"}) or vector(0)"
+          "expr": "sum(kube_pod_status_phase{namespace=~\"$namespace\", cluster_id=~\"$cluster_id\", phase!~\"Running|Succeeded\"}) or vector(0)"
         }
       ]
     },
@@ -168,13 +226,13 @@
       "type": "stat",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "mimir"
       },
       "gridPos": {
         "h": 4,
         "w": 5,
         "x": 10,
-        "y": 4
+        "y": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -208,7 +266,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\"}[1h])) or vector(0)"
+          "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\", cluster_id=~\"$cluster_id\"}[1h])) or vector(0)"
         }
       ]
     },
@@ -217,13 +275,13 @@
       "type": "stat",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "mimir"
       },
       "gridPos": {
         "h": 4,
         "w": 4,
         "x": 15,
-        "y": 4
+        "y": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -262,13 +320,13 @@
       "type": "stat",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "mimir"
       },
       "gridPos": {
         "h": 4,
         "w": 5,
         "x": 19,
-        "y": 4
+        "y": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -304,7 +362,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(sum(kube_deployment_status_replicas_available{namespace=~\"$namespace\"}) + sum(kube_statefulset_status_replicas_ready{namespace=~\"$namespace\"})) / clamp_min(sum(kube_deployment_spec_replicas{namespace=~\"$namespace\"}) + sum(kube_statefulset_replicas{namespace=~\"$namespace\"}), 1)"
+          "expr": "(sum(kube_deployment_status_replicas_available{namespace=~\"$namespace\", cluster_id=~\"$cluster_id\"}) + sum(kube_statefulset_status_replicas_ready{namespace=~\"$namespace\", cluster_id=~\"$cluster_id\"})) / clamp_min(sum(kube_deployment_spec_replicas{namespace=~\"$namespace\", cluster_id=~\"$cluster_id\"}) + sum(kube_statefulset_replicas{namespace=~\"$namespace\", cluster_id=~\"$cluster_id\"}), 1)"
         }
       ]
     },
@@ -315,7 +373,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 10
       }
     },
     {
@@ -323,13 +381,13 @@
       "type": "table",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "mimir"
       },
       "gridPos": {
         "h": 15,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 11
       },
       "description": "Click an app to open its detail dashboard.",
       "targets": [
@@ -337,19 +395,19 @@
           "refId": "READY",
           "instant": true,
           "format": "table",
-          "expr": "sum by (namespace) (kube_pod_status_ready{namespace=~\"$namespace\", condition=\"true\"}) / count by (namespace) (kube_pod_info{namespace=~\"$namespace\"})"
+          "expr": "sum by (namespace, cluster_id) (kube_pod_status_ready{namespace=~\"$namespace\", cluster_id=~\"$cluster_id\", condition=\"true\"}) / count by (namespace, cluster_id) (kube_pod_info{namespace=~\"$namespace\", cluster_id=~\"$cluster_id\"})"
         },
         {
           "refId": "PODS",
           "instant": true,
           "format": "table",
-          "expr": "count by (namespace) (kube_pod_info{namespace=~\"$namespace\"})"
+          "expr": "count by (namespace, cluster_id) (kube_pod_info{namespace=~\"$namespace\", cluster_id=~\"$cluster_id\"})"
         },
         {
           "refId": "RESTARTS",
           "instant": true,
           "format": "table",
-          "expr": "sum by (namespace) (increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\"}[1h]))"
+          "expr": "sum by (namespace, cluster_id) (increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\", cluster_id=~\"$cluster_id\"}[1h]))"
         }
       ],
       "transformations": [
@@ -372,15 +430,17 @@
             },
             "renameByName": {
               "namespace": "App",
+              "cluster_id": "Cluster",
               "Value #READY": "Health",
               "Value #PODS": "Pods",
               "Value #RESTARTS": "Restarts (1h)"
             },
             "indexByName": {
               "namespace": 0,
-              "Value #READY": 1,
-              "Value #PODS": 2,
-              "Value #RESTARTS": 3
+              "cluster_id": 1,
+              "Value #READY": 2,
+              "Value #PODS": 3,
+              "Value #RESTARTS": 4
             }
           }
         }
@@ -482,120 +542,6 @@
           }
         ]
       }
-    },
-    {
-      "title": "Data stores",
-      "type": "row",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 24
-      }
-    },
-    {
-      "title": "Postgres",
-      "type": "stat",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 0,
-        "y": 25
-      },
-      "description": "Shared postgres StatefulSet (namespace postgres) backing authentik, gitlab, litellm, mattermost, n8n, sonarqube. No web UI - detail link opens the namespace dashboard.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": { "text": "DOWN", "color": "red" }
-              }
-            }
-          ],
-          "thresholds": {
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "green", "value": 1 }
-            ]
-          },
-          "links": [
-            {
-              "title": "Open postgres namespace detail",
-              "url": "/d/homelab-app-detail/homelab-app-detail?var-namespace=postgres&${__url_time_range}",
-              "targetBlank": true
-            }
-          ]
-        }
-      },
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
-        "colorMode": "background",
-        "textMode": "value_and_name"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(kube_pod_status_ready{namespace=\"postgres\", condition=\"true\"}) or vector(0)"
-        }
-      ]
-    },
-    {
-      "title": "Redis",
-      "type": "stat",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 12,
-        "y": 25
-      },
-      "description": "Shared redis Deployment (namespace redis) backing gitlab (DB 0) and authentik (DB 1). No web UI - detail link opens the namespace dashboard.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": { "text": "DOWN", "color": "red" }
-              }
-            }
-          ],
-          "thresholds": {
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "green", "value": 1 }
-            ]
-          },
-          "links": [
-            {
-              "title": "Open redis namespace detail",
-              "url": "/d/homelab-app-detail/homelab-app-detail?var-namespace=redis&${__url_time_range}",
-              "targetBlank": true
-            }
-          ]
-        }
-      },
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
-        "colorMode": "background",
-        "textMode": "value_and_name"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(kube_pod_status_ready{namespace=\"redis\", condition=\"true\"}) or vector(0)"
-        }
-      ]
     }
   ],
   "schemaVersion": 39

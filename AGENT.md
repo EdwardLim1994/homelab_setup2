@@ -12,8 +12,8 @@ in front of everything, every app reachable over Tailscale MagicDNS
 Apps: Authentik, GitLab (+ runner), MinIO, n8n, SonarQube, Nextcloud, ArgoCD,
 an LGTM observability stack, LiteLLM, OpenWebUI, Kafbat Kafka UI (views
 sit/uat/production's kafka — see "Kafka UI" below), Harbor (container
-registry — see "Harbor" below), Taiga (ticket/wiki tracker — see
-"Taiga" below), a set of MCP servers, and an in-cluster coding-agent
+registry — see "Harbor" below), Kaneo (ticket tracker — see
+"Kaneo" below), a set of MCP servers, and an in-cluster coding-agent
 stack (`omp` / oh-my-pi).
 
 ## Deploy path
@@ -217,63 +217,85 @@ duration of the push (host can't resolve `harbor.harbor.svc.cluster.local`)
 `host.docker.internal:$REGISTRY_MIRROR_PORT` NodePort bridge every image
 pull from those clusters already uses.
 
-### Taiga (internal, ticket/wiki tracker — replaces GitLab issues+wiki)
+### Kaneo (internal, ticket tracker — replaces Taiga; wiki moved to GitLab)
 
-`helm/taiga` — hand-rolled (no upstream Helm chart exists for Taiga; taiga.io
-ships only a docker-compose, see `helm/taiga/Chart.yaml`'s comment), deployed
-only on `internal` (`terraform/internal/taiga.tf`). Replaces **OpenProject**,
-tried first — OpenProject Community Edition hard-gates every custom SSO/OIDC
-provider behind an Enterprise license
-(`EnterpriseToken.allows_to?(:sso_auth_providers)`, confirmed in its own
-source and docs), so Authentik login for it was a dead end short of buying a
-license. Taiga is AGPL, no license gate, and has a first-party one-way
-GitLab→Taiga webhook integration (push/issue/comment events attach as
-comments to the referenced ticket) that OpenProject never had — needed for
-compliance: tickets moved out of GitLab, but GitLab activity history must
-still show up on them.
+`helm/kaneo` — hand-rolled (Kaneo's own chart lives inside its upstream
+monorepo, not published to a repo/OCI registry), deployed only on
+`internal` (`terraform/internal/kaneo.tf`). Replaces **Taiga** — Taiga's
+seven-service footprint (its own RabbitMQ, a custom `taiga-contrib-oidc-auth`
+plugin of unverified long-term health) was heavier than this homelab needs.
+Kaneo is MIT, a single container, has native OIDC, and — the deciding
+factor — a real **bidirectional** GitLab integration (task↔issue/MR sync +
+webhooks, merged upstream 2026-09-26), a strict upgrade over Taiga's
+one-way compliance webhook. Kaneo has **no wiki module at all**, so wiki
+pages move back onto **GitLab's own per-project wiki** instead (this
+reverses the "wiki moved to Taiga" call from the OpenProject→Taiga
+migration, for the opposite reason: that move happened *because* Taiga had
+a wiki OpenProject didn't gate behind a license; this one happens because
+Kaneo doesn't have one at all).
 
-Services: `taiga-back` (custom image — official `taigaio/taiga-back` plus
-`taiga-contrib-oidc-auth` for generic OIDC, see `helm/taiga/Dockerfile`,
-built+pushed by a `terraform/internal/taiga.tf` `null_resource` the same way
-`terraform/internal/omp-agent.tf` builds the omp image), `taiga-async` (same
-image, worker entrypoint), `taiga-front` (official image, OIDC login link via
-its native `conf.json` `oidcMountPoint` — no frontend fork needed),
-`taiga-events` (websockets), `taiga-protected` (attachment auth proxy),
-`taiga-gateway` (nginx, unifies all of the above behind one Service:port,
-same role Harbor's/OpenProject's unified Service played), and its own
-`rabbitmq` (first message-broker chart in this repo — shared postgres covers
-the DB, nothing else here needed a broker before). `ingress.enabled: false`
-in the chart — same convention as Harbor: `.local` ingress is a plain
+One container (`ghcr.io/usekaneo/kaneo`), shared postgres for its DB,
+shared MinIO for S3 attachment storage, no bundled Redis (optional
+pub/sub-only at this scale, skipped — add `REDIS_URL` later only if Kaneo
+genuinely refuses to boot without one). `ingress.enabled: false` in the
+chart — same convention as Harbor/Taiga: `.local` ingress is a plain
 `kubectl_manifest`, tailnet ingress comes from `locals.tf`'s
-`tailscale_apps` map.
+`tailscale_apps` map. OIDC uses explicit split endpoints (external tailnet
+URL for the browser redirect, in-cluster `authentik-server.authentik.svc`
+for server-side calls) — same convention as GitLab/Grafana/LiteLLM, so it
+doesn't depend on `terraform/internal/coredns.tf`'s split-horizon rewrite
+the way Harbor/MinIO's single-discovery-URL approach needs to.
 
-n8n and omp pods talk to it over its REST API v1 with a bearer token
-(`TAIGA_TOKEN`/`TAIGA_URL`/`TAIGA_PROJECT_ID` env vars — see `.env.example`'s
-`TF_VAR_taiga_api_token`, bootstrap-once via the browser like
-`openwebui_api_key`) instead of a dedicated MCP server — no maintained Taiga
-MCP server existed to reuse, and `curl`-against-the-REST-API is already the
-pattern every GitLab-calling SKILL.md/flow file used before. See AGENTS.md's
-"Ticket & MR Conventions" for the full endpoint/field mapping (Taiga has no
-single ticket endpoint with a type field the way OpenProject did — epic,
-userstory, task, and issue are four separate REST resources).
+n8n and omp pods talk to it over its REST API with a bearer token
+(`KANEO_TOKEN`/`KANEO_URL`/`KANEO_PROJECT_ID` env vars — see `.env.example`'s
+`TF_VAR_kaneo_api_token`, bootstrap-once via the browser like
+`openwebui_api_key`) via a dedicated hand-rolled MCP server
+(`helm/mcp-servers/kaneo-mcp`, mirrors the old `taiga-mcp` exactly — 4
+generic REST tools, no maintained Kaneo MCP integration exists that fits a
+headless batch Job; Kaneo's own native MCP endpoint wants an
+OAuth-resolvable bearer with dynamic client registration, built for
+interactive clients). Unlike `taiga-mcp`, `kaneo-mcp` holds **no credential
+of its own** — it forwards whatever bearer the caller sends straight
+through to Kaneo's API, so each role's own real per-role API key (see
+"Real per-role Authentik/GitLab/Kaneo identities" below) is the identity on
+every call, not a shared service account. See AGENTS.md's "Ticket & MR
+Conventions" for the full endpoint/field mapping — Kaneo has a single
+`task` resource (workspace → project → task), unlike Taiga's four separate
+epic/userstory/task/issue resources.
 
 GitLab itself is untouched — it stays the source-control + CI +
-webhook-trigger system (F-00's router, `glab`/git clone for code); issue/
-ticket authoring moved to Taiga, and **wiki also moved to Taiga's own wiki
-module** (was staying on GitLab during the OpenProject attempt — changed
-here because Taiga's GitLab integration is one-way GitLab→Taiga, so a wiki
-still on GitLab would be orphaned from the same compliance trail). The
-compliance webhook itself is registered by
-`helm/ansible/playbooks/taiga-gitlab-webhook.yml` (bootstrap/DR, same
-register/verify/deregister pattern as `gitlab-webhook.yml`, not in
-`site.yml`) — separate from F-00's own SDLC-router webhook, different event
-set (push/issues/note, not merge_requests/pipeline).
+webhook-trigger system (F-00's router, `glab`/git clone for code), and now
+**also hosts wiki pages again** (Architecture/PRD/Estimate, via its own
+`POST /projects/:id/wikis` REST API) since Kaneo has nothing to move them
+to. Kaneo's native GitLab integration (configured per-project at kickoff)
+handles the compliance-trail requirement that drove Taiga's one-way webhook
+in the first place — and does it better, since it's bidirectional.
 
-Not cleaned up automatically from the OpenProject attempt (same class of
-leftover Mattermost's removal left, see Known issues below): Authentik's
-`openproject` OAuth2Provider/Application still sits in its DB (the
+#### Real per-role Authentik/GitLab/Kaneo identities
+
+Every SDLC role (`helm/omp/values.yaml`'s `roles:` list) gets a real
+Authentik user (`helm/authentik/provision-app-providers.py`'s per-role
+loop, `get_or_create` on every `tofu apply`), a real GitLab user + personal
+access token, and a real Kaneo user + API key (both minted by
+`helm/ansible/playbooks/role-accounts.yml`, into Secrets
+`omp-role-gitlab-tokens` / `omp-role-kaneo-tokens` in namespace `sdlc`).
+The Authentik account exists for a human to SSO-login *as* a role for
+debugging/audit (same identity name across all three systems); it is
+**not** how agent pods authenticate — headless git/API operations still use
+the static PAT/API key, same split GitLab's own OIDC-login-vs-PAT already
+had before this change. Kaneo's admin endpoints are gated by a session
+cookie (Better Auth), not pod-exec like Taiga's old `manage.py shell`
+approach — `role-accounts.yml`'s Kaneo section signs in as the bootstrap
+admin, creates each role's user, impersonates them, and mints an API key
+under that impersonated session, all as normal in-cluster HTTP (no new
+RBAC needed for this, unlike Taiga's `ansible_taiga_exec` Role which this
+replaces nothing for).
+
+Not cleaned up automatically from the Taiga removal (same class of leftover
+every prior app swap in this repo has left, see Known issues below):
+Authentik's `Taiga` OAuth2Provider/Application still sits in its DB (the
 provisioner only creates/updates, never deletes); the shared-postgres
-`openproject` role/db and any PVCs it had aren't dropped either.
+`taiga` role/db and any PVCs it had aren't dropped either.
 
 ## Repo layout
 
@@ -388,7 +410,7 @@ originally driven by Mattermost slash commands + GitLab/CI webhooks. Seeded by
 `seed.sh` strips read-only keys (`active`, `tags`) before `POST /api/v1/workflows`
 and activates via `POST /workflows/{id}/activate` (n8n 2.x).
 
-**`/plan_release` (F-01) is report-only — it makes zero GitLab/Taiga
+**`/plan_release` (F-01) is report-only — it makes zero GitLab/Kaneo
 writes.** Architect/DE/QA/Security/UX/PM/Tech-Lead each write their
 section to a local markdown file and `mc cp` it to
 `release-reports/<version>/<section>.md` in MinIO (the plan_release <->
@@ -396,7 +418,7 @@ kickoff hand-off store — `helm/minio/values.yaml`'s `buckets:` list; `mc`
 and `pandoc` are baked into the omp image, `helm/omp/Dockerfile`; MinIO
 creds reach the role pod as `$MINIO_ENDPOINT`/`$MINIO_ROOT_USER`/
 `$MINIO_ROOT_PASSWORD`, same plain-env/`set_sensitive` split as
-`$TAIGA_URL`/`$TAIGA_TOKEN` — see `helm/n8n/values.yaml` +
+`$KANEO_URL`/`$KANEO_TOKEN` — see `helm/n8n/values.yaml` +
 `terraform/internal/n8n.tf`). A final PM step downloads all seven
 sections, concatenates them, and `pandoc`s the result into
 `release-reports/<version>/development-plan.docx` — pull it via the MinIO
@@ -408,11 +430,12 @@ rendered to real PNGs before the PDF is built — see "mermaid-render" below
 **`/kickoff` (F-02) is where everything actually gets created** — GitLab
 group/project (+ owner membership), the nx workspace scaffold + CI/
 Dockerfile/registry wiring committed to `main`, the three wiki pages
-(Architecture/PRD/Estimate — published to **Taiga's** wiki module, fetched
-back from MinIO's `release-reports/<version>/*.md`, not GitLab), the
-GitLab milestone, then Taiga epic/stories/tasks/QA-Security-DevOps
-tickets, the release branch, and the story/task branches — in that order,
-since branches fork from `main` and `main` must be scaffolded first.
+(Architecture/PRD/Estimate — published to **GitLab's own** per-project
+wiki, fetched back from MinIO's `release-reports/<version>/*.md`), the
+GitLab milestone, Kaneo's native GitLab integration wired to this project,
+then Kaneo tasks for every QA/Security/DevOps work item, the release
+branch, and the story/task branches — in that order, since branches fork
+from `main` and `main` must be scaffolded first.
 
 **Mattermost was removed** (see "Current progress" below) — the flow JSON
 files still carry `mattermostApi` credential refs and Mattermost-shaped nodes
@@ -517,14 +540,16 @@ Working and verified end-to-end:
   install verified working.
 - **MCP servers** — grafana, sonarqube, gitlab, playwright, **n8n**
   (`czlonkowski/n8n-mcp`, docs + management once `n8n.yml` injects the key),
-  **taiga** (hand-rolled, no maintained image exists —
-  `helm/mcp-servers/taiga-mcp/`, 4 generic REST tools — `taiga_get`/`_post`/
-  `_patch`/`_delete` — over Taiga's API rather than one bespoke tool per
-  resource type, since AGENTS.md's endpoint table already covers that and
-  would need mirroring forever otherwise. Registered in LiteLLM's
-  `mcp_servers` like the others, and wired directly into every omp-agent Job
-  via `--mcp-config` (F-31's `Build Job Manifest` node) — no maintained
-  Taiga MCP server existed to reuse (checked first), and this is the only
+  **kaneo** (hand-rolled, Kaneo's own native MCP wants an
+  OAuth-resolvable bearer — awkward for a batch Job — `helm/mcp-servers/kaneo-mcp/`,
+  4 generic REST tools — `kaneo_get`/`_post`/`_patch`/`_delete` — over
+  Kaneo's API rather than one bespoke tool per resource type, since
+  AGENTS.md's endpoint table already covers that and would need mirroring
+  forever otherwise. No credential of its own — forwards whatever bearer
+  the caller sends straight to Kaneo, so each role's real per-role API key
+  is the identity on every call. Registered in LiteLLM's `mcp_servers` like
+  the others, and wired directly into every omp-agent Job via
+  `--mcp-config` (F-31's `Build Job Manifest` node) — this is the only
   in-house-built one in the set).
 - **GitLab webhook** — `gitlab-webhook.yml` registers a project-level SDLC
   hook on every project in the `sdlc` group (CE has no group hooks).
@@ -538,11 +563,17 @@ Known issues / next steps:
   aren't dropped automatically — the provisioner only creates/updates,
   `helm/postgres`'s initdb only runs once, and `helm uninstall` doesn't
   touch cluster-external state. Remove by hand if it matters.
-- `taiga-contrib-oidc-auth`'s last visible activity was ~2019-2021 — verify
-  it still installs cleanly against the pinned `taigaio/taiga-back` image
-  tag before relying on it; the fallback within the same "1-line custom
-  image" budget is `taiga-contrib-openid-auth` (Keycloak-oriented fork) or a
-  minimal local patch.
+- **Taiga → Kaneo swap left orphans**, same class of leftover as the
+  OpenProject/Mattermost removals above: Authentik's `Taiga`
+  OAuth2Provider/Application, the shared-postgres `taiga` role/db, and its
+  PVCs aren't dropped automatically. Remove by hand if it matters.
+- Kaneo's admin-session-cookie provisioning in `role-accounts.yml`
+  (sign-in → create-user → impersonate → create-API-key) follows Better
+  Auth's documented plugin conventions but hasn't been live-verified
+  against Kaneo's pinned image version — run it once by hand for a single
+  role before trusting it for all 12; fall back to manual per-role browser
+  bootstrap (same tier of step `openwebui_api_key` already needs) if it
+  doesn't pan out.
 
 - **Harbor migration is script-only for phase clusters.** `create-cluster.sh`
   now bakes the containerd mirror config for a Harbor NodePort, but the

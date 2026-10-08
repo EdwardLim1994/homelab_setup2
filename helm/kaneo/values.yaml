@@ -1,0 +1,68 @@
+# ponytail: single-container app (ghcr.io/usekaneo/kaneo, Better Auth +
+# Hono backend + React frontend all in one image) — shared postgres (helm/
+# postgres) for its DB, shared MinIO for S3 attachment storage, no bundled
+# Redis (optional pub/sub only at this scale, add REDIS_URL later if Kaneo
+# ever refuses to boot without one). No official chart published to a repo/
+# OCI registry (lives inside Kaneo's own monorepo) — hand-rolled, same
+# convention as helm/taiga was. No chart-owned Ingress: tailscale + .local
+# ingresses are plain kubectl_manifest resources in
+# terraform/internal/kaneo.tf, same as harbor/taiga.
+
+image: "ghcr.io/usekaneo/kaneo:latest"
+
+replicas: 1
+
+service:
+  port: 5173
+
+postgresql:
+  host: "postgres.postgres.svc.cluster.local"
+  port: 5432
+  user: "kaneo"
+  database: "kaneo"
+  password: "__SHARED_DB_PASSWORD__"
+
+auth:
+  # Better Auth secret, 32+ chars.
+  secret: "__KANEO_AUTH_SECRET__"
+
+clientUrl: "https://__APP_URL_HOST__"
+
+# ponytail: explicit split endpoints (not CUSTOM_OAUTH_DISCOVERY_URL) — same
+# convention GitLab/Grafana/LiteLLM already use: the browser needs the
+# external tailnet URL, but pods can't route to the Tailscale Service VIP
+# (see AGENT.md's "in-cluster can't reach the tailnet hostname"), so
+# server-side calls go straight to authentik-server.authentik.svc instead.
+# Avoids depending on terraform/coredns.tf's split-horizon rewrite entirely.
+oidc:
+  authorizationUrl: "__AUTHENTIK_URL__/application/o/authorize/"
+  tokenUrl: "http://authentik-server.authentik.svc.cluster.local/application/o/token/"
+  userInfoUrl: "http://authentik-server.authentik.svc.cluster.local/application/o/userinfo/"
+  clientId: "__KANEO_OIDC_CLIENT_ID__"
+  clientSecret: "__KANEO_OIDC_CLIENT_SECRET__"
+  autoLogin: true
+
+# ponytail: SSO-only — same shape OpenWebUI already uses
+# (ENABLE_LOGIN_FORM=False). No local password accounts for humans; the
+# bootstrap admin account (first signup, per Kaneo's hasUsers flag) is the
+# one exception, created once before this flips on (see kaneo.tf's
+# admin_password var / README bootstrap note).
+disableLoginForm: true
+disablePasswordRegistration: true
+
+s3:
+  endpoint: "http://minio.minio.svc.cluster.local:9000"
+  bucket: "kaneo"
+  accessKeyId: "admin"
+  secretAccessKey: "__MINIO_ROOT_PASSWORD__"
+  forcePathStyle: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+
+ingress:
+  enabled: false

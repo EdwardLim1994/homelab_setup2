@@ -28,18 +28,26 @@ One QA ticket per story issue — self-created, not created by Tech Lead
 (Tech Lead's task tickets are scoped to backend/frontend/api only).
 
 ```bash
-st_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="Pending") | .id')
-me=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/users" | jq -r '.[] | select(.username=="qa-engineer") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X POST "$TAIGA_URL/api/v1/tasks" \
+# "me" lookup: Kaneo has no username field like Taiga's — resolve by this
+# role's own account email instead (role-accounts.yml creates
+# sdlc-<role>@homelab.local for every role).
+me=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/workspace/$KANEO_PROJECT_ID/members" | jq -r '.[] | select(.email=="sdlc-qa-engineer@homelab.local") | .id')
+<!-- verify this members endpoint path against the deployed Kaneo version -->
+
+qa_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task" \
   -H "Content-Type: application/json" \
-  -d "{\"project\": $TAIGA_PROJECT_ID,
-       \"subject\": \"[qa] {story short description} — test plan\",
+  -d "{\"projectId\": \"$KANEO_PROJECT_ID\",
+       \"title\": \"[qa] {story short description} — test plan\",
        \"description\": \"{the concrete test scenarios this plan covers, 2-4 sentences}\",
-       \"assigned_to\": $me,
-       \"status\": $st_id,
-       \"user_story\": {story-N},
-       \"tags\": [\"v{X}.{Y}.{Z}\"]}"
-# Parented to the story via user_story (same pattern as task tickets)
+       \"assigneeId\": \"$me\",
+       \"status\": \"to-do\"}" | jq -r '.id')
+<!-- verify this path/payload against the deployed Kaneo version -->
+
+# Link it as a subtask of its story — Kaneo's real parent-link mechanism
+# (confirmed: task-relation resource, relationType "subtask"/"blocks"/"related").
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
+  -H "Content-Type: application/json" \
+  -d "{\"sourceTaskId\": \"$qa_id\", \"targetTaskId\": \"<story task id>\", \"relationType\": \"subtask\"}"
 ```
 
 ---
@@ -114,7 +122,6 @@ export default defineConfig({
 Create during development phase, as child of release ticket:
 
 ```bash
-st_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="Pending") | .id')
 SMOKE_DESC=$(cat <<'EOF'
 # Smoke Test Plan — v{X}.{Y}.{Z}
 
@@ -145,15 +152,34 @@ SMOKE_DESC=$(cat <<'EOF'
 ## Estimated runtime: 2-5 minutes
 EOF
 )
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X POST "$TAIGA_URL/api/v1/tasks" \
+me=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/workspace/$KANEO_PROJECT_ID/members" | jq -r '.[] | select(.email=="sdlc-qa-engineer@homelab.local") | .id')
+<!-- verify this members endpoint path against the deployed Kaneo version -->
+
+smoke_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task" \
   -H "Content-Type: application/json" \
-  -d "$(jq -n --arg subject "[qa] smoke test plan v{X}.{Y}.{Z}" \
+  -d "$(jq -n --arg title "[qa] smoke test plan" \
               --arg desc "$SMOKE_DESC" \
-              --argjson proj "$TAIGA_PROJECT_ID" \
-              --argjson status "$st_id" \
-        '{project: $proj, subject: $subject, description: $desc, status: $status, tags: ["v{X}.{Y}.{Z}"]}')"
-# Not parented to the release ticket (Taiga tasks parent to a user_story
-# only) — the "v{X}.{Y}.{Z}" tag is what groups it with the release instead.
+              --arg proj "$KANEO_PROJECT_ID" \
+              --arg assignee "$me" \
+        '{projectId: $proj, title: $title, description: $desc, assigneeId: $assignee, status: "to-do"}')" | jq -r '.id')
+<!-- verify this path/payload against the deployed Kaneo version -->
+
+# Labels have no "create inline on task" field at all — resolve-or-create
+# then attach, separately (see AGENTS.md's "Release grouping" for why).
+ensure_label() {
+  local name="$1" task_id="$2"
+  local lid=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/label/workspace/$KANEO_WORKSPACE_ID" | jq -r --arg n "$name" '.[] | select(.name==$n) | .id')
+  if [ -z "$lid" ]; then
+    curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/label" -H "Content-Type: application/json" \
+      -d "{\"name\": \"$name\", \"color\": \"#888888\", \"workspaceId\": \"$KANEO_WORKSPACE_ID\", \"taskId\": \"$task_id\"}" >/dev/null
+  else
+    curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PUT "$KANEO_URL/api/label/$lid/task" -H "Content-Type: application/json" -d "{\"taskId\": \"$task_id\"}" >/dev/null
+  fi
+}
+ensure_label "v{X}.{Y}.{Z}" "$smoke_id"
+ensure_label "qa" "$smoke_id"
+# No parent ticket (no release/epic ticket exists — see AGENTS.md's "Release
+# grouping") — the version label above is what groups it with the release.
 ```
 
 ---
@@ -175,15 +201,20 @@ If any AC's scenario fails or is missing from the run: this is a blocker, not
 a bug ticket — story is not tested, do not sign off, do not tick the
 checkbox below.
 
-Bug found during story testing (AC covered but a scenario fails) — Taiga
-issues aren't parented to a story, so the parent link lives in the subject
-text instead:
+Bug found during story testing (AC covered but a scenario fails) — create
+the bugfix task, then link it to the story via `task-relation`
+(confirmed resource, `relationType` one of `subtask`/`blocks`/`related`):
 ```bash
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X POST "$TAIGA_URL/api/v1/issues" \
+bug_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task" \
   -H "Content-Type: application/json" \
-  -d "{\"project\": $TAIGA_PROJECT_ID,
-       \"subject\": \"[bugfix] {short description} - GL-{story-N}\",
-       \"description\": \"Found during story-level testing of GL-{story-N}.\n\nSteps to reproduce: ...\nExpected: ...\nActual: ...\"}"
+  -d "{\"projectId\": \"$KANEO_PROJECT_ID\",
+       \"title\": \"[bugfix] {short description} - GL-{story-N}\",
+       \"description\": \"Found during story-level testing of GL-{story-N}.\n\nSteps to reproduce: ...\nExpected: ...\nActual: ...\"}" | jq -r '.id')
+<!-- verify this path/payload against the deployed Kaneo version -->
+
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
+  -H "Content-Type: application/json" \
+  -d "{\"sourceTaskId\": \"$bug_id\", \"targetTaskId\": \"<story task id>\", \"relationType\": \"subtask\"}"
 ```
 
 ### Sign-off: tick the checkbox, record exact tested image tags
@@ -214,13 +245,13 @@ EOF
 ```
 
 Also update the story's own status (kept for dashboard/filtering, not for
-`/uat`'s tag lookup):
+`/uat`'s tag lookup) — Kaneo collapses every ticket type into one task
+resource, so the story's status is just another task PATCH:
 ```bash
-us_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/userstories/{story-id}" | jq -r '.version')
-st_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/userstory-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="QA Story Tested") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/userstories/{story-id}" \
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PATCH "$KANEO_URL/api/task/{story-id}" \
   -H "Content-Type: application/json" \
-  -d "{\"version\": $us_version, \"status\": $st_id}"
+  -d '{"status": "qa-story-tested"}'
+<!-- verify this path/payload against the deployed Kaneo version -->
 ```
 
 ---
@@ -239,22 +270,45 @@ BASE_URL=https://uat.{project} npx playwright test tests/e2e/
 
 Bug found during UAT:
 ```bash
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X POST "$TAIGA_URL/api/v1/issues" \
+me=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/workspace/$KANEO_PROJECT_ID/members" | jq -r '.[] | select(.email=="sdlc-qa-engineer@homelab.local") | .id')
+<!-- verify this members endpoint path against the deployed Kaneo version -->
+
+bug_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task" \
   -H "Content-Type: application/json" \
-  -d "{\"project\": $TAIGA_PROJECT_ID,
-       \"subject\": \"[bugfix] {description}\",
+  -d "{\"projectId\": \"$KANEO_PROJECT_ID\",
+       \"title\": \"[bugfix] {description}\",
        \"description\": \"Found during UAT v{X}.{Y}.{Z}.\n\nEnvironment: UAT cluster\nRC version: {service}:v{X}.{Y}.{Z}-rc{N}\n\nSteps to reproduce: ...\nExpected: ...\nActual: ...\nImpact: ...\",
-       \"tags\": [\"v{X}.{Y}.{Z}\"]}"
+       \"assigneeId\": \"$me\"}" | jq -r '.id')
+<!-- verify this path/payload against the deployed Kaneo version -->
+
+# Labels have no "create inline on task" field at all — resolve-or-create
+# then attach, separately (see AGENTS.md's "Release grouping" for why).
+ensure_label() {
+  local name="$1" task_id="$2"
+  local lid=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/label/workspace/$KANEO_WORKSPACE_ID" | jq -r --arg n "$name" '.[] | select(.name==$n) | .id')
+  if [ -z "$lid" ]; then
+    curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/label" -H "Content-Type: application/json" \
+      -d "{\"name\": \"$name\", \"color\": \"#888888\", \"workspaceId\": \"$KANEO_WORKSPACE_ID\", \"taskId\": \"$task_id\"}" >/dev/null
+  else
+    curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PUT "$KANEO_URL/api/label/$lid/task" -H "Content-Type: application/json" -d "{\"taskId\": \"$task_id\"}" >/dev/null
+  fi
+}
+ensure_label "v{X}.{Y}.{Z}" "$bug_id"
+ensure_label "bugfix" "$bug_id"
 ```
 
 Apply sign-off when all pass:
 ```bash
-# Apply status + comment on the release ticket in one PATCH
-rel_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" | jq -r '.version')
-st_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="QA UAT Approved") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" \
+# Apply the release ticket's status, then post the sign-off narrative as a
+# comment (comment endpoint unconfirmed — likely POST .../comments, same
+# "verify before relying on it" treatment as elsewhere in this file):
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PATCH "$KANEO_URL/api/task/{release-ticket-id}" \
   -H "Content-Type: application/json" \
-  -d "{\"version\": $rel_version, \"status\": $st_id, \"comment\": \"QA UAT sign-off: all {N} scenarios passed. Playwright recordings: {link}. QA UAT Approved applied.\"}"
+  -d '{"status": "qa-uat-approved"}'
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task/{release-ticket-id}/comments" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "QA UAT sign-off: all {N} scenarios passed. Playwright recordings: {link}. QA UAT Approved applied."}'
+<!-- verify both paths/payloads against the deployed Kaneo version -->
 ```
 
 Signal n8n: `{"status": "qa:uat-approved", "task_id": "$TASK_ID"}`
@@ -300,11 +354,13 @@ export default function() {
 
 Apply sign-off:
 ```bash
-rel_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" | jq -r '.version')
-st_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="Staging QA Passed") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" \
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PATCH "$KANEO_URL/api/task/{release-ticket-id}" \
   -H "Content-Type: application/json" \
-  -d "{\"version\": $rel_version, \"status\": $st_id, \"comment\": \"Staging QA: k6 performance passed. p99: {Xms}. Error rate: {X}%. Staging QA Passed applied.\"}"
+  -d '{"status": "staging-qa-passed"}'
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task/{release-ticket-id}/comments" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Staging QA: k6 performance passed. p99: {Xms}. Error rate: {X}%. Staging QA Passed applied."}'
+<!-- verify both paths/payloads against the deployed Kaneo version -->
 ```
 
 ---

@@ -94,8 +94,8 @@ posting the consolidated result to Mattermost.
 cluster) carries `gitlab_token` (reuses `TF_VAR_omp_gitlab_token`),
 `claude_code_token` (reuses `TF_VAR_claude_code_token`), and
 `gitlab_repo_url` (new: `TF_VAR_omp_gitlab_repo_url`, set in `.env`),
-`taiga_token` (`TF_VAR_taiga_api_token`, bootstrap-once via the
-browser like `openwebui_api_key`), and `taiga_url` (the in-cluster gateway
+`kaneo_token` (`TF_VAR_kaneo_api_token`, bootstrap-once via the
+browser like `openwebui_api_key`), and `kaneo_url` (the in-cluster service
 address, not a `.env` value — pods can't reach the tailnet VIP).
 
 ## Not done here

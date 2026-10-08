@@ -29,18 +29,26 @@ DevOps work at all beyond what's already provisioned; create the ticket
 anyway so it's visible as "none needed" rather than silently absent.
 
 ```bash
-op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="Pending") | .id')
-me=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/users" | jq -r '.[] | select(.username=="devops-engineer") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X POST "$TAIGA_URL/api/v1/tasks" \
+# "me" lookup: Kaneo has no username field like Taiga's — resolve by this
+# role's own account email instead (role-accounts.yml creates
+# sdlc-<role>@homelab.local for every role).
+me=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/workspace/$KANEO_PROJECT_ID/members" | jq -r '.[] | select(.email=="sdlc-devops-engineer@homelab.local") | .id')
+<!-- verify this members endpoint path against the deployed Kaneo version -->
+
+devops_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task" \
   -H "Content-Type: application/json" \
-  -d "{\"project\": $TAIGA_PROJECT_ID,
-       \"subject\": \"[devops] {story short description} — infra checklist\",
+  -d "{\"projectId\": \"$KANEO_PROJECT_ID\",
+       \"title\": \"[devops] {story short description} — infra checklist\",
        \"description\": \"{the concrete infra items this story needs beyond what /kickoff already provisioned, or \\\"None beyond standard provisioning\\\"}\",
-       \"assigned_to\": $me,
-       \"status\": $op_status_id,
-       \"user_story\": {story-N},
-       \"tags\": [\"v{X}.{Y}.{Z}\"]}"
-# Parented to the story via user_story (same hierarchy pattern as task tickets)
+       \"assigneeId\": \"$me\",
+       \"status\": \"to-do\"}" | jq -r '.id')
+<!-- verify this path/payload against the deployed Kaneo version -->
+
+# Link it as a subtask of its story — Kaneo's real parent-link mechanism
+# (confirmed: task-relation resource, relationType "subtask"/"blocks"/"related").
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
+  -H "Content-Type: application/json" \
+  -d "{\"sourceTaskId\": \"$devops_id\", \"targetTaskId\": \"<story task id>\", \"relationType\": \"subtask\"}"
 ```
 
 ---
@@ -64,11 +72,17 @@ argocd app get {project}-sit --server $ARGOCD_URL
 # 4. ArgoCD Image Updater running
 kubectl get deployment argocd-image-updater -n argocd
 
-# 5. Apicurio registry accessible (SIT — this gate runs before SIT deploy)
-curl "${APICURIO_URL_SIT}/apis/registry/v2/search/artifacts"
+# 5. Apicurio registry accessible (SIT -- Gate A runs before SIT deploy.
+#    $APICURIO_URL_SIT is a GitLab CI/CD variable, not something injected
+#    into this pod -- same host.docker.internal:<port> bridge as Kafka
+#    above, sit's own fixed port per terraform/modules/platform-apps/apicurio.tf)
+curl "http://host.docker.internal:30911/apis/registry/v2/search/artifacts"
 
-# 6. Kafka broker reachable
-kafka-topics.sh --list --bootstrap-server $KAFKA_BOOTSTRAP
+# 6. Kafka broker reachable (SIT -- Gate A runs before SIT deploy, same
+#    host.docker.internal:<port> bridge helm/kafka-ui/values.yaml already
+#    uses to reach each phase cluster's own kafka from this cluster;
+#    port is fixed per environment -- sit 30901, uat 30902, production 30903)
+kafkacat -L -b host.docker.internal:30901
 ```
 
 Signal n8n when all pass: `{"status": "infra-ready", "task_id": "$TASK_ID"}`

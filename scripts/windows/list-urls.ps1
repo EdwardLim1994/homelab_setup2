@@ -32,7 +32,7 @@ $apps = @(
   'openwebui;openwebui;;'
   'kafka-ui;kafka-ui;;'
   'harbor;harbor;harbor.local;'
-  'taiga;taiga;taiga.local;'
+  'kaneo;kaneo;kaneo.local;'
 ) | ForEach-Object {
   $p = $_ -split ';'
   [pscustomobject]@{ Name = $p[0]; Host = $p[1]; Ingress = $p[2]; Path = $p[3] }

@@ -1,5 +1,5 @@
 # One-time (idempotent, re-run-safe) migration: create a dedicated service
-# account per SDLC role in both GitLab and Taiga, so tickets/MRs can be
+# account per SDLC role in both GitLab and Kaneo, so tickets/MRs can be
 # assigned to the role that actually did the work instead of the single
 # shared admin identity every omp pod authenticates as.
 #
@@ -9,29 +9,47 @@
 # SKILL.md hardcode `--assignee "<role>"` with no lookup). GitLab group
 # membership is granted once at the `sdlc` GROUP level -- GitLab cascades
 # group membership to every project under it, present and future, so one
-# run here covers every generated project forever. Taiga has no such
+# run here covers every generated project forever. Kaneo has no such
 # group concept; per-project membership is handled separately in
 # F-02-kickoff.json at project-creation time, not here.
 #
-# No confirmed Taiga REST "create user" endpoint exists (self-registration
-# is likely disabled on this SSO-only instance) -- Taiga users are created
-# the same way helm/taiga/templates/back.yaml's own admin-bootstrap init
-# container does it: `manage.py shell` inside the taiga-back pod.
+# Kaneo (Better Auth) gates admin endpoints on a session cookie, not a
+# bearer API key -- but that's fully scriptable headlessly: sign in as the
+# bootstrap admin (POST /api/auth/sign-in/email) to get a session cookie,
+# reuse it to create each role's user (admin plugin), impersonate that role
+# to get a session as them, then create an API key under that impersonated
+# session. No pods/exec needed (unlike Taiga's old manage.py shell
+# approach) -- this is normal in-cluster HTTP.
 #
-# RBAC: pods get/list + pods/exec in `gitlab` and `taiga`
-# (terraform/internal/ansible.tf: ansible_gitlab_exec, ansible_taiga_exec).
-- name: Per-role service accounts for GitLab + Taiga
+# UNVERIFIED: the exact Better Auth endpoint paths/payloads below
+# (sign-in/email, admin/create-user, admin/impersonate-user, api-key/create)
+# follow Better Auth's documented plugin conventions but haven't been
+# live-verified against Kaneo's pinned image version -- run this once by
+# hand for a single role first (see the plan's verification step 1) before
+# trusting it for all 12. If it doesn't pan out, fall back to one-time
+# manual browser bootstrap per role (same tier of manual step
+# `openwebui_api_key` already requires, just x12).
+#
+# RBAC: pods get/list + pods/exec in `gitlab`
+# (terraform/internal/ansible.tf: ansible_gitlab_exec), secrets write in
+# `sdlc` and `n8n` (ansible_sdlc_secrets, ansible_n8n_secrets).
+- name: Per-role service accounts for GitLab + Kaneo
   hosts: localhost
   connection: local
   gather_facts: false
 
   vars:
     gitlab_ns: gitlab
-    taiga_ns: taiga
+    sdlc_ns: sdlc
     gitlab_url: >-
       {{ lookup('env', 'GITLAB_URL')
          | default('http://gitlab-webservice-default.gitlab.svc.cluster.local:8181', true) }}
     gitlab_api_base: "{{ gitlab_url }}/api/v4"
+    kaneo_url: >-
+      {{ lookup('env', 'KANEO_URL')
+         | default('http://kaneo.kaneo.svc.cluster.local:5173', true) }}
+    kaneo_admin_email: "{{ lookup('env', 'kaneo_admin_email') }}"
+    kaneo_admin_password: "{{ lookup('env', 'kaneo_admin_password') }}"
     group_ref: "{{ lookup('env', 'gitlab_group_id') | default('sdlc', true) }}"
     # ponytail: single source of truth is helm/omp/values.yaml's `roles:`
     # list -- keep these in sync if a role is ever added/removed there.
@@ -101,7 +119,7 @@
         method: POST
         headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
         body_format: json
-        body: { name: sdlc, path: sdlc, visibility: private }
+        body: { name: "{{ group_ref }}", path: "{{ group_ref }}", visibility: private }
         status_code: [201]
       register: made_group
       no_log: true
@@ -169,64 +187,195 @@
       when: item.json | length > 0
       no_log: true
 
-    # --- Taiga: create one user per role via manage.py shell (idempotent) ---
-    - name: Find the taiga-back pod
-      kubernetes.core.k8s_info:
-        kind: Pod
-        namespace: "{{ taiga_ns }}"
-        label_selectors: ["app=taiga-back"]
-        field_selectors: ["status.phase=Running"]
-      register: taiga_pods
-      until: taiga_pods.resources | length > 0
-      retries: 20
-      delay: 15
-
-    # ponytail: password resolved once, outside the loop/shell string -- the
-    # command below went through a double-quoted k8s_exec `command` string
-    # AND a python -c argument AND a set_password(...) call; nesting a third
-    # lookup('...', "...") with its own quotes in there broke shlex-splitting
-    # for every item (k8s_exec only wraps the whole thing in /bin/sh -c
-    # correctly when that's the ENTIRE command string, same as the GitLab
-    # rails task above -- this task originally skipped that wrapper).
-    - name: Resolve a throwaway Taiga role-account password
-      ansible.builtin.set_fact:
-        taiga_role_password: "{{ lookup('ansible.builtin.password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
+    # --- GitLab: mint a real personal token per role user (the actual gap
+    # this playbook had before -- `--assignee "<role>"` in every SKILL.md
+    # only ever set the cosmetic assignee field; every commit/MR was still
+    # authored as whichever account var.omp_gitlab_token belongs to, since
+    # F-31 had no per-role credential to log in with at all) ---
+    - name: List each role user's existing personal access tokens (admin API)
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/personal_access_tokens?user_id={{ item.json[0].id }}"
+        method: GET
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        return_content: true
+        status_code: [200]
+      register: role_token_checks
+      loop: "{{ gl_user_ids.results }}"
+      loop_control: { label: "{{ item.item }}" }
+      when: item.json | length > 0
       no_log: true
 
-    - name: Create missing Taiga role users
-      kubernetes.core.k8s_exec:
-        namespace: "{{ taiga_ns }}"
-        pod: "{{ taiga_pods.resources[0].metadata.name }}"
-        container: taiga-back
-        # ponytail: `|-` (literal block), NOT `>-` (folded) -- folding joins
-        # every line with a space, which destroys Python's indentation-
-        # dependent syntax (the GitLab rails task above gets away with `>-`
-        # because Ruby statements are `;`-joined and don't care about layout).
-        command: |-
-          /bin/sh -c "python manage.py shell -c \"
-          from django.contrib.auth import get_user_model
-          User = get_user_model()
-          u, created = User.objects.get_or_create(username='{{ item }}', defaults={'email': 'sdlc-{{ item }}@homelab.local', 'full_name': '{{ item }}'})
-          if created:
-              u.set_password('{{ taiga_role_password }}')
-              u.save()
-          print('TAIGA_UID:{{ item }}:%d' % u.id)
-          \""
-      register: taiga_create_out
+    - name: Revoke any stale sdlc-role-token for each role user (idempotent re-mint)
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/personal_access_tokens/{{ tok.id }}"
+        method: DELETE
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        status_code: [204, 404]
+      loop: "{{ role_token_checks.results | default([]) | subelements('json', skip_missing=true) }}"
+      loop_control: { label: "{{ pair.0.item.item }}", loop_var: pair }
+      vars:
+        tok: "{{ pair.1 }}"
+      when: pair.1.name == 'sdlc-role-token' and pair.1.revoked == false
+      no_log: true
+
+    - name: Mint a fresh personal access token for each role user (admin API)
+      ansible.builtin.uri:
+        url: "{{ gitlab_api_base }}/users/{{ item.json[0].id }}/personal_access_tokens"
+        method: POST
+        headers: { PRIVATE-TOKEN: "{{ gitlab_token }}" }
+        body_format: json
+        body:
+          name: sdlc-role-token
+          scopes: [api]
+        status_code: [201]
+      register: role_token_mint
+      loop: "{{ gl_user_ids.results }}"
+      loop_control: { label: "{{ item.item }}" }
+      when: item.json | length > 0
+      no_log: true
+
+    - name: Build role -> token map
+      ansible.builtin.set_fact:
+        role_token_map: "{{ role_token_map | default({}) | combine({ item.item.item: item.json.token }) }}"
+      loop: "{{ role_token_mint.results }}"
+      loop_control: { label: "{{ item.item.item }}" }
+      when: item.json is defined and item.json.token is defined
+      no_log: true
+
+    # ponytail: a plain Kubernetes Secret, NOT a Helm value -- these 12
+    # tokens are minted fresh by this playbook every run (ansible, not
+    # terraform, owns them), so routing them through helm/omp-agent's
+    # values.yaml + a `tofu apply` would mean re-plumbing a new TF var +
+    # helm value per role AND re-running tofu every time this playbook
+    # re-mints. F-31's Build Job Manifest node reads this directly via
+    # `secretKeyRef.key: role` (the role name itself, no map/JSON parsing
+    # needed in-pod), falling back to the shared omp-agent-secrets token
+    # if a role's key is missing (e.g. this playbook was never run yet).
+    - name: Write role tokens into the omp-role-gitlab-tokens Secret (sdlc namespace)
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: omp-role-gitlab-tokens
+            namespace: "{{ sdlc_ns }}"
+          stringData: "{{ role_token_map | default({}) }}"
+      no_log: true
+      when: role_token_map is defined
+
+    # ponytail: secretKeyRef only resolves within its own namespace -- n8n's
+    # native MR-review flow (F-04) needs tech-lead's own PAT to act as
+    # tech-lead instead of n8n's shared admin token, but n8n runs in
+    # namespace `n8n`, not `sdlc`. Mirror the same map there too (RBAC:
+    # terraform/internal/ansible.tf's ansible_n8n_secrets).
+    - name: Mirror role tokens into the n8n namespace too (for F-04's native MR-review flow)
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: omp-role-gitlab-tokens
+            namespace: n8n
+          stringData: "{{ role_token_map | default({}) }}"
+      no_log: true
+      when: role_token_map is defined
+
+    # --- Kaneo: sign in as bootstrap admin to get a session cookie ---
+    - name: Sign in as the Kaneo bootstrap admin
+      ansible.builtin.uri:
+        url: "{{ kaneo_url }}/api/auth/sign-in/email"
+        method: POST
+        body_format: json
+        body: { email: "{{ kaneo_admin_email }}", password: "{{ kaneo_admin_password }}" }
+        status_code: [200]
+      register: kaneo_signin
+      no_log: true
+
+    - name: Extract the admin session cookie
+      ansible.builtin.set_fact:
+        kaneo_admin_cookie: "{{ kaneo_signin.set_cookie.split(';') | first }}"
+      no_log: true
+
+    # --- Kaneo: create one user per role (idempotent) ---
+    - name: Resolve a throwaway Kaneo role-account password
+      ansible.builtin.set_fact:
+        kaneo_role_password: "{{ lookup('ansible.builtin.password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
+      no_log: true
+
+    - name: Create each role's Kaneo user (admin plugin, tolerate already-exists)
+      ansible.builtin.uri:
+        url: "{{ kaneo_url }}/api/auth/admin/create-user"
+        method: POST
+        headers: { Cookie: "{{ kaneo_admin_cookie }}" }
+        body_format: json
+        body:
+          email: "sdlc-{{ item }}@homelab.local"
+          password: "{{ kaneo_role_password }}"
+          name: "{{ item }}"
+        status_code: [200, 400, 422]
+      register: kaneo_create_out
       loop: "{{ sdlc_roles }}"
       loop_control: { label: "{{ item }}" }
       no_log: true
 
-    - name: Parse Taiga user ids
-      ansible.builtin.set_fact:
-        taiga_uid_map: "{{ taiga_uid_map | default({}) | combine({ item.item: (item.stdout | regex_search('TAIGA_UID:' + item.item + ':(\\d+)', '\\1') | first) }) }}"
-      loop: "{{ taiga_create_out.results }}"
+    # --- Kaneo: impersonate each role, mint an API key under that session ---
+    - name: Impersonate each role's Kaneo user
+      ansible.builtin.uri:
+        url: "{{ kaneo_url }}/api/auth/admin/impersonate-user"
+        method: POST
+        headers: { Cookie: "{{ kaneo_admin_cookie }}" }
+        body_format: json
+        body: { userId: "{{ item.json.user.id | default(item.json.id) }}" }
+        status_code: [200]
+      register: kaneo_impersonate_out
+      loop: "{{ kaneo_create_out.results }}"
       loop_control: { label: "{{ item.item }}" }
       no_log: true
+
+    - name: Create an API key under each impersonated role session
+      ansible.builtin.uri:
+        url: "{{ kaneo_url }}/api/auth/api-key/create"
+        method: POST
+        headers: { Cookie: "{{ item.set_cookie.split(';') | first }}" }
+        body_format: json
+        body: { name: "sdlc-role-key" }
+        status_code: [200]
+      register: kaneo_key_out
+      loop: "{{ kaneo_impersonate_out.results }}"
+      loop_control: { label: "{{ item.item.item }}" }
+      no_log: true
+
+    - name: Build role -> Kaneo API key map
+      ansible.builtin.set_fact:
+        kaneo_role_token_map: "{{ kaneo_role_token_map | default({}) | combine({ item.item.item.item: item.json.key }) }}"
+      loop: "{{ kaneo_key_out.results }}"
+      loop_control: { label: "{{ item.item.item.item }}" }
+      when: item.json is defined and item.json.key is defined
+      no_log: true
+
+    # ponytail: same shape as omp-role-gitlab-tokens — a plain Secret, not a
+    # helm value, re-minted fresh by this playbook every run.
+    - name: Write role tokens into the omp-role-kaneo-tokens Secret (sdlc namespace)
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: omp-role-kaneo-tokens
+            namespace: "{{ sdlc_ns }}"
+          stringData: "{{ kaneo_role_token_map | default({}) }}"
+      no_log: true
+      when: kaneo_role_token_map is defined
 
     - name: Summary
       ansible.builtin.debug:
         msg: >-
           GitLab: {{ sdlc_roles | length }} role user(s) ensured, added to
           group '{{ group_ref }}' (id {{ group_id }}) as Developer.
-          Taiga user ids: {{ taiga_uid_map }}
+          Per-role tokens minted: {{ (role_token_map | default({})) | length }}
+          -> written to Secret omp-role-gitlab-tokens in namespace {{ sdlc_ns }}.
+          Kaneo: per-role API keys minted: {{ (kaneo_role_token_map | default({})) | length }}
+          -> written to Secret omp-role-kaneo-tokens in namespace {{ sdlc_ns }}.

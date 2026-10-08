@@ -41,7 +41,7 @@
         200
       ],
       "parameters": {
-        "jsCode": "const auth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst id = $node['Extract Story IID'].json.story_work_package_id;\nif (!id) return [{ json: $json }];\nconst us = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/userstories/${id}`, headers: auth, json: true });\nconst statuses = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/userstory-statuses?project=${$env.TAIGA_PROJECT_ID}`, headers: auth, json: true });\nconst statusId = statuses.find(s => s.name === 'Closed')?.id;\nawait this.helpers.httpRequest({ method: 'PATCH', url: `${$env.TAIGA_URL}/api/v1/userstories/${id}`, headers: { ...auth, 'Content-Type': 'application/json' }, body: { version: us.version, status: statusId }, json: true });\nreturn [{ json: $json }];"
+        "jsCode": "// ponytail: Kaneo collapses Taiga's epic/userstory/task/issue into one\n// task resource -- the story's ticket is just a Kaneo task, plain status\n// field, no separate status-id lookup. Verify 'done' against the deployed\n// Kaneo version.\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst id = $node['Extract Story IID'].json.story_work_package_id;\nif (!id) return [{ json: $json }];\nawait this.helpers.httpRequest({ method: 'PATCH', url: `${$env.KANEO_URL}/api/task/${id}`, headers: { ...auth, 'Content-Type': 'application/json' }, body: { status: 'done' }, json: true });\nreturn [{ json: $json }];"
       }
     },
     {
@@ -54,7 +54,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const auth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst res = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/userstories?project=${$env.TAIGA_PROJECT_ID}&tags=${$env.RELEASE_VERSION}`, headers: auth, json: true });\nconst openStories = (res || []).filter(s => !s.is_closed);\nreturn [{ json: { ...$json, length: openStories.length } }];"
+        "jsCode": "// ponytail: Taiga's tags-based release grouping has no direct Kaneo\n// equivalent confirmed from docs -- using a 'label' query filter on the\n// project's task list, closest available field; verify against the\n// deployed Kaneo version.\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst res = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/task/tasks/${$env.KANEO_PROJECT_ID}?label=${$env.RELEASE_VERSION}`, headers: auth, json: true });\nconst openStories = (res || []).filter(s => s.status !== 'done');\nreturn [{ json: { ...$json, length: openStories.length } }];"
       }
     },
     {

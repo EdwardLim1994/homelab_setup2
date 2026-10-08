@@ -37,19 +37,22 @@ looking it up — see "Finding the release ticket" below. There is no separate
 release-plan ticket — one ticket carries the whole release, from UAT sign-off
 through production monitoring.
 
-Parent: the epic ticket for this release (PM creates it at `/kickoff`) — find
-it via:
+Parent: Kaneo has no separate epic resource — every ticket, including the
+one PM creates at `/kickoff` for this release (see project-manager/SKILL.md),
+is the same flat task type. Find it by title prefix + the version string
+instead of a parent-epic lookup:
 ```bash
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/epics?project=$TAIGA_PROJECT_ID&tags={version}"
+curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID" \
+  | jq -r '.[] | select(.title | contains("{version}"))'
+<!-- verify this list endpoint against the deployed Kaneo version -->
 ```
 
 Since this ticket also carries a status equivalent to all 3 UAT sign-offs at
-once, set it to whichever status your Taiga workflow uses to mean "UAT fully
-approved" (e.g. "PO UAT Approved", the last of the three to land) — one
-native status field replaces the three GitLab labels applied together.
+once, set it to whichever status means "UAT fully approved" (e.g.
+"po-uat-approved", the last of the three to land) — one native status field
+replaces the three GitLab labels applied together.
 
 ```bash
-op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="PO UAT Approved") | .id')
 RELEASE_DESC=$(cat <<'EOF'
 # Release — v{X}.{Y}.{Z}
 
@@ -103,32 +106,37 @@ Incident: escalate to Edward immediately
 ## Incidents
 EOF
 )
-me=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/users" | jq -r '.[] | select(.username=="release-manager") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X POST "$TAIGA_URL/api/v1/tasks" \
+# "me" lookup: Kaneo has no username field like Taiga's — resolve by this
+# role's own account email instead (role-accounts.yml creates
+# sdlc-<role>@homelab.local for every role).
+me=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/workspace/$KANEO_PROJECT_ID/members" | jq -r '.[] | select(.email=="sdlc-release-manager@homelab.local") | .id')
+<!-- verify this members endpoint path against the deployed Kaneo version -->
+
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task" \
   -H "Content-Type: application/json" \
-  -d "$(jq -n --arg subject "[release] v{X}.{Y}.{Z}" \
+  -d "$(jq -n --arg title "[release] v{X}.{Y}.{Z}" \
               --arg desc "$RELEASE_DESC" \
-              --argjson proj "$TAIGA_PROJECT_ID" \
-              --argjson status "$op_status_id" \
-              --argjson assignee "$me" \
-              --arg tag "v{X}.{Y}.{Z}" \
-        '{subject: $subject, description: $desc, project: $proj, status: $status, assigned_to: $assignee, tags: [$tag]}')"
+              --arg proj "$KANEO_PROJECT_ID" \
+              --arg assignee "$me" \
+        '{title: $title, description: $desc, projectId: $proj, status: "po-uat-approved", assigneeId: $assignee}')"
+<!-- verify this path/payload against the deployed Kaneo version -->
 ```
 
-(Not parented to the epic — Taiga tasks parent only via `user_story`, and the
-release ticket has no story parent either. The epic lookup above is only
-used to confirm the epic exists before creating this ticket; the release
-version tag is what actually links them for querying.)
+(Not parented to anything — it's created after the stories it covers are
+already closed, so there's no single parent to link via `task-relation`.
+The version string in the title is what actually links every related
+ticket for querying.)
 
 ### Finding the release ticket (every later stage)
 
 No static ticket ID is stored anywhere — every later flow/pod looks it up
-fresh by tag + subject prefix, since exactly one release ticket exists per
-version:
+fresh by version string + title prefix, since exactly one release ticket
+exists per version:
 
 ```bash
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks?project=$TAIGA_PROJECT_ID&tags={version}" \
-  | jq -r '.[] | select(.subject | startswith("[release]"))'
+curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID" \
+  | jq -r '.[] | select(.title | startswith("[release]") and contains("{version}"))'
+<!-- verify this list endpoint against the deployed Kaneo version -->
 ```
 
 ---
@@ -141,7 +149,7 @@ Runs after QA (`staging-qa:passed`) and Security (`staging-sec:passed`) complete
 
 ```bash
 # Read release ticket for all sign-offs
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}"
+curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/task/{release-ticket-id}"
 
 # Read QA performance results from QA pod comment
 # Read Security scan results from Security pod comment
@@ -189,11 +197,13 @@ Post as comment on release ticket:
 
 Apply `rm:go` status and notify n8n if GO:
 ```bash
-op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" | jq -r '.version')
-op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="RM Go") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" \
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PATCH "$KANEO_URL/api/task/{release-ticket-id}" \
   -H "Content-Type: application/json" \
-  -d "{\"version\": $op_version, \"status\": $op_status_id, \"comment\": \"RM Go applied — ready for /release-production\"}"
+  -d '{"status": "rm-go"}'
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task/{release-ticket-id}/comments" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "RM Go applied — ready for /release-production"}'
+<!-- verify both paths/payloads against the deployed Kaneo version -->
 ```
 
 Signal n8n: `{"status": "rm:go", "task_id": "$TASK_ID"}`
@@ -283,11 +293,13 @@ Post on release ticket and signal n8n for immediate escalation:
 When monitoring window ends without incident:
 
 ```bash
-op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" | jq -r '.version')
-op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="Closed") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" \
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PATCH "$KANEO_URL/api/task/{release-ticket-id}" \
   -H "Content-Type: application/json" \
-  -d "{\"version\": $op_version, \"status\": $op_status_id, \"comment\": \"Release v{X}.{Y}.{Z} confirmed stable.\n\nMonitoring window: {start} to {end} ({N} minutes)\nFinal metrics:\n- Error rate: {X}%\n- GraphQL p99: {X}ms\n- gRPC p99: {X}ms\n- Pod restarts: {N}\n- No incidents during window.\n\nRelease ticket closed (status set to Closed). UAT cluster sleeping (no separate staging cluster).\"}"
+  -d '{"status": "done"}'
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task/{release-ticket-id}/comments" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Release v{X}.{Y}.{Z} confirmed stable.\n\nMonitoring window: {start} to {end} ({N} minutes)\nFinal metrics:\n- Error rate: {X}%\n- GraphQL p99: {X}ms\n- gRPC p99: {X}ms\n- Pod restarts: {N}\n- No incidents during window.\n\nRelease ticket closed (status set to Done). UAT cluster sleeping (no separate staging cluster)."}'
+<!-- verify both paths/payloads against the deployed Kaneo version -->
 ```
 
 Signal n8n: `{"status": "release-confirmed", "version": "v{X}.{Y}.{Z}", "task_id": "$TASK_ID"}`

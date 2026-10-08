@@ -19,7 +19,7 @@ locals {
     "__LITELLM_OIDC_CLIENT_SECRET__", var.litellm_oidc_client_secret),
     "__GITLAB_MCP_AUTH_TOKEN__", var.gitlab_mcp_auth_token),
     "__SONARQUBE_MCP_TOKEN__", var.sonarqube_mcp_token),
-  "__TAIGA_MCP_AUTH_TOKEN__", var.taiga_mcp_auth_token)
+  "__KANEO_API_TOKEN__", var.kaneo_api_token)
 }
 
 resource "helm_release" "litellm" {

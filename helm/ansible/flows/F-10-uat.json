@@ -28,7 +28,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const auth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst res = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/userstories?project=${$env.TAIGA_PROJECT_ID}`, headers: auth, json: true });\nconst openStories = (res || []).filter(s => !s.is_closed);\nreturn [{ json: { ...$json, length: openStories.length } }];"
+        "jsCode": "// ponytail: Kaneo has one task resource (no separate userstory type) --\n// list the project's tasks and check status.\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst res = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/task/tasks/${$env.KANEO_PROJECT_ID}`, headers: auth, json: true });\nconst openStories = (res || []).filter(s => s.status !== 'done');\nreturn [{ json: { ...$json, length: openStories.length } }];"
       }
     },
     {

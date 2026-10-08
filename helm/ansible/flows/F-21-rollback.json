@@ -121,7 +121,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst created = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `${$env.TAIGA_URL}/api/v1/issues`,\n  headers: { ...taigaAuth, 'Content-Type': 'application/json' },\n  body: { project: $env.TAIGA_PROJECT_ID, subject: `[bugfix] Production rollback ${$env.RELEASE_VERSION}`, description: 'Auto-created on /rollback', tags: [$env.RELEASE_VERSION] },\n  json: true,\n});\nreturn [{ json: { ...$json, incident_ticket_id: created.id } }];"
+        "jsCode": "// ponytail: Kaneo has one ticket resource (task) -- no separate issue\n// type, so a bugfix ticket is just a task; its label is the closest\n// equivalent to Taiga's release-grouping tags. Verify field names against\n// the deployed Kaneo version.\nconst kaneoAuth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst created = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `${$env.KANEO_URL}/api/task`,\n  headers: { ...kaneoAuth, 'Content-Type': 'application/json' },\n  body: { projectId: $env.KANEO_PROJECT_ID, title: `[bugfix] Production rollback ${$env.RELEASE_VERSION}`, description: 'Auto-created on /rollback', label: $env.RELEASE_VERSION },\n  json: true,\n});\nreturn [{ json: { ...$json, incident_ticket_id: created.id } }];"
       }
     },
     {

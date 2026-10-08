@@ -23,19 +23,23 @@ Business logic gatekeeper at UAT stage 3. Validates that what was built actually
 
 ```bash
 # Verify prerequisites are met before starting
-release_status=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" | jq -r '.status_extra_info.name')
+release_status=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/task/{release-ticket-id}" | jq -r '.status')
 # Must be "QA UAT Approved" (or later) AND "Security Cleared" already applied —
 # this tracker only holds one status value, so check whichever the release
 # ticket's flow encodes as "both gates passed" (e.g. a combined
 # "Security Cleared" status reached only after QA UAT Approved) — do not
 # start if the prerequisite status hasn't been reached
 
-# Read all stories tagged for this release
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/userstories?project=$TAIGA_PROJECT_ID&tags=v{X}.{Y}.{Z}"
+# Read all tasks in this project and filter to this release's stories
+# client-side (Kaneo has one flat task resource, no separate userstory
+# endpoint and no confirmed tag-filter query param like Taiga's)
+curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID" \
+  | jq '[.[] | select(.title | contains("v{X}.{Y}.{Z}"))]'
+<!-- verify this list endpoint + any real tag/release field against the deployed Kaneo version -->
 
 # Read each story's acceptance criteria
 for story_id in {story-ids}; do
-  curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/userstories/$story_id"
+  curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/task/$story_id"
 done
 
 # Note UAT cluster URL from release ticket
@@ -79,12 +83,24 @@ For each user story in the sprint milestone, validate every AC item:
 When an AC item is not fulfilled:
 
 ```bash
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X POST "$TAIGA_URL/api/v1/issues" \
+# "me" lookup: resolve by this role's own account email (role-accounts.yml
+# creates sdlc-<role>@homelab.local for every role) — assigned to PO itself
+# as reporter/owner until triaged to whichever dev role actually fixes it.
+me=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/workspace/$KANEO_PROJECT_ID/members" | jq -r '.[] | select(.email=="sdlc-product-owner@homelab.local") | .id')
+<!-- verify this members endpoint path against the deployed Kaneo version -->
+
+bug_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task" \
   -H "Content-Type: application/json" \
-  -d "{\"project\": $TAIGA_PROJECT_ID,
-       \"subject\": \"[bugfix] PO: {AC description not met} — GL-{story-N}\",
-       \"tags\": [\"v{X}.{Y}.{Z}\"],
-       \"description\": \"**PO UAT finding — AC not fulfilled**\n\n**Story:** GL-{story-N} — {story title}\n**AC item:** {exact AC text from story}\n**Environment:** UAT cluster\n**RC version:** {service}:v{X}.{Y}.{Z}-rc{N}\n\n**Expected behaviour (per AC):**\n{what the AC says should happen}\n\n**Actual behaviour:**\n{what actually happens}\n\n**Business impact:**\n{why this matters — what user goal is not achieved}\n\n**Steps to reproduce:**\n1. {step}\n2. {step}\n3. {step}\n\n**Suggested fix:**\n{optional — if the fix is obvious from the AC}\"}"
+  -d "{\"projectId\": \"$KANEO_PROJECT_ID\",
+       \"title\": \"[bugfix] PO: {AC description not met} — GL-{story-N}\",
+       \"description\": \"**PO UAT finding — AC not fulfilled**\n\n**Story:** GL-{story-N} — {story title}\n**AC item:** {exact AC text from story}\n**Environment:** UAT cluster\n**RC version:** {service}:v{X}.{Y}.{Z}-rc{N}\n\n**Expected behaviour (per AC):**\n{what the AC says should happen}\n\n**Actual behaviour:**\n{what actually happens}\n\n**Business impact:**\n{why this matters — what user goal is not achieved}\n\n**Steps to reproduce:**\n1. {step}\n2. {step}\n3. {step}\n\n**Suggested fix:**\n{optional — if the fix is obvious from the AC}\",
+       \"assigneeId\": \"$me\"}" | jq -r '.id')
+<!-- verify this path/payload against the deployed Kaneo version -->
+
+# Link it as a subtask of its story — Kaneo's real parent-link mechanism.
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
+  -H "Content-Type: application/json" \
+  -d "{\"sourceTaskId\": \"$bug_id\", \"targetTaskId\": \"<story task id>\", \"relationType\": \"subtask\"}"
 ```
 
 After creating bug ticket:
@@ -100,11 +116,16 @@ Apply `po:uat-approved` only when ALL AC items across ALL stories in scope are v
 ```bash
 # Verify all stories have all AC items passing before signing off
 
-op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" | jq -r '.version')
-op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="PO UAT Approved") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" \
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PATCH "$KANEO_URL/api/task/{release-ticket-id}" \
   -H "Content-Type: application/json" \
-  -d "{\"version\": $op_version, \"status\": $op_status_id, \"comment\": \"PO UAT sign-off: all acceptance criteria verified across {N} stories.\n\nValidation summary:\n$(for story in {stories}; do echo \"- GL-${story}: {N} AC items — all PASS\"; done)\n\nBugs found and resolved this UAT cycle: {N}\nPO UAT Approved applied.\"}"
+  -d "{\"status\": \"po-uat-approved\"}"
+<!-- verify this path/payload against the deployed Kaneo version -->
+# Post the sign-off narrative as a comment on the same task (endpoint
+# unconfirmed -- likely POST $KANEO_URL/api/task/{release-ticket-id}/comments,
+# same "verify before relying on it" treatment as above):
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task/{release-ticket-id}/comments" \
+  -H "Content-Type: application/json" \
+  -d "{\"content\": \"PO UAT sign-off: all acceptance criteria verified across {N} stories.\n\nValidation summary:\n$(for story in {stories}; do echo \"- GL-${story}: {N} AC items — all PASS\"; done)\n\nBugs found and resolved this UAT cycle: {N}\nPO UAT Approved applied.\"}"
 ```
 
 Signal n8n: `{"status": "po:uat-approved", "task_id": "$TASK_ID"}`

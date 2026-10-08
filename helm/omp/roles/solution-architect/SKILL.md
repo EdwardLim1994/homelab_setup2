@@ -129,8 +129,9 @@ The API doc table is the human-readable surface — Data Engineer's
 (schemas, exact GraphQL/proto types); the two must agree, Data Engineer
 reads this table as its starting point, not a competing source.
 
-**Wiki write targets** (Taiga's wiki module — AGENTS.md's "GitLab compliance
-history"):
+**Wiki write targets** (GitLab's own per-project wiki — Kaneo has no wiki
+module, see AGENT.md's "Taiga → Kaneo" notes and project-manager/SKILL.md's
+"Wiki Structure at Kickoff" for the GitLab Wikis API call shape):
 - Overall architecture (deliverables 1+2, the release-wide assessment + C4
   diagrams): `v{X}.{Y}.{Z}/Architecture`
 - Each new service's own page (deliverable 3): `v{X}.{Y}.{Z}/Architecture/{service name}`

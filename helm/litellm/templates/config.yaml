@@ -68,12 +68,17 @@ data:
         description: "n8n workflow docs + management"
         auth_type: "bearer_token"
         auth_value: {{ .Values.mcpN8nAuthToken | quote }}
-      taiga:
-        url: "http://mcp-servers-taiga.mcp-servers.svc.cluster.local:8300/mcp"
+      kaneo:
+        url: "http://mcp-servers-kaneo.mcp-servers.svc.cluster.local:8300/mcp"
         transport: "http"
-        description: "Taiga ticket/wiki tracker"
+        description: "Kaneo ticket tracker"
         auth_type: "bearer_token"
-        auth_value: {{ .Values.mcpTaigaAuthToken | quote }}
+        # ponytail: kaneo-mcp has no caller-auth of its own — it forwards
+        # whatever bearer it receives straight to Kaneo's API (see
+        # helm/mcp-servers/kaneo-mcp). For OpenWebUI chat sessions (no
+        # per-role identity to hand it) this is just the shared/admin Kaneo
+        # API key, same credential as F-31's KANEO_TOKEN_SHARED fallback.
+        auth_value: {{ .Values.mcpKaneoAuthValue | quote }}
 
     # ponytail: the /omp pass-through (helm/omp's standing chat pod) is gone —
     # that chart was removed. OpenWebUI talks to Ollama models directly now;

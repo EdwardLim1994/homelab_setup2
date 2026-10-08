@@ -42,11 +42,9 @@ BOOTSTRAP / DISASTER-RECOVERY (not in the default fan-out — run explicitly):
   gitlab-webhook        Register/verify/deregister the n8n SDLC router webhook (F-00) on
                         every sdlc-group project (--tags verify | --tags deregister
                         -e deregister_confirmed=true)
-  taiga-gitlab-webhook  Register Taiga's own GitLab integration webhook (compliance
-                        trail — separate from gitlab-webhook's F-00 router hook)
   sonarqube-gitlab      Configure SonarQube's GitLab DevOps Platform Integration
   argocd-clusters       Register the phase k3d clusters (sit/uat/qa/staging/production) with ArgoCD
-  role-accounts         Create one GitLab + Taiga service account per SDLC role
+  role-accounts         Create one GitLab + Kaneo service account per SDLC role
                         (idempotent, re-run-safe — see AGENTS.md's "Ticket assignee")
 
 Examples:

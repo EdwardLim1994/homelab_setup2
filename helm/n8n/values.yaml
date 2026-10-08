@@ -128,25 +128,29 @@ n8n:
       # flow reading $env.GITLAB_PROJECT_PATH/_ID/ARGOCD_PROJECT/
       # DEPLOY_NAMESPACE directly needs the same $node['Webhook
       # Trigger'].json.body.<field> ?? $env.<VAR> pattern, not a bare $env read.
-      GITLAB_PROJECT_PATH: "sdlc%2Fhr-portal-dryrun"
+      GITLAB_PROJECT_PATH: "sdlc-gI5Dt%2Fhr-portal-dryrun"
       GITLAB_PROJECT_ID: "4"
       RELEASE_VERSION: "v0.1.0"
-      # Ticket calls moved off GitLab issues onto Taiga (wiki also moved to
-      # Taiga's own wiki module — see AGENTS.md's "GitLab compliance
-      # history"). In-cluster address, same reason ARGOCD_URL below is
-      # in-cluster: pods can't route to the Tailscale Service VIP, so the
-      # external tailnet URL just times out (see AGENT.md's "in-cluster
-      # can't reach the tailnet hostname"). Plain default, no __PLACEHOLDER__
-      # needed. TAIGA_PROJECT_ID below is only the fallback (same role as
-      # GITLAB_PROJECT_PATH/_ID above) — F-02's new "Ensure Taiga Project"
-      # step get-or-creates a real Taiga project per kickoff (by_slug lookup,
-      # POST if missing) and threads its id as taiga_project_id through every
-      # role spawn from there; F-31 prefers that over this env var. Only a
-      # kickoff run with no Taiga project step (an old workflow version still
-      # loaded) falls back to this id. TAIGA_TOKEN is terraform set_sensitive
-      # (var.taiga_api_token) — see n8n.tf.
-      TAIGA_URL: "http://taiga-gateway.taiga.svc.cluster.local"
-      TAIGA_PROJECT_ID: "11"
+      # Ticket calls moved off GitLab issues onto Kaneo (wiki moved to
+      # GitLab's own wiki module instead — see AGENTS.md's "GitLab
+      # compliance history"). In-cluster address, same reason ARGOCD_URL
+      # below is in-cluster: pods can't route to the Tailscale Service VIP,
+      # so the external tailnet URL just times out (see AGENT.md's
+      # "in-cluster can't reach the tailnet hostname"). Plain default, no
+      # __PLACEHOLDER__ needed. KANEO_PROJECT_ID below is only the fallback
+      # (same role as GITLAB_PROJECT_PATH/_ID above) — F-02's "Ensure Kaneo
+      # Project" step get-or-creates a real Kaneo project per kickoff and
+      # threads its id as kaneo_project_id through every role spawn from
+      # there; F-31 prefers that over this env var. Only a kickoff run with
+      # no Kaneo project step (an old workflow version still loaded) falls
+      # back to this id. F-03 (/develop) never threads kaneo_project_id
+      # through at all -- its role prompts read `{{ $env.KANEO_PROJECT_ID }}`
+      # directly, so this value IS the real project for every /develop run,
+      # not just a last-resort fallback -- bump it by hand whenever the
+      # dry-run project changes. KANEO_TOKEN is terraform set_sensitive
+      # (var.kaneo_api_token) — see n8n.tf.
+      KANEO_URL: "http://kaneo.kaneo.svc.cluster.local:5173"
+      KANEO_PROJECT_ID: "1"
       # plan_release/kickoff report hand-off bucket (release-reports, see
       # helm/minio/values.yaml) — same in-cluster-address, plain-default
       # convention as TAIGA_URL above. MINIO_ROOT_PASSWORD is terraform
@@ -191,6 +195,23 @@ n8n:
       OIDC_ISSUER_URL: "__AUTHENTIK_URL__/application/o/n8n/"
       # OIDC_CLIENT_ID / OIDC_CLIENT_SECRET set via terraform (.env)
       OIDC_REDIRECT_URI: "__APP_URL__/auth/oidc/callback"
+
+    # ponytail: F-04's native MR-review flow (approve/merge/comment) needs
+    # to act as tech-lead, not n8n's own shared GITLAB_TOKEN admin identity
+    # — found live: a "handing this MR over to a human reviewer" comment
+    # showed up as the human operator's own account. secretKeyRef only
+    # resolves within this pod's own namespace, so role-accounts.yml
+    # mirrors omp-role-gitlab-tokens into `n8n` too (RBAC:
+    # terraform/internal/ansible.tf's ansible_n8n_secrets). optional: true
+    # — blank until that playbook has run at least once; F-04 falls back to
+    # $env.GITLAB_TOKEN when this is empty.
+    extraEnv:
+      - name: GITLAB_TOKEN_TECH_LEAD
+        valueFrom:
+          secretKeyRef:
+            name: omp-role-gitlab-tokens
+            key: tech-lead
+            optional: true
 
 # ponytail: flow seeding (and n8n owner setup + API-key minting) moved to the
 # ansible runner — helm/ansible/flows/ + playbooks/n8n.yml. Run it with

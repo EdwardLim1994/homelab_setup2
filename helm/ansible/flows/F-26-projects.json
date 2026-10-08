@@ -28,7 +28,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst tag = $env.RELEASE_VERSION;\nconst stories = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/userstories`, qs: { project: $env.TAIGA_PROJECT_ID, tags: tag }, headers: taigaAuth, json: true });\nconst tasks = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks`, qs: { project: $env.TAIGA_PROJECT_ID, tags: tag }, headers: taigaAuth, json: true });\nreturn [\n  ...stories.map(s => ({ json: { ...s, _taigaType: 'userstory' } })),\n  ...tasks.map(t => ({ json: { ...t, _taigaType: 'task' } })),\n];"
+        "jsCode": "// ponytail: Kaneo collapses Taiga's epic/userstory/task/issue into one\n// task resource -- single list call instead of separate userstory+task\n// fetches. label is the closest equivalent to Taiga's release-grouping\n// tags; verify both against the deployed Kaneo version.\nconst kaneoAuth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst tasks = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/task/tasks/${$env.KANEO_PROJECT_ID}`, qs: { label: $env.RELEASE_VERSION }, headers: kaneoAuth, json: true });\nreturn tasks.map(t => ({ json: t }));"
       }
     },
     {
@@ -41,7 +41,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "\nconst items = $input.all().map(i => i.json);\nconst stories = items.filter(t => t._taigaType === 'userstory');\nconst tasks = items.filter(t => t._taigaType === 'task');\nconst open = stories.filter(t => !t.is_closed).length;\nconst merged = stories.filter(t => t.is_closed).length;\nconst tasksOpen = tasks.filter(t => !t.is_closed).length;\nconst tasksClosed = tasks.filter(t => t.is_closed).length;\nreturn [{json: {\n  version: $env.RELEASE_VERSION,\n  stories_total: stories.length,\n  stories_open: open,\n  stories_merged: merged,\n  tasks_open: tasksOpen,\n  tasks_closed: tasksClosed,\n  dag_paused: $env.DAG_PAUSED ?? false,\n  summary: `${merged}/${stories.length} stories merged, ${tasksOpen} tasks open`\n}}];\n"
+        "jsCode": "// ponytail: Kaneo has one ticket resource (task) -- no more\n// stories-vs-tasks split to report separately.\nconst items = $input.all().map(i => i.json);\nconst open = items.filter(t => t.status !== 'done').length;\nconst closed = items.filter(t => t.status === 'done').length;\nreturn [{json: {\n  version: $env.RELEASE_VERSION,\n  tasks_total: items.length,\n  tasks_open: open,\n  tasks_closed: closed,\n  dag_paused: $env.DAG_PAUSED ?? false,\n  summary: `${closed}/${items.length} tasks closed, ${open} open`\n}}];\n"
       }
     },
     {

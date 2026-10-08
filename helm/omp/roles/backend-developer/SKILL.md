@@ -35,11 +35,10 @@ cat AGENTS.md
 
 # 4. Flip the task ticket to in-progress (see AGENTS.md's Ticket & MR
 #    Conventions — native status field, Pending -> In progress on start)
-op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{N}" | jq -r '.version')
-op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="In progress") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{N}" \
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PATCH "$KANEO_URL/api/task/{N}" \
   -H "Content-Type: application/json" \
-  -d "{\"version\": $op_version, \"status\": $op_status_id}"
+  -d '{"status": "in-progress"}'
+<!-- verify this path/payload against the deployed Kaneo version -->
 ```
 
 ---
@@ -160,12 +159,20 @@ q = json.dumps({'a': {'datasource': 'tempo', 'queries': [{'refId': 'A', 'queryTy
 print(urllib.parse.quote(q))
 " "$TEMPO_QUERY")&orgId=1"
 
+# Resolve a real clickable Kaneo link for the MR description — confirmed
+# short-link route is /tasks/<projectSlug>-<number>; the task GET gives
+# `number` but not the project's slug, so one extra project GET is needed.
+ticket_number=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/task/{N}" | jq -r '.number')
+project_slug=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/project/$KANEO_PROJECT_ID" | jq -r '.slug')
+<!-- verify this project-slug field/path against the deployed Kaneo version -->
+TICKET_LINK="https://kaneo.tail60240b.ts.net/tasks/${project_slug}-${ticket_number}"
+
 glab mr create \
   --source-branch "task/GL-{N}" \
   --target-branch "us/GL-{parent-N}" \
   --title "[task] GL-{N} {short description}" \
   --description "## Ticket
-{link to GL-{N}}
+$TICKET_LINK
 
 ## What's done
 - {bullet of what was implemented}
@@ -190,20 +197,19 @@ Closes #{N}" \
 ```
 
 `Closes #{N}` in the MR description is GitLab prose only now — GitLab MRs no
-longer auto-close anything, since the ticket lives in Taiga, not GitLab
-(Taiga's own GitLab integration will still attach the merge commit as a
-comment for the compliance trail — see AGENTS.md's "GitLab compliance
-history" — it just doesn't flip status). `{N}` is still the exact same task
-id already in the branch name, no separate lookup needed. After the MR
-merges, PATCH the task's own status to "Closed"/"Done" as the last step of
-this flow — GET it first for its current `version`:
+longer auto-close anything, since the ticket lives in Kaneo, not GitLab
+(Kaneo's own GitLab integration, where wired, will still attach the merge
+commit as a comment for the compliance trail — see AGENTS.md's "GitLab
+compliance history" — it just doesn't flip status). `{N}` is still the exact
+same task id already in the branch name, no separate lookup needed. After
+the MR merges, PATCH the task's own status to "Done" as the last step of
+this flow:
 
 ```bash
-op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{N}" | jq -r '.version')
-op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="Closed") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{N}" \
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PATCH "$KANEO_URL/api/task/{N}" \
   -H "Content-Type: application/json" \
-  -d "{\"version\": $op_version, \"status\": $op_status_id}"
+  -d '{"status": "done"}'
+<!-- verify this path/payload against the deployed Kaneo version -->
 ```
 
 That's the task ticket's status update, no n8n step required for it.

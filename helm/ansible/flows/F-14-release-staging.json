@@ -28,7 +28,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst tasks = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks`, qs: { project: $env.TAIGA_PROJECT_ID, tags: $env.RELEASE_VERSION }, headers: taigaAuth, json: true });\nconst ticket = tasks.find(t => t.subject.startsWith('[release]')) || null;\n// Ticket only exists once all 3 UAT sign-offs landed (F-13 creates it with\n// status \"PO UAT Approved\" at creation) — existence alone is the safeguard,\n// no need to re-check the status.\nreturn [{ json: { ...$json, found: !!ticket, release_ticket_id: ticket ? ticket.id : null } }];"
+        "jsCode": "// ponytail: label query param is the closest Kaneo equivalent to Taiga's\n// release-grouping tags -- verify against the deployed Kaneo version.\nconst kaneoAuth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst tasks = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/task/tasks/${$env.KANEO_PROJECT_ID}`, qs: { label: $env.RELEASE_VERSION }, headers: kaneoAuth, json: true });\nconst ticket = tasks.find(t => t.title.startsWith('[release]')) || null;\n// Ticket only exists once all 3 UAT sign-offs landed (F-13 creates it with\n// status \"PO UAT Approved\" at creation) — existence alone is the safeguard,\n// no need to re-check the status.\nreturn [{ json: { ...$json, found: !!ticket, release_ticket_id: ticket ? ticket.id : null } }];"
       }
     },
     {

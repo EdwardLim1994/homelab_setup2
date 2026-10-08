@@ -32,7 +32,7 @@ apps=(
   "openwebui:openwebui:"
   "kafka-ui:kafka-ui:"
   "harbor:harbor:harbor.local"
-  "taiga:taiga:taiga.local"
+  "kaneo:kaneo:kaneo.local"
 )
 
 # ponytail: no -L — the SSO apps 302/307 to a login page (and litellm's 307

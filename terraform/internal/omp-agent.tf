@@ -30,6 +30,43 @@ resource "null_resource" "omp_agent_image" {
   }
 }
 
+# ponytail: devops-engineer role's F-02 kickoff step needs to get/apply
+# ArgoCD Applications it just built (helm chart + env values scaffolding) --
+# omp-agent's own Role (helm/omp-agent/templates/role.yaml) is namespace-
+# scoped to sdlc only, so this needs a second Role+RoleBinding in argocd
+# itself, same cross-namespace shape as ansible.tf's ansible_gitlab_exec /
+# ansible_argocd_clusters. Found via a live Job run reporting Forbidden on
+# every `kubectl get/apply application.argoproj.io -n argocd` attempt.
+resource "kubernetes_role" "omp_agent_argocd" {
+  metadata {
+    name      = "omp-agent-argocd"
+    namespace = "argocd"
+  }
+  rule {
+    api_groups = ["argoproj.io"]
+    resources  = ["applications"]
+    verbs      = ["get", "list", "create", "patch"]
+  }
+  depends_on = [kubernetes_namespace.argocd]
+}
+
+resource "kubernetes_role_binding" "omp_agent_argocd" {
+  metadata {
+    name      = "omp-agent-argocd"
+    namespace = "argocd"
+  }
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "Role"
+    name      = kubernetes_role.omp_agent_argocd.metadata[0].name
+  }
+  subject {
+    kind      = "ServiceAccount"
+    name      = "omp-agent"
+    namespace = kubernetes_namespace.sdlc.metadata[0].name
+  }
+}
+
 resource "helm_release" "omp_agent" {
   name              = "omp-agent"
   chart             = "${path.module}/../../helm/omp-agent"
@@ -72,30 +109,25 @@ resource "helm_release" "omp_agent" {
   }
 
   set_sensitive {
-    name  = "secrets.taigaToken"
-    value = var.taiga_api_token
+    name  = "secrets.kaneoToken"
+    value = var.kaneo_api_token
   }
 
-  # ponytail: in-cluster address, not local.app_url["taiga"] (external
+  # ponytail: in-cluster address, not local.app_url["kaneo"] (external
   # tailnet URL) — agent pods can't route to the Tailscale Service VIP any
   # more than n8n can (see AGENT.md's "in-cluster can't reach the tailnet
-  # hostname"). Matches helm/taiga/values.yaml's own TAIGA_URL default.
+  # hostname"). Matches helm/kaneo/values.yaml's own server-side convention.
   set {
-    name  = "secrets.taigaUrl"
-    value = "http://taiga-gateway.taiga.svc.cluster.local"
+    name  = "secrets.kaneoUrl"
+    value = "http://kaneo.kaneo.svc.cluster.local:5173"
   }
 
-  # ponytail: unlike taigaUrl above, this one IS the external tailnet URL —
+  # ponytail: unlike kaneoUrl above, this one IS the external tailnet URL —
   # it's for a human reviewer to click from an MR description (browser
   # traffic), not an in-cluster API call.
   set {
     name  = "secrets.grafanaUrl"
     value = local.app_url["grafana"]
-  }
-
-  set_sensitive {
-    name  = "secrets.taigaMcpAuthToken"
-    value = var.taiga_mcp_auth_token
   }
 
   set_sensitive {
@@ -140,5 +172,5 @@ resource "helm_release" "omp_agent" {
     value = var.minio_root_password
   }
 
-  depends_on = [kubernetes_namespace.sdlc, null_resource.omp_agent_image, null_resource.taiga_mcp_image]
+  depends_on = [kubernetes_namespace.sdlc, null_resource.omp_agent_image, null_resource.kaneo_mcp_image]
 }

@@ -62,10 +62,14 @@ resource "kubernetes_secret" "ansible_secrets" {
     litellm_master_key    = var.litellm_master_key
     gitlab_webhook_secret = var.gitlab_webhook_secret
     gitlab_group_id       = var.gitlab_group_id
-    # ponytail: taiga-gitlab-webhook.yml's own PAT + Taiga API auth — same
-    # bootstrap-once token n8n uses (var.taiga_api_token), reused here since
-    # it's already scoped to this project.
-    taiga_api_token = var.taiga_api_token
+    # ponytail: role-accounts.yml's shared-fallback Kaneo credential (per-role
+    # keys it mints go into omp-role-kaneo-tokens instead, same split as
+    # omp_gitlab_token/omp-role-gitlab-tokens).
+    kaneo_api_token = var.kaneo_api_token
+    # role-accounts.yml signs in as this bootstrap admin (POST
+    # /api/auth/sign-in/email) to create per-role Kaneo users + API keys.
+    kaneo_admin_email    = var.admin_email
+    kaneo_admin_password = var.kaneo_admin_password
     # ponytail: gitlab-webhook.yml also sets these as sdlc-group CI/CD
     # variables so generated projects can push to Harbor without GitLab's
     # own $CI_REGISTRY_* auto-vars (which only exist for its bundled registry).
@@ -175,36 +179,74 @@ resource "kubernetes_role_binding" "ansible_argocd_clusters" {
   }
 }
 
-# ponytail: role-accounts.yml execs into taiga-back's `manage.py shell` to
-# create per-SDLC-role Taiga users (no confirmed admin REST create-user
-# endpoint) -- same shape as ansible_gitlab_exec above, different namespace.
-resource "kubernetes_role" "ansible_taiga_exec" {
+# ponytail: Kaneo's admin endpoints are gated by a session cookie, not pod
+# exec (Better Auth sign-in/email + admin plugin, all normal in-cluster
+# HTTP) -- no pods/exec RBAC needed for Kaneo the way Taiga's manage.py
+# shell approach needed, so nothing replaces ansible_taiga_exec here.
+
+# ponytail: role-accounts.yml writes the 12 per-role GitLab tokens it mints
+# straight into a plain Secret here (not a helm value -- see the playbook's
+# own comment), so the ansible-runner SA needs write access to `secrets` in
+# `sdlc`, same cross-namespace shape as ansible_gitlab_exec above, just
+# secrets instead of pods/exec.
+resource "kubernetes_role" "ansible_sdlc_secrets" {
   metadata {
-    name      = "ansible-taiga-exec"
-    namespace = "taiga"
+    name      = "ansible-sdlc-secrets"
+    namespace = "sdlc"
   }
   rule {
     api_groups = [""]
-    resources  = ["pods"]
-    verbs      = ["get", "list"]
+    resources  = ["secrets"]
+    verbs      = ["get", "list", "create", "patch", "update"]
   }
-  rule {
-    api_groups = [""]
-    resources  = ["pods/exec"]
-    verbs      = ["get", "create"]
-  }
-  depends_on = [kubernetes_namespace.taiga]
+  depends_on = [kubernetes_namespace.sdlc]
 }
 
-resource "kubernetes_role_binding" "ansible_taiga_exec" {
+resource "kubernetes_role_binding" "ansible_sdlc_secrets" {
   metadata {
-    name      = "ansible-taiga-exec"
-    namespace = "taiga"
+    name      = "ansible-sdlc-secrets"
+    namespace = "sdlc"
   }
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "Role"
-    name      = kubernetes_role.ansible_taiga_exec.metadata[0].name
+    name      = kubernetes_role.ansible_sdlc_secrets.metadata[0].name
+  }
+  subject {
+    kind      = "ServiceAccount"
+    name      = "ansible-runner"
+    namespace = kubernetes_namespace.ansible.metadata[0].name
+  }
+}
+
+# ponytail: a Secret's secretKeyRef only resolves within its own namespace —
+# n8n's native (non-agent-pod) MR-review flow (F-04) needs tech-lead's own
+# GitLab PAT to post approvals/comments as tech-lead instead of n8n's shared
+# admin token, but n8n runs in namespace `n8n`, not `sdlc`. role-accounts.yml
+# mirrors the same role-token map into this namespace too so n8n's own pod
+# env (helm/n8n/values.yaml's main.extraEnv) can reference it locally.
+resource "kubernetes_role" "ansible_n8n_secrets" {
+  metadata {
+    name      = "ansible-n8n-secrets"
+    namespace = "n8n"
+  }
+  rule {
+    api_groups = [""]
+    resources  = ["secrets"]
+    verbs      = ["get", "list", "create", "patch", "update"]
+  }
+  depends_on = [kubernetes_namespace.n8n]
+}
+
+resource "kubernetes_role_binding" "ansible_n8n_secrets" {
+  metadata {
+    name      = "ansible-n8n-secrets"
+    namespace = "n8n"
+  }
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "Role"
+    name      = kubernetes_role.ansible_n8n_secrets.metadata[0].name
   }
   subject {
     kind      = "ServiceAccount"

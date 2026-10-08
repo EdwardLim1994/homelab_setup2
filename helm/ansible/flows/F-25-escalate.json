@@ -102,7 +102,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const taigaAuth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst prioritiesRes = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/priorities`, qs: { project: $env.TAIGA_PROJECT_ID }, headers: taigaAuth, json: true });\nconst immediatePriorityId = prioritiesRes.find(p => p.name === 'Immediate').id;\nconst created = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `${$env.TAIGA_URL}/api/v1/issues`,\n  headers: { ...taigaAuth, 'Content-Type': 'application/json' },\n  body: {\n    project: $env.TAIGA_PROJECT_ID,\n    subject: `[bugfix] ESCALATION: ${$json.body.reason}`,\n    description: 'Auto-escalated by n8n SDLC orchestrator.',\n    priority: immediatePriorityId,\n  },\n  json: true,\n});\nreturn [{ json: { ...$json, escalation_ticket_id: created.id } }];"
+        "jsCode": "// ponytail: Kaneo has one ticket resource (task, no separate issue type)\n// and no confirmed priorities endpoint -- pass priority as a plain string\n// field directly instead of resolving an id. Verify field name/value\n// against the deployed Kaneo version.\nconst kaneoAuth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst created = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `${$env.KANEO_URL}/api/task`,\n  headers: { ...kaneoAuth, 'Content-Type': 'application/json' },\n  body: {\n    projectId: $env.KANEO_PROJECT_ID,\n    title: `[bugfix] ESCALATION: ${$json.body.reason}`,\n    description: 'Auto-escalated by n8n SDLC orchestrator.',\n    priority: 'urgent',\n  },\n  json: true,\n});\nreturn [{ json: { ...$json, escalation_ticket_id: created.id } }];"
       }
     }
   ],

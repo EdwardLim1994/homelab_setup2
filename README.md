@@ -166,7 +166,7 @@ or the underlying Python script change.
 
 Passwords, DB passwords, encryption/salt keys, and every OIDC
 `client_id` / `client_secret` pair (gitlab, minio, n8n, sonarqube, nextcloud,
-argocd, grafana, openwebui, litellm, taiga). Authentik trusts whatever value it's
+argocd, grafana, openwebui, litellm, kaneo). Authentik trusts whatever value it's
 given, so a placeholder is exactly as real as a generated one. The whole
 cluster comes up with the shipped defaults untouched.
 
@@ -200,7 +200,7 @@ app is up, so the flow is: deploy once → generate → put in `.env` → redepl
 | `TF_VAR_gitlab_mcp_token` | GitLab → **Edit profile → Access Tokens** → new token, scope `api`, expiry as you like → copy. | **Yes** — GitLab | GitLab MCP server **hard-refuses to start** |
 | `TF_VAR_n8n_mcp_api_key` | Nothing to do by hand — leave blank the first time. `playbooks/n8n.yml` mints an n8n API key itself and prints it in the task output; copy that value in. | **Yes** — n8n (the playbook bootstraps it for you) | Without it the playbook just mints a fresh key on every run instead of reusing one — harmless but sloppy (n8n Settings → API Keys piles up) |
 | `TF_VAR_openwebui_api_key` | OpenWebUI → log in via the browser (SSO) → **Settings → Account → API Keys** → generate → copy. Can't be scripted like n8n's above — OpenWebUI is SSO-only, no password to log in with from a playbook. | **Yes** — OpenWebUI | `playbooks/openwebui.yml` (installs the SDLC chat pipe) hard-fails on its own assert with the exact same instructions |
-| `TF_VAR_taiga_api_token` | Self-hosted Taiga has no "generate API token" page — mint one via its login API instead: `curl -X POST https://taiga.<tailnet>/api/v1/auth -H "Content-Type: application/json" -d '{"type":"normal","username":"admin","password":"<taiga_admin_password>"}'`, copy the `auth_token` field from the response. | **Yes** — Taiga | n8n flows and omp pods can't call Taiga's ticket/wiki API (`TAIGA_TOKEN` env var) — ticket/wiki steps 401 |
+| `TF_VAR_kaneo_api_token` | Sign up as the first Kaneo user via the browser (becomes instance admin, per Kaneo's `hasUsers` flag) → **Settings → Account → API Keys** → generate → copy. | **Yes** — Kaneo | n8n flows and omp pods can't call Kaneo's ticket API (`KANEO_TOKEN` env var) — ticket steps 401 |
 
 ### Not real credentials (safe defaults, listed for completeness)
 

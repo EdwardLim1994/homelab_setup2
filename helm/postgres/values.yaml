@@ -18,7 +18,7 @@ databases:
   - n8n
   - sonarqube
   - harbor
-  - taiga
+  - kaneo
 gitlabDatabase: gitlabhq_production
 
 storageSize: 20Gi

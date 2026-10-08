@@ -34,14 +34,34 @@ each create their own ticket from the story issue directly (see their own
 SKILL.md), Tech Lead doesn't create those.
 
 ```bash
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X POST "$TAIGA_URL/api/v1/tasks" \
+# Resolve BOTH dev role ids once — [backend]/[api] tasks go to
+# backend-developer (there is no separate api role account), [frontend]
+# tasks go to frontend-developer. Never assign a task to your own
+# (tech-lead's) identity — you are creating it on behalf of the role that
+# will do the work, not yourself.
+backend_assignee=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/workspace/$KANEO_PROJECT_ID/members" | jq -r '.[] | select(.email=="sdlc-backend-developer@homelab.local") | .id')
+frontend_assignee=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/workspace/$KANEO_PROJECT_ID/members" | jq -r '.[] | select(.email=="sdlc-frontend-developer@homelab.local") | .id')
+<!-- verify this members endpoint path against the deployed Kaneo version -->
+
+# Pick $assignee = $backend_assignee for [backend]/[api] tasks, $frontend_assignee for [frontend] tasks:
+task_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task" \
   -H "Content-Type: application/json" \
-  -d "{\"project\": $TAIGA_PROJECT_ID,
-       \"subject\": \"[{role}] {feature — short description}\",
-       \"user_story\": {story-N},
-       \"tags\": [\"v{X}.{Y}.{Z}\"]}"
-# Parented to the story via user_story (see F-02-kickoff.json's
-# "TL Input (Tasks)" node for the exact call shape)
+  -d "{\"projectId\": \"$KANEO_PROJECT_ID\",
+       \"title\": \"[{role}] {feature — short description}\",
+       \"description\": \"{what this task covers and its concrete done-condition, 2-4 sentences — not a restatement of the title}\",
+       \"assigneeId\": \"$assignee\",
+       \"status\": \"Pending\"}" | jq -r '.id')
+<!-- verify this path/payload against the deployed Kaneo version -->
+
+# Every task MUST have a real description and the correct role's assigneeId
+# set — never orphaned, never title-only, never defaulted to your own identity.
+
+# Link it as a subtask of its story — Kaneo's real parent-link mechanism
+# (confirmed: task-relation resource, relationType "subtask"/"blocks"/"related";
+# see F-02-kickoff.json's "TL Input (Tasks)" node for the exact call shape).
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
+  -H "Content-Type: application/json" \
+  -d "{\"sourceTaskId\": \"$task_id\", \"targetTaskId\": \"<story task id>\", \"relationType\": \"subtask\"}"
 ```
 
 No task ticket is orphaned — every one has exactly one parent story. A story
@@ -147,11 +167,13 @@ Developer pod: translate to production code."
 git push origin task/GL-{N}
 
 # Apply status on task ticket
-op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{task-id}" | jq -r '.version')
-op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="OpenSpec Ready") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{task-id}" \
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PATCH "$KANEO_URL/api/task/{task-id}" \
   -H "Content-Type: application/json" \
-  -d "{\"version\": $op_version, \"status\": $op_status_id, \"comment\": \"Pseudocode committed to openspec/impl/ on branch task/GL-{N}. Ready for development.\"}"
+  -d '{"status": "openspec-ready"}'
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task/{task-id}/comments" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Pseudocode committed to openspec/impl/ on branch task/GL-{N}. Ready for development."}'
+<!-- verify both paths/payloads against the deployed Kaneo version -->
 ```
 
 ---
@@ -216,9 +238,9 @@ this pod approves AND the MR's CI pipeline (unit tests, biome/tsc static
 analysis, SonarQube quality gate — same pipeline, one status) reports
 success, n8n (`F-04-task-mr-opened.json`) merges the task MR itself via the
 GitLab API — no further action from this pod. (The task ticket's own status
-in Taiga is a separate PATCH the merging developer pod makes after merge —
+in Kaneo is a separate PATCH the merging developer pod makes after merge —
 see backend-developer/frontend-developer SKILL.md — GitLab's merge itself no
-longer closes anything, since the ticket now lives in Taiga.) Story MRs
+longer closes anything, since the ticket now lives in Kaneo.) Story MRs
 (`us/GL-{N}` →
 `release/vX.Y.Z`) and release MRs (`promote/vX.Y.Z` → `main`) are never
 auto-merged by anything in the pipeline — Edward merges those by hand after
@@ -275,12 +297,20 @@ group-membership step uses the numeric `id` instead, for its raw REST call —
 don't confuse the two), cached for the session:
 
 ```bash
+# Resolve a real clickable Kaneo link for the MR description — confirmed
+# short-link route is /tasks/<projectSlug>-<number>; the task GET gives
+# `number` but not the project's slug, so one extra project GET is needed.
+ticket_number=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/task/{N}" | jq -r '.number')
+project_slug=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/project/$KANEO_PROJECT_ID" | jq -r '.slug')
+<!-- verify this project-slug field/path against the deployed Kaneo version -->
+TICKET_LINK="https://kaneo.tail60240b.ts.net/tasks/${project_slug}-${ticket_number}"
+
 glab mr create \
   --source-branch "us/GL-{N}" \
   --target-branch "release/v{X}.{Y}.{Z}" \
   --title "[story] GL-{N} {story description}" \
   --description "## Ticket
-{link to GL-{N}}
+$TICKET_LINK
 
 ## What's done
 Changed services: {list}

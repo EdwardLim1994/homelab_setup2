@@ -95,15 +95,15 @@ resource "helm_release" "n8n" {
     value = var.argocd_token
   }
 
-  # Taiga ticket API — replaces GitLab issues calls in the flow prompts
-  # (wiki also moved to Taiga's own wiki module — see AGENTS.md). Mint by
-  # hand (browser, admin user's API token). TAIGA_URL/TAIGA_PROJECT_ID are
+  # Kaneo ticket API — replaces GitLab issues calls in the flow prompts
+  # (wiki moved to GitLab's own wiki module instead — see AGENTS.md). Mint
+  # by hand (browser, admin user's API key). KANEO_URL/KANEO_PROJECT_ID are
   # plain in-cluster defaults baked into values.yaml — no override needed
   # here (see its comment: pods can't reach the tailnet VIP, same reason
   # ARGOCD_URL stays in-cluster).
   set_sensitive {
-    name  = "n8n.main.extraEnvVars.TAIGA_TOKEN"
-    value = var.taiga_api_token
+    name  = "n8n.main.extraEnvVars.KANEO_TOKEN"
+    value = var.kaneo_api_token
   }
 
   # plan_release/kickoff report hand-off (release-reports bucket) — reuses

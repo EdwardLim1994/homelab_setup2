@@ -22,7 +22,7 @@ locals {
     openwebui     = { namespace = "openwebui", service = "openwebui", port = 8080 }
     kafka-ui      = { namespace = "kafka-ui", service = "kafka-ui", port = 80 }
     harbor        = { namespace = "harbor", service = "harbor", port = 80 }
-    taiga         = { namespace = "taiga", service = "taiga-gateway", port = 80 }
+    kaneo         = { namespace = "kaneo", service = "kaneo", port = 5173 }
   }
 
   # https://<app>.<tailnet_domain> for each — used to build OIDC redirect URIs.

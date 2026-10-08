@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kaneo
+description: Kaneo ticket tracker (replaces Taiga) — hand-rolled, no published chart exists for it
+type: application
+version: 0.1.0
+appVersion: "latest"

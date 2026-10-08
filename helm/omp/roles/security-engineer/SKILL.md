@@ -27,18 +27,26 @@ One security ticket per story issue — self-created, not created by Tech Lead
 (Tech Lead's task tickets are scoped to backend/frontend/api only).
 
 ```bash
-st_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="Pending") | .id')
-me=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/users" | jq -r '.[] | select(.username=="security-engineer") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X POST "$TAIGA_URL/api/v1/tasks" \
+# "me" lookup: Kaneo has no username field like Taiga's — resolve by this
+# role's own account email instead (role-accounts.yml creates
+# sdlc-<role>@homelab.local for every role).
+me=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/workspace/$KANEO_PROJECT_ID/members" | jq -r '.[] | select(.email=="sdlc-security-engineer@homelab.local") | .id')
+<!-- verify this members endpoint path against the deployed Kaneo version -->
+
+sec_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task" \
   -H "Content-Type: application/json" \
-  -d "{\"project\": $TAIGA_PROJECT_ID,
-       \"subject\": \"[security] {story short description} — threat model\",
+  -d "{\"projectId\": \"$KANEO_PROJECT_ID\",
+       \"title\": \"[security] {story short description} — threat model\",
        \"description\": \"{the concrete threats/attack surface this model covers, 2-4 sentences}\",
-       \"assigned_to\": $me,
-       \"status\": $st_id,
-       \"user_story\": {story-N},
-       \"tags\": [\"v{X}.{Y}.{Z}\"]}"
-# Parented to the story via user_story (same pattern as task tickets)
+       \"assigneeId\": \"$me\",
+       \"status\": \"to-do\"}" | jq -r '.id')
+<!-- verify this path/payload against the deployed Kaneo version -->
+
+# Link it as a subtask of its story — Kaneo's real parent-link mechanism
+# (confirmed: task-relation resource, relationType "subtask"/"blocks"/"related").
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
+  -H "Content-Type: application/json" \
+  -d "{\"sourceTaskId\": \"$sec_id\", \"targetTaskId\": \"<story task id>\", \"relationType\": \"subtask\"}"
 ```
 
 ---
@@ -153,8 +161,6 @@ For each changed authentication or authorisation surface:
 For any finding above informational severity:
 
 ```bash
-op_priority_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/priorities?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="{Immediate|High|Normal}") | .id')
-op_severity_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/severities?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="{Critical|High|Medium|Low}") | .id')
 FINDING_DESC=$(cat <<'EOF'
 **Security finding — UAT v{X}.{Y}.{Z}**
 
@@ -181,20 +187,21 @@ FINDING_DESC=$(cat <<'EOF'
 **ZAP evidence:** {link to report or screenshot}
 EOF
 )
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X POST "$TAIGA_URL/api/v1/issues" \
+me=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/workspace/$KANEO_PROJECT_ID/members" | jq -r '.[] | select(.email=="sdlc-security-engineer@homelab.local") | .id')
+<!-- verify this members endpoint path against the deployed Kaneo version -->
+
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task" \
   -H "Content-Type: application/json" \
-  -d "$(jq -n --arg subject "[bugfix] Security: {finding name} on {endpoint}" \
+  -d "$(jq -n --arg title "[bugfix] Security: {finding name} on {endpoint} [{Critical|High|Medium|Low}]" \
               --arg desc "$FINDING_DESC" \
-              --argjson proj "$TAIGA_PROJECT_ID" \
-              --argjson priority "$op_priority_id" \
-              --argjson severity "$op_severity_id" \
-              --arg tag "v{X}.{Y}.{Z}" \
-        '{subject: $subject, description: $desc, project: $proj, priority: $priority, severity: $severity, tags: [$tag]}')"
+              --arg proj "$KANEO_PROJECT_ID" \
+              --arg assignee "$me" \
+        '{title: $title, description: $desc, projectId: $proj, assigneeId: $assignee, status: "to-do"}')"
+<!-- verify this path/payload against the deployed Kaneo version -->
 ```
-Map security severity to Taiga priority: Critical/High → High or Immediate,
-Medium → Normal, Low → Low — pick per your Taiga priority set. Severity maps
-directly (Taiga issues have a native `severity` field distinct from
-`priority`).
+Kaneo has no confirmed priority/severity fields like Taiga's — carry the
+severity (Critical/High/Medium/Low) in the title (as above) and in the
+description's own "Severity" line instead of a dedicated field.
 
 ### Sign-off conditions
 
@@ -205,11 +212,13 @@ Apply `security:cleared` only when:
 - Pentest checklist complete
 
 ```bash
-op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" | jq -r '.version')
-op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="Security Cleared") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" \
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PATCH "$KANEO_URL/api/task/{release-ticket-id}" \
   -H "Content-Type: application/json" \
-  -d "{\"version\": $op_version, \"status\": $op_status_id, \"comment\": \"Security UAT sign-off: ZAP active scan clean. Pentest checklist complete.\nFindings: {N} total, {N} fixed, {N} accepted risk (documented in threat model).\nSecurity Cleared applied.\"}"
+  -d '{"status": "security-cleared"}'
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task/{release-ticket-id}/comments" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Security UAT sign-off: ZAP active scan clean. Pentest checklist complete.\nFindings: {N} total, {N} fixed, {N} accepted risk (documented in threat model).\nSecurity Cleared applied."}'
+<!-- verify both paths/payloads against the deployed Kaneo version -->
 ```
 
 Signal n8n: `{"status": "security:cleared", "task_id": "$TASK_ID"}`
@@ -241,11 +250,13 @@ cluster. Verify the retagged image's security posture didn't change:
 
 Apply staging sign-off:
 ```bash
-op_version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" | jq -r '.version')
-op_status_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="Staging Security Passed") | .id')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{release-ticket-id}" \
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PATCH "$KANEO_URL/api/task/{release-ticket-id}" \
   -H "Content-Type: application/json" \
-  -d "{\"version\": $op_version, \"status\": $op_status_id, \"comment\": \"Staging security confirmation: ZAP scan skipped (pipeline not set up).\nAll UAT fixes confirmed present. Staging Security Passed applied.\"}"
+  -d '{"status": "staging-security-passed"}'
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task/{release-ticket-id}/comments" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Staging security confirmation: ZAP scan skipped (pipeline not set up).\nAll UAT fixes confirmed present. Staging Security Passed applied."}'
+<!-- verify both paths/payloads against the deployed Kaneo version -->
 ```
 
 ---

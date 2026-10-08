@@ -28,7 +28,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const auth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst res = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks?project=${$env.TAIGA_PROJECT_ID}&tags=${$env.RELEASE_VERSION}`, headers: auth, json: true });\nconst ticket = (res || []).find(t => (t.subject || '').startsWith('[release]'));\nif (!ticket) throw new Error(`No release ticket found for ${$env.RELEASE_VERSION} — UAT sign-off must complete before go/no-go runs`);\nreturn [{ json: { ...$json, release_ticket_id: ticket.id } }];"
+        "jsCode": "// ponytail: label query param is the closest Kaneo equivalent to Taiga's\n// release-grouping tags -- verify against the deployed Kaneo version.\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst res = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/task/tasks/${$env.KANEO_PROJECT_ID}`, qs: { label: $env.RELEASE_VERSION }, headers: auth, json: true });\nconst ticket = (res || []).find(t => (t.title || '').startsWith('[release]'));\nif (!ticket) throw new Error(`No release ticket found for ${$env.RELEASE_VERSION} — UAT sign-off must complete before go/no-go runs`);\nreturn [{ json: { ...$json, release_ticket_id: ticket.id } }];"
       }
     },
     {
@@ -73,7 +73,7 @@
         200
       ],
       "parameters": {
-        "jsCode": "const auth = { Authorization: `Bearer ${$env.TAIGA_TOKEN}` };\nconst id = $node['Find Release Ticket'].json.release_ticket_id;\nconst task = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: auth, json: true });\nconst statuses = await this.helpers.httpRequest({ method: 'GET', url: `${$env.TAIGA_URL}/api/v1/task-statuses?project=${$env.TAIGA_PROJECT_ID}`, headers: auth, json: true });\nconst statusId = statuses.find(s => s.name === 'RM Go')?.id;\nawait this.helpers.httpRequest({ method: 'PATCH', url: `${$env.TAIGA_URL}/api/v1/tasks/${id}`, headers: { ...auth, 'Content-Type': 'application/json' }, body: { version: task.version, status: statusId, comment: 'GO decision — cleared for /release_production.' }, json: true });\nreturn [{ json: $json }];"
+        "jsCode": "// ponytail: Kaneo task has a plain status field, no separate status-id\n// lookup, and no combined status+comment PATCH -- two calls instead of one.\n// Verify both the status value and comment path against the deployed Kaneo version.\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst id = $node['Find Release Ticket'].json.release_ticket_id;\nawait this.helpers.httpRequest({ method: 'PATCH', url: `${$env.KANEO_URL}/api/task/${id}`, headers: { ...auth, 'Content-Type': 'application/json' }, body: { status: 'rm-go' }, json: true });\nawait this.helpers.httpRequest({ method: 'POST', url: `${$env.KANEO_URL}/api/task/${id}/comment`, headers: { ...auth, 'Content-Type': 'application/json' }, body: { content: 'GO decision — cleared for /release_production.' }, json: true });\nreturn [{ json: $json }];"
       }
     },
     {

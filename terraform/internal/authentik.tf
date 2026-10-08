@@ -120,8 +120,8 @@ resource "null_resource" "authentik_app_providers" {
     kafka_ui_secret  = var.kafka_ui_oidc_client_secret
     harbor_id        = var.harbor_oidc_client_id
     harbor_secret    = var.harbor_oidc_client_secret
-    taiga_id         = var.taiga_oidc_client_id
-    taiga_secret     = var.taiga_oidc_client_secret
+    kaneo_id         = var.kaneo_oidc_client_id
+    kaneo_secret     = var.kaneo_oidc_client_secret
     admin_email      = var.admin_email
     app_domain       = local.tailnet_domain
     script_hash      = filesha1("${path.module}/../../helm/authentik/provision-app-providers.py")
@@ -161,7 +161,7 @@ resource "local_file" "authentik_app_providers_script" {
     "  OPENWEBUI_OIDC_CLIENT_ID='${var.openwebui_oidc_client_id}' OPENWEBUI_OIDC_CLIENT_SECRET='${var.openwebui_oidc_client_secret}' \\",
     "  KAFKA_UI_OIDC_CLIENT_ID='${var.kafka_ui_oidc_client_id}' KAFKA_UI_OIDC_CLIENT_SECRET='${var.kafka_ui_oidc_client_secret}' \\",
     "  HARBOR_OIDC_CLIENT_ID='${var.harbor_oidc_client_id}' HARBOR_OIDC_CLIENT_SECRET='${var.harbor_oidc_client_secret}' \\",
-    "  TAIGA_OIDC_CLIENT_ID='${var.taiga_oidc_client_id}' TAIGA_OIDC_CLIENT_SECRET='${var.taiga_oidc_client_secret}' \\",
+    "  KANEO_OIDC_CLIENT_ID='${var.kaneo_oidc_client_id}' KANEO_OIDC_CLIENT_SECRET='${var.kaneo_oidc_client_secret}' \\",
     "  ADMIN_EMAIL='${var.admin_email}' APP_DOMAIN='${local.tailnet_domain}' \\",
     "  ak shell < '${abspath(path.module)}/../../helm/authentik/provision-app-providers.py'",
     "",

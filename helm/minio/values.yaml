@@ -42,6 +42,8 @@ minio:
     # compiled development-plan.docx, keyed release-reports/<version>/...
     - name: release-reports
     - name: postgres-backups
+    # kaneo's S3-compatible attachment storage (replaces taiga's own PVC).
+    - name: kaneo
 
   persistence:
     size: 8Gi

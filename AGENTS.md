@@ -92,7 +92,7 @@ section for the full table. Reproduced here for the same reference:
 | Command | Phase | What it triggers |
 |---|---|---|
 | `/plan_release` | 0 — Planning | Multi-agent planning: Arch+DE gate A → QA+Sec+UX gate B → PM PRD gate C |
-| `/kickoff` | 0 — Kickoff | 3 parallel tracks: TL branches+pseudocode (omp) · PM Taiga artifacts (omp) · DevOps infra+webhook (omp) |
+| `/kickoff` | 0 — Kickoff | 3 parallel tracks: TL branches+pseudocode (omp) · PM Kaneo artifacts (omp) · DevOps infra+webhook (omp) |
 | `/develop` | 2 — Development | Gates A (DevOps) → B (Data Engineer) → C (TL pseudocode) → developer pods fan out |
 | `/uat` | 3 — UAT | Milestone safeguard → manual CI → UAT deploy → QA → Security → PO stages |
 | `/release_staging` | 4 — Staging | UAT safeguard → RM release-plan ticket + promote/ branch → promotion CI |
@@ -160,7 +160,7 @@ Confirmed from the actual flow commands (`helm/ansible/flows/F-*.json`):
 - Also seen: Architect, UI/UX Designer (`--role architect`, `--role ui-ux-designer`, both `--model slow`/`smol` respectively in F-01)
 
 **opencode** (`opencode --role <role> --model <tier> --prompt '...' --non-interactive`, no `--project` — GitLab-facing ops only, `glab` CLI):
-- `haiku` — PM (`--role pm`): Taiga epic/story creation, release comms, retro synthesis
+- `haiku` — PM (`--role pm`): Kaneo epic/story creation, release comms, retro synthesis
 - `sonnet` — Tech Lead's glab-only steps (`--role tech-lead`: opening/reverting story MRs), Release Manager's release-plan ticket (`--role release-manager`)
 
 ponytail: role names as literally invoked (`architect`, `pm`, `ui-ux-designer`)
@@ -177,47 +177,95 @@ and linked into both `~/.omp/agent/skills/<role>` and
 Canonical reference for every role's SKILL.md — don't duplicate this, link
 to it.
 
-Tickets live in **Taiga** — GitLab now hosts only source control and CI
-(wiki also moved to Taiga's own wiki module — Taiga's GitLab integration is
-one-way GitLab→Taiga, so keeping wiki pages in GitLab would orphan them from
-the ticket history compliance needs; see "GitLab compliance history" below).
-`$TAIGA_URL`/`$TAIGA_TOKEN`/`$TAIGA_PROJECT_ID` are n8n env vars
-(`helm/n8n/values.yaml` + `terraform/internal/n8n.tf`), same role every
-`$env.GITLAB_*` var already plays. Every call is REST v1, bearer auth:
+Tickets live in **Kaneo** — GitLab hosts source control, CI, **and wiki**
+again (Kaneo has no wiki module at all, unlike Taiga which this replaces —
+see "GitLab compliance history" below for why wiki moved back instead of
+staying orphaned). `$KANEO_URL`/`$KANEO_TOKEN`/`$KANEO_PROJECT_ID` are n8n
+env vars (`helm/n8n/values.yaml` + `terraform/internal/n8n.tf`), same role
+every `$env.GITLAB_*` var already plays. Every call is plain REST, bearer
+auth:
 
 ```bash
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/..."
+curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/..."
 ```
 
 ### Ticket type
 
-Unlike OpenProject/GitLab, Taiga has **no single ticket endpoint with a type
-field** — every ticket type is its own REST resource:
+Unlike Taiga's four separate resources (epic/userstory/task/issue), Kaneo
+has **one ticket resource — `task`** — in a flat workspace → project →
+task hierarchy. Every kind of work item below is a Kaneo task,
+distinguished by a `[role] ...` title prefix (never a separate field) and,
+where hierarchy matters, a label. **No epic ticket is created** — GitLab
+CE has no Epics either, so a GitLab milestone plus a `v{X}.{Y}.{Z}` label
+on every ticket below is the only release-wide grouping (see "Release
+grouping" below); don't invent a stand-in epic/initiative ticket, it has no
+parent to attach to and ends up as dead weight with nothing but a title:
 
-| Ticket | Taiga endpoint | Parent link | Created by |
+| Ticket | Kaneo resource | Parent link | Created by |
 |---|---|---|---|
-| Epic | `/api/v1/epics` | — | PM, at `/kickoff` |
-| Story | `/api/v1/userstories` | `epic` field = epic id | PM, at `/kickoff` |
-| Task | `/api/v1/tasks` | `user_story` field | Tech Lead, one per role×feature (backend/frontend/api), at `/kickoff` |
-| QA | `/api/v1/tasks` | `user_story` field | QA Engineer, one per story, at `/kickoff` |
-| Security | `/api/v1/tasks` | `user_story` field | Security Engineer, one per story, at `/kickoff` |
-| DevOps | `/api/v1/tasks` | `user_story` field | DevOps Engineer, one per story, at `/kickoff` |
-| Release | `/api/v1/tasks` | none | Release Manager, the instant UAT PO sign-off lands |
-| Bugfix | `/api/v1/issues` | none (Taiga issues aren't parented to a story) | Whoever finds it (QA/Security), not at kickoff |
+| Story | `task`, labelled `story` | none (top-level, tagged with the release label) | PM, at `/kickoff` |
+| Task | `task` | `task-relation`, `relationType: "subtask"`, source=task target=story | Tech Lead, one per role×feature (backend/frontend/api), at `/kickoff` |
+| QA | `task` | `task-relation`, `relationType: "subtask"`, source=QA-task target=story | QA Engineer, one per story, at `/kickoff` |
+| Security | `task` | `task-relation`, `relationType: "subtask"`, source=task target=story | Security Engineer, one per story, at `/kickoff` |
+| DevOps | `task` | `task-relation`, `relationType: "subtask"`, source=task target=story | DevOps Engineer, one per story, at `/kickoff` |
+| Release | `task` | none | Release Manager, the instant UAT PO sign-off lands |
+| Bugfix | `task`, labelled `bugfix` | `task-relation`, `relationType: "subtask"`, source=bug target=story | Whoever finds it (QA/Security), not at kickoff |
 
-QA/Security/DevOps/Release tickets all reuse the Task endpoint (same choice
-made for OpenProject) — role lives in the `subject` text as `[role] ...`,
-never a separate field. Every create needs `project: $TAIGA_PROJECT_ID`.
+Every create needs `project: $KANEO_PROJECT_ID`. Parent/child nesting uses
+Kaneo's real `task-relation` resource (confirmed: `POST /api/task-relation`
+body `{sourceTaskId, targetTaskId, relationType}`, `relationType` one of
+`subtask`/`blocks`/`related`; `GET /api/task-relation/{taskId}` lists a
+task's relations both directions) — the child is always `sourceTaskId`,
+the parent `targetTaskId`:
 
-### Release grouping — tags, not milestones
+```bash
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
+  -H "Content-Type: application/json" \
+  -d "{\"sourceTaskId\": \"<child-id>\", \"targetTaskId\": \"<parent-id>\", \"relationType\": \"subtask\"}"
+```
 
-Taiga's `/api/v1/milestones` means *sprint* (time-boxed iteration), not
-"everything shipping in this release" — don't force that mapping. Every
-ticket instead carries a `tags: ["v{X}.{Y}.{Z}"]` array entry (userstories/
-tasks/issues all have a native `tags` field) for release-wide grouping and
-querying, e.g. F-26's dashboard query is
-`GET /api/v1/userstories?project=$TAIGA_PROJECT_ID&tags=v1.2.0` instead of a
-version filter.
+### Release grouping — a GitLab milestone + a Kaneo label, no epic
+
+GitLab CE has no Epics and Kaneo has no epic resource — don't create a
+stand-in epic/initiative ticket for either (see "Ticket type" above for
+why that's a dead end: it has no parent to attach to, nothing but a
+title). Release-wide grouping is two things instead, both created once at
+`/kickoff`: a GitLab milestone, and Kaneo's confirmed workspace-level
+**label** primitive (create once, reuse across tasks) — every ticket
+shipping in a release carries a `v{X}.{Y}.{Z}` label, e.g. F-26's dashboard
+query filters `GET /api/task/tasks/$KANEO_PROJECT_ID` client-side by that
+label instead of a server-side version filter (the list endpoint returns
+each task's `labels` inline — confirmed — so this read works as written).
+
+**Labels do not exist by default and task creation has no `labels` field
+at all** (confirmed: `POST /task/{projectId}` body has no labels/labelIds
+param) — a label is its own resource, created on the fly the first time
+it's needed, then attached. Resolve-or-create, never blind-create (a
+second `POST` with the same name is not confirmed to dedupe):
+
+```bash
+# $KANEO_WORKSPACE_ID -- threaded from F-02's "Ensure Kaneo Project" step
+# the same way $KANEO_PROJECT_ID is (see F-31's env block).
+ensure_label() {
+  local name="$1" task_id="$2"
+  local lid=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" \
+    "$KANEO_URL/api/label/workspace/$KANEO_WORKSPACE_ID" \
+    | jq -r --arg n "$name" '.[] | select(.name==$n) | .id')
+  if [ -z "$lid" ]; then
+    # brand new label -- taskId in the create body attaches it in the same call
+    curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/label" \
+      -H "Content-Type: application/json" \
+      -d "{\"name\": \"$name\", \"color\": \"#888888\", \"workspaceId\": \"$KANEO_WORKSPACE_ID\", \"taskId\": \"$task_id\"}" >/dev/null
+  else
+    # label already exists -- separate attach call
+    curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PUT "$KANEO_URL/api/label/$lid/task" \
+      -H "Content-Type: application/json" -d "{\"taskId\": \"$task_id\"}" >/dev/null
+  fi
+}
+ensure_label "v{X}.{Y}.{Z}" "$task_id"
+ensure_label "qa" "$task_id"   # role/type label, same resolve-or-create
+```
+<!-- verify this members/create/attach path trio against the deployed Kaneo version -->
 
 ### Ticket ↔ branch linkage
 
@@ -225,114 +273,105 @@ Branch names still embed a ticket ref directly — `us/GL-{story-id}`,
 `task/GL-{task-id}` — never a title slug, so any pod can parse the id
 straight out of its own branch name (`$CI_COMMIT_REF_NAME`) with no lookup.
 The `GL-` prefix is kept branch-naming vocabulary only (every SKILL.md
-already assumes it) — `{N}` is the Taiga object's numeric id, not a GitLab
-issue IID. Whoever creates the branch (Tech Lead, at kickoff) posts a
-comment on the ticket linking to it immediately after creation — Taiga adds
-comments via a plain PATCH with a `comment` field (needs the object's
-current `version` for optimistic locking, see "Ticket status" below), not a
-separate activities endpoint:
+already assumes it) — `{N}` is the Kaneo task's id, not a GitLab issue IID.
+Whoever creates the branch (Tech Lead, at kickoff) appends the branch link
+to the ticket's own **description** immediately after creation — not a
+comment, which scrolls away in the activity feed; the branch link belongs
+with the ticket's permanent content. Kaneo has no confirmed optimistic-locking
+field on task updates (unlike Taiga's `version`), but a PATCH still
+*replaces* `description` wholesale — GET the current description first and
+append, don't clobber it:
 
 ```bash
-version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{id}" | jq -r '.version')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{id}" \
+desc=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/task/{id}" | jq -r '.description')
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PATCH "$KANEO_URL/api/task/{id}" \
   -H "Content-Type: application/json" \
-  -d "{\"version\": $version, \"comment\": \"Branch: {branch-name}\"}"
+  -d "$(jq -n --arg desc "$desc" --arg branch "{branch-name}" \
+        '{description: ($desc + "\n\n**Branch:** " + $branch)}')"
 ```
-
-(Swap `/tasks/` for `/userstories/` or `/issues/` depending on which
-endpoint the ticket lives in.)
 
 ### Ticket status
 
-Every ticket moves through Taiga's native `status` field — no more
-`status::{x}` labels. Statuses are scoped **per project AND per ticket
-type** — three parallel endpoints, resolve by name every time, never
-hardcode an id:
+Every ticket moves through Kaneo's native task status/column field — a
+single status vocabulary per project (not Taiga's three parallel
+per-ticket-type endpoints, since there's only one ticket resource now).
+Resolve the column id by name every time, never hardcode one:
 
 ```bash
-st_id=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/task-statuses?project=$TAIGA_PROJECT_ID" | jq -r '.[] | select(.name=="In progress") | .id')
+st_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" "$KANEO_URL/api/project/$KANEO_PROJECT_ID/columns" | jq -r '.[] | select(.name=="In progress") | .id')
+curl -sH "Authorization: Bearer $KANEO_TOKEN" -X PATCH "$KANEO_URL/api/task/{id}" \
+  -H "Content-Type: application/json" \
+  -d "{\"statusId\": \"$st_id\"}"
 ```
 
-(`/api/v1/userstory-statuses` and `/api/v1/issue-statuses` for those two
-types.) Typical path: `Pending` (set at creation) → `In progress` (set by
-the pod when it starts work — backend/frontend-developer's Step 1, QA's
+Typical path: `Pending` (set at creation) → `In progress` (set by the pod
+when it starts work — backend/frontend-developer's Step 1, QA's
 story-level testing start, etc.) → `Closed`/`Done` (set after merge by the
 pod that opened the task MR — GitLab merges no longer auto-close anything,
-since the ticket isn't in GitLab). PATCHes need the object's current
-`version` (Taiga's optimistic-lock field, same role OpenProject's
-`lockVersion` played) — GET first:
-
-```bash
-version=$(curl -sH "Authorization: Bearer $TAIGA_TOKEN" "$TAIGA_URL/api/v1/tasks/{id}" | jq -r '.version')
-curl -sH "Authorization: Bearer $TAIGA_TOKEN" -X PATCH "$TAIGA_URL/api/v1/tasks/{id}" \
-  -H "Content-Type: application/json" \
-  -d "{\"version\": $version, \"status\": $st_id}"
-```
+since the ticket isn't in GitLab).
 
 Sign-off statuses (UAT/staging QA/security/PO approval, go/no-go) use
-distinctly-named statuses instead of GitLab's 3-labels-together convention —
+distinctly-named columns instead of GitLab's 3-labels-together convention —
 see release-manager/qa-engineer/security-engineer SKILL.md for the exact
 names in use (`QA Story Tested`, `Security Cleared`, `QA UAT Approved`,
 `PO UAT Approved`, `Staging QA Passed`, `Staging Security Passed`, `RM Go`) —
-these are Task statuses (every sign-off ticket is a Task per the table
-above), created once in Taiga's project admin (Settings → Attributes →
-Statuses) before `/kickoff` ever runs, same one-time setup OpenProject's
-custom statuses needed.
+created once in the Kaneo project's board settings before `/kickoff` ever
+runs, same one-time setup Taiga's custom statuses needed.
 
 ### Ticket assignee
 
-Every SDLC role has its own dedicated service account in both Taiga and
-GitLab (created once by `helm/ansible/playbooks/role-accounts.yml`,
-idempotent/re-runnable), so `assigned_to`/assignee reflects which role
-actually did the work — not the single shared admin identity every pod
-authenticates as. The acting API token never needs to match the assignee:
-any project member's token can assign a ticket/MR to any other member, so
-every pod keeps using the same `$TAIGA_TOKEN`/`$GITLAB_TOKEN` it always has.
+Every SDLC role has its own dedicated service account in GitLab, Kaneo,
+**and Authentik** (created once by `helm/ansible/playbooks/role-accounts.yml`
+for GitLab/Kaneo, and `helm/authentik/provision-app-providers.py`'s
+per-role loop for Authentik — all idempotent/re-runnable), so
+`assignee`/assigned-to reflects which role actually did the work — not the
+single shared admin identity every pod authenticated as before. The
+Authentik account is for human SSO login/debugging only — it does not
+change how pods authenticate. The acting API token never needs to match
+the assignee: any project member's token can assign a ticket/MR to any
+other member, so every pod keeps using its own role's token (or the shared
+fallback) the same way it always has.
 
 - **GitLab**: username == role name verbatim (`backend-developer`,
   `tech-lead`, ...) — deterministic, so `glab mr create --assignee
   "<own-role-name>"` needs no lookup. Membership is granted once at the
   `sdlc` GROUP level (`role-accounts.yml`), which cascades to every project
   under it automatically, present and future.
-- **Taiga**: no group-membership concept, so each new project gets every
+- **Kaneo**: no group-membership concept, so each new project gets every
   role added as a member individually at `/kickoff` time
-  (`F-02-kickoff.json`'s "Add Role Members to Taiga Project" step, right
-  after Taiga project creation). Resolve a role's user id via
-  `GET /api/v1/users`, filter `.[] | select(.username=="<role-name>") | .id`
-  (replaces the old `GET /api/v1/users/me` self-lookup). Stories are
-  assigned to `project-manager`; tasks to whichever of
-  `backend-developer`/`frontend-developer` the task's role prefix matches
-  (`[api]` tasks fall under `backend-developer` — there's no separate api
-  role account); QA/security/devops/release-manager tickets to their own
-  matching role account.
+  (`F-02-kickoff.json`'s "Add Role Members to Kaneo Project" step, right
+  after Kaneo project creation). Resolve a role's user id via the
+  project/workspace members listing, filtered by email
+  `sdlc-<role>@homelab.local` (Kaneo accounts are email-keyed, not
+  username-keyed like GitLab's). Stories are assigned to `project-manager`;
+  tasks to whichever of `backend-developer`/`frontend-developer` the task's
+  role prefix matches (`[api]` tasks fall under `backend-developer` —
+  there's no separate api role account); QA/security/devops/release-manager
+  tickets to their own matching role account.
 - A project created **before** this migration (or before `role-accounts.yml`
   has been run at least once) won't have these memberships — back-fill by
   hand or re-run `/kickoff`'s membership step manually for it.
 
 ### Ticket points
 
-Stories (not tasks — Taiga has no points field on Task) carry a `points` map
-of `{role-id: points-id}`, one entry per computable role
-(`GET /api/v1/roles?project=...`, filter `computable==true`), set via a PATCH
-right after creation. The scale itself (`GET /api/v1/points?project=...`)
-only exists because project creation passes `creation_template: 1` (Taiga's
-Scrum template) — a project created without it has no points scale, no
-roles, and a broken memberships endpoint, so points/assignee are simply not
-settable until that's fixed. PM assigns a starting mid-scale value at
-kickoff; it's a placeholder for real sizing, not a committed estimate.
+No points/estimate field is confirmed to exist on a Kaneo task. Until one
+is confirmed, PM notes a starting estimate directly in the task
+description instead of a dedicated field — a placeholder for real sizing,
+not a committed estimate, same role Taiga's mid-scale default played.
 
 ### GitLab compliance history
 
 Every ticket still needs a visible GitLab activity trail for compliance,
-even though tickets no longer live in GitLab. Taiga's first-party GitLab
-integration (one-way GitLab→Taiga webhook: push/issue/comment events attach
-as comments to the referenced ticket, commit messages can also drive status
-changes) covers this — registered once per project via
-`helm/ansible/playbooks/taiga-gitlab-webhook.yml` (mirrors
-`gitlab-webhook.yml`'s idempotent register/verify/deregister pattern; see
-that file for the GitLab-side webhook API mechanics). Nothing in any
-SKILL.md/flow needs to maintain this trail manually — it's push-based from
-GitLab's side once the webhook is registered.
+even though tickets no longer live in GitLab. Kaneo's first-party GitLab
+integration (confirmed live, merged upstream 2026-09-26) covers this —
+**bidirectional** sync (task↔issue/MR, comments, status, labels), a strict
+upgrade over Taiga's one-way GitLab→Taiga webhook it replaces. Configured
+once per project at `/kickoff` time via Kaneo's own integration-config
+endpoint (GitLab URL + an `api`-scope token + project path) — there is no
+separate ansible webhook-registration playbook for this the way Taiga
+needed (`taiga-gitlab-webhook.yml` is gone, not ported). Nothing in any
+SKILL.md/flow needs to maintain this trail manually — it's push-based once
+the integration is configured.
 
 ### MR title and description
 
@@ -345,7 +384,13 @@ Every MR description has exactly these sections, in order:
 
 ```markdown
 ## Ticket
-{link to the Taiga ticket this MR implements}
+{a real clickable link, not a bare ticket ref — Kaneo's confirmed short-link
+route is /tasks/<projectSlug>-<number>; resolve `number` via
+`GET $KANEO_URL/api/task/{id}` and the project's `slug` via
+`GET $KANEO_URL/api/project/$KANEO_PROJECT_ID` (two separate calls, the slug
+isn't inlined on the task), then link
+`https://kaneo.<tailnet>/tasks/<slug>-<number>` — see backend-developer/
+frontend-developer/tech-lead SKILL.md for the exact snippet}
 
 ## What's done
 {bullet list of what changed}
@@ -359,12 +404,14 @@ Every MR description has exactly these sections, in order:
 ```
 
 A task/bugfix MR's description also includes `Closes #{N}` on its own line —
-prose only now, not a live closing keyword: the ticket lives in Taiga, so a
-GitLab merge can't auto-close it (Taiga's own GitLab integration will still
-attach the merge commit as a comment for the compliance trail — see "GitLab
-compliance history" above — it just doesn't flip status). `{N}` is still the
-exact ticket id already in the branch name. The pod that opened the MR
-PATCHes the ticket's own `status` to `Closed`/`Done` as a separate explicit
+prose only, not a live GitLab closing keyword: the ticket lives in Kaneo,
+not as a GitLab issue. Kaneo's native GitLab integration is confirmed to
+sync close/reopen events bidirectionally (unlike Taiga's one-way webhook),
+but which side's status wins on a merge isn't yet verified against this
+repo's config — until confirmed, treat the sync as the compliance-trail
+comment/link only and keep doing the status flip explicitly. `{N}` is still
+the exact ticket id already in the branch name. The pod that opened the MR
+PATCHes the ticket's own status to `Closed`/`Done` as a separate explicit
 step after
 merge (see backend-developer/frontend-developer SKILL.md Step 6, and
 "Ticket status" above). Story and release MRs don't use `Closes` at all

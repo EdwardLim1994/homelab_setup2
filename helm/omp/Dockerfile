@@ -6,7 +6,7 @@ FROM debian:bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl git unzip xz-utils gnupg python3 \
-      build-essential pkg-config libssl-dev pandoc \
+      build-essential pkg-config libssl-dev pandoc kafkacat \
     && rm -rf /var/lib/apt/lists/*
 
 # --- mc (MinIO client): plan_release/kickoff report hand-off via MinIO ---
