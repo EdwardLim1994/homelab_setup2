@@ -201,10 +201,23 @@ Gate B: {what must exist before which services can integrate}
 
 No default stack. Pick per Design Principles unless the human overrides via
 the `/plan-release` webhook's `stack` field. When given, use it exactly — do
-not substitute. When `nx.json` doesn't exist on `main` yet (GitLab auto-inits
-every new project with a README commit, so commit count is not the signal),
-scaffold the chosen/instructed stack and commit to `main` before any branch
-forks off it (release/story/task branches at kickoff all trace back to main).
+not substitute. Record the decision in `CLAUDE.md` (every role reads it to
+pick commands/conventions for the rest of the project's life — see e.g.
+backend-developer/SKILL.md's "Engineering Best Practices"). When the stack
+is TypeScript, load the `typescript` skill — it covers the Nx/NestJS/
+React/Vitest conventions the rest of this section assumes. When the stack
+is Java, load the `java` skill instead — same Nx monorepo and React/Vitest
+frontend, but Spring Boot/Gradle/JUnit on the backend. When the stack is
+.NET, load the `dotnet` skill instead — this one does NOT use Nx: Bazel is
+the monorepo tool, and backend/frontend/tests are all .NET (ASP.NET Core,
+Blazor, xUnit via NuGet), nothing from the rest of this section's
+Nx-specific instructions applies. Any other stack needs that ecosystem's
+own equivalent monorepo tool, framework, and test runner — add a matching
+skill when one actually comes up, don't guess at one now. When `nx.json` doesn't exist on `main` yet (GitLab
+auto-inits every new project with a README commit, so commit count is not
+the signal), scaffold the chosen/instructed stack and commit to `main`
+before any branch forks off it (release/story/task branches at kickoff all
+trace back to main).
 
 **Monorepo layout is fixed — see AGENTS.md's "Generated repo structure".**
 Every backend app scaffolds into `apps/backend/{service name}/`, every
@@ -213,7 +226,9 @@ frontend app into `apps/frontend/{web or mobile app name}/` — never a bare
 to land it there directly (`nx g @nx/nest:app {name} --directory=apps/backend/{name}`,
 `nx g @nx/react:app {name} --directory=apps/frontend/{name}`) rather than
 generating flat and moving it after — nx's project graph/tsconfig paths are
-generated relative to wherever the generator actually placed it.
+generated relative to wherever the generator actually placed it. Always
+pass `--unitTestRunner=vitest` on both generators — nx defaults to Jest
+otherwise, and this repo's TypeScript convention is Vitest.
 
 When the stack says NestJS, use the `@nx/nest` generator for the backend app
 — never `@nx/express` / raw Express, even though nx's own starter preset
@@ -286,7 +301,7 @@ one — a grep-based CI check is an acceptable fallback there) rather than
 skipping the check entirely.
 
 Wire CI docker-build + npm-registry: a Dockerfile per deployable app
-(multi-stage node:20) alongside its `package.json` under
+alongside its `package.json` under
 `apps/{backend|frontend}/{name}/`, a root `.npmrc` scoping the workspace at
 `http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/api/v4/projects/${CI_PROJECT_ID}/packages/npm/`
 with `${CI_JOB_TOKEN}` auth, and `.gitlab-ci.yml` build/publish stages

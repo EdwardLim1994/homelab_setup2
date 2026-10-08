@@ -261,7 +261,13 @@ Runs when all task MRs have merged to `us/` branch.
 
 # 1. All tests passing on us/ branch
 git checkout us/GL-{N}
-bun test
+# TypeScript (Nx monorepo, see `typescript` skill): nx affected -t test --base=main
+# Java (Nx monorepo, Spring Boot backend, see `java` skill): same command
+#   — nx affected -t test --base=main (runs JUnit for backend modules,
+#   Vitest for frontend, via Nx's respective executors)
+# .NET (Bazel monorepo, see `dotnet` skill): bazel test //... scoped via
+#   bazel-diff/bazel query to what changed — no Nx here at all
+# Any other stack: that ecosystem's test runner, full suite on this branch
 
 # 2. SonarQube quality gate A
 # Query via glab or SonarQube API

@@ -106,8 +106,15 @@ none of this exists by default for a service added mid-project.
 grep -A5 "new deployable service" openspec/impl/devops.pseudo.md
 
 # 2. Copy the pattern from the named existing service — resolve both
-#    services' app roots via nx rather than guessing backend vs frontend
+#    services' app roots without guessing backend vs frontend.
+#    TypeScript or Java stack (Nx monorepo either way — see the
+#    `typescript`/`java` skills):
 existing_root=$(nx show project {existing-service} --json | jq -r .root)
+#    .NET stack (Bazel, see `dotnet` skill): no generator/lookup needed —
+#    the fixed apps/{backend,frontend}/{service} path IS the target root,
+#    just confirm its BUILD.bazel exists.
+#    Any other stack: that ecosystem's own way of resolving a project's root
+#    (e.g. a fixed apps/{backend,frontend}/{service} path convention).
 new_root="apps/$(echo "$existing_root" | cut -d/ -f2)/{new-service}"   # backend or frontend, same segment as the existing service
 mkdir -p "$new_root"
 cp "$existing_root/Dockerfile" "$new_root/Dockerfile"
@@ -177,6 +184,26 @@ Example: story service `payments` in project `hr-portal` on SIT →
 
 ### GitLab CI/CD Pipeline
 
+The template below is for a **TypeScript** stack (Nx + bun) — load the
+`typescript` skill alongside this one when wiring CI for one. For a
+**Java** stack, load the `java` skill instead — same Nx-driven stage
+list and `nx affected` invocations, but the `lint`/`test`/`build` job
+images need a JDK + Gradle available alongside bun (backend modules run
+through Nx's Gradle plugin, not bun) — e.g. an image with both, or a
+separate job per app type if that's simpler than one combined image. For
+a **.NET** stack, load the `dotnet` skill instead — this one doesn't use
+Nx at all: `lint`/`architecture`/`test`/`build` run through Bazel
+(`bazel build`/`bazel test`, scoped via `bazel-diff`/`bazel query`
+instead of `nx affected`), and the job image needs the .NET SDK + Bazel,
+no bun/node anywhere. Any other stack needs that ecosystem's own
+equivalent pipeline shape (its own monorepo/lint/test/build tooling in
+place of nx/bun) — the stage list
+(`secrets-scan` → `lint` → `architecture` → `test` → `sonarqube` →
+`dependency-scan` → `build` → `schema-registry` → `container-scan` →
+`compose-supergraph` → `notify-n8n`) and the registry/Harbor/schema-registry
+wiring stay the same regardless of stack; only the per-stage install/run
+commands change.
+
 `.gitlab-ci.yml` base structure — ONE pipeline for the whole monorepo, not
 one per app. `lint`/`test`/`build`/`container-scan` all loop over whatever
 apps `nx affected` reports for this commit range (see AGENTS.md's
@@ -245,24 +272,15 @@ architecture:
     - bun install --frozen-lockfile
     - bunx depcruise apps --config .dependency-cruiser.cjs
 
-# ponytail: `bunx nx affected -t test` runs real Jest's source (correctly
-# bun-installed) but executed BY the Bun runtime, not Node — Bun isn't 100%
-# Node-compatible for jest-environment-node, causing two symptoms: (1) a
-# passing suite still exits non-zero from a WritableStreamDefaultWriter
-# getter TypeError during Bun's jest-util environment teardown, unrelated to
-# the actual tests; (2) nx-generated e2e global-setup.ts/global-teardown.ts
-# (stock boilerplate mixing `import` with `module.exports`, fine under real
-# Jest's ts-jest/swc-jest CJS transform) fails under Bun's own TS transpiler
-# with "Cannot use import statement with CommonJS-only features" because Bun
-# auto-detects the file as ESM off the `import` then chokes on the `module.
-# exports` it also contains. If this test stage starts failing on a fresh
-# project for reasons that look like tooling, not test content, check
-# whether `node` is available in this image and whether invoking nx via
-# `node ./node_modules/.bin/nx` instead of `bunx nx` sidesteps both — bun
-# only needs to be the package manager (`bun install`), not necessarily the
-# runtime that executes jest. Normalizing e2e support files to pure CJS
-# (`require()`, matching their `.cts` jest config) may also be needed
-# regardless, since they're ambiguous either way.
+# ponytail: this repo's TypeScript convention is Vitest, not Jest (see the
+# `typescript` skill) — every app must be scaffolded with
+# `--unitTestRunner=vitest`, since nx defaults to Jest otherwise. Vitest's
+# own runtime doesn't go through jest-environment-node, so the Bun/Jest
+# incompatibilities that historically bit `bunx nx affected -t test` here
+# (WritableStreamDefaultWriter teardown error, e2e global-setup.ts CJS/ESM
+# clash) don't apply — if you see either symptom, a project got scaffolded
+# with the Jest default instead of Vitest; fix the generator call, don't
+# work around it here.
 test:
   stage: test
   image: oven/bun:latest

@@ -91,11 +91,21 @@ The pseudocode specifies exact test scenarios. Write component tests before impl
 // Use MSW for API mocking in component tests
 ```
 
-Run tests to confirm they fail:
-```bash
-nx test {project} --testFile=apps/frontend/{project}/src/components/CreateUserForm.test.tsx
-# Expected: all tests fail — implementation doesn't exist yet
-```
+Run tests to confirm they fail — command depends on the stack (`CLAUDE.md`):
+- TypeScript or Java stack (Nx monorepo, React frontend either way — a
+  Java stack only changes the backend, see the `java` skill) → load the
+  `typescript` skill, then:
+  ```bash
+  nx test {project} --testFile=apps/frontend/{project}/src/components/CreateUserForm.spec.tsx
+  ```
+- .NET stack (Bazel monorepo, Blazor frontend — no Nx, no bun here) →
+  load the `dotnet` skill, then:
+  ```bash
+  bazel test //apps/frontend/{project}/... --test_filter={ThingTests}
+  ```
+- Any other stack → that ecosystem's test runner, scoped to just this file
+
+Expected either way: all tests fail — implementation doesn't exist yet.
 
 ### Step 2 — Implement to make tests pass
 
@@ -105,11 +115,23 @@ Follow the pseudocode step by step:
 - Follow the exact component structure specified
 - Apply state management exactly as specified
 
-### Step 3 — Run affected checks (nx monorepo — never run repo-wide)
+### Step 3 — Run affected checks
 
-```bash
-nx affected -t test,lint,typecheck --base=main
-```
+- TypeScript or Java stack (Nx monorepo, React frontend either way — a
+  Java stack only changes the backend, see the `java` skill) → load the
+  `typescript` skill, then:
+  ```bash
+  nx affected -t test,lint,typecheck --base=main
+  ```
+  Never run repo-wide (`nx test`/`nx lint` without `affected`).
+- .NET stack (Bazel monorepo, Blazor frontend) → load the `dotnet`
+  skill, then:
+  ```bash
+  bazel test //apps/frontend/{project}/...
+  ```
+  scoped via `bazel-diff`/`bazel query`, never `bazel test //...` repo-wide.
+- Any other stack → that ecosystem's equivalent lint/test/typecheck
+  commands, scoped to just what changed.
 
 ### Step 4 — Check against SonarQube before committing
 

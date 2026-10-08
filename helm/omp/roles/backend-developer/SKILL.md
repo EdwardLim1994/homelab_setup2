@@ -55,11 +55,23 @@ The pseudocode specifies exact test scenarios. Write all tests before any implem
 // All tests must fail at this point — that is correct
 ```
 
-Run tests to confirm they fail:
-```bash
-nx test {project} --testFile=apps/backend/{project}/src/handlers/create-user.test.ts
-# Expected: all tests fail — implementation doesn't exist yet
-```
+Run tests to confirm they fail — command depends on the stack (`CLAUDE.md`):
+- TypeScript (Nx monorepo) → load the `typescript` skill, then:
+  ```bash
+  nx test {project} --testFile=apps/backend/{project}/src/handlers/create-user.spec.ts
+  ```
+- Java (Nx monorepo, Spring Boot backend) → load the `java` skill, then:
+  ```bash
+  nx test {project}
+  ```
+  (or `./gradlew test --tests {Thing}Test` directly)
+- .NET (Bazel monorepo) → load the `dotnet` skill, then:
+  ```bash
+  bazel test //apps/backend/{project}/... --test_filter={ThingTests}
+  ```
+- Any other stack → that ecosystem's test runner, scoped to just this file
+
+Expected either way: all tests fail — implementation doesn't exist yet.
 
 ### Step 2 — Implement to make tests pass
 
@@ -69,11 +81,25 @@ Follow the pseudocode step by step:
 - Follow the exact order of operations specified
 - Apply error handling exactly as specified (which error type, which message, which HTTP/gRPC status)
 
-### Step 3 — Run affected checks (nx monorepo — never run repo-wide)
+### Step 3 — Run affected checks
 
-```bash
-nx affected -t test,lint,typecheck --base=main
-```
+- TypeScript (Nx monorepo) → load the `typescript` skill, then:
+  ```bash
+  nx affected -t test,lint,typecheck --base=main
+  ```
+  Never run repo-wide (`nx test`/`nx lint` without `affected`).
+- Java (Nx monorepo, Spring Boot backend) → load the `java` skill, then:
+  ```bash
+  nx affected -t test,lint,build --base=main
+  ```
+  (no separate `typecheck` target — Gradle's `compileJava` is part of `build`)
+- .NET (Bazel monorepo) → load the `dotnet` skill, then:
+  ```bash
+  bazel test //apps/backend/{project}/...
+  ```
+  scoped via `bazel-diff`/`bazel query` to what changed, never `bazel test //...` repo-wide.
+- Any other stack → that ecosystem's equivalent lint/test/typecheck
+  commands, scoped to just what changed.
 
 Fix any failures — do not open MR with failing tests.
 
