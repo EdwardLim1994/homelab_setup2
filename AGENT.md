@@ -308,7 +308,16 @@ terraform/internal/variables.tf All TF_VAR_* inputs + dev defaults
 terraform/modules/platform-apps/  shared module: authentik/unleash/vault/kafka/
                        meilisearch/minio/apicurio, instantiated by sit/uat/production
 terraform/{sit,uat,production}/  thin root module per phase cluster (own state)
-scripts/linux/*.sh     bash; scripts/windows/*.ps1  PowerShell 7+ (equivalent)
+scripts/linux/*.sh     bash (Linux/macOS)
+scripts/                Rust CLI (Windows) -- `cargo build` then
+                        `scripts/target/debug/homelab <command>`, e.g.
+                        `homelab ansible run role-accounts`. One subcommand
+                        per former scripts/windows/*.ps1 file; `--help` at
+                        every level. `ansible run <playbook>` / `cluster
+                        create [name|phases]`; `terraform genvars` (= old
+                        gen-tfvars), other `terraform ...` goes to tofu; bare `ansible ...` / `cluster
+                        ...` pass through to the ansible CLI / cluster engine
+                        (`CLUSTER_ENGINE` in .env, default k3d).
 .env / .env.example    single source of truth for both paths
 k3d-storage/           host-path mount backing the cluster's local-path PVs
                        (dir tracked via .gitkeep — never `git clean -fdx` it

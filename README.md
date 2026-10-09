@@ -113,9 +113,23 @@ Edit `.env`:
 ./scripts/linux/create-cluster.sh phases   # one-time: creates the sit/uat/production k3d clusters the SDLC flows deploy to
 ```
 
-Scripts are grouped by platform: `scripts/linux/*.sh` (bash) and
-`scripts/windows/*.ps1` (PowerShell 7+). The two sets are equivalent — use
-whichever matches your shell.
+Scripts are grouped by platform: `scripts/linux/*.sh` (bash) and, for
+Windows, a single Rust CLI at `scripts/` — build it once with
+`cd scripts && cargo build`, then run `scripts/target/debug/homelab
+<command>` (e.g. `homelab ansible run role-accounts`). One subcommand per
+former `.ps1` script; `--help` works at every level. The two sets are
+equivalent — use whichever matches your platform.
+`homelab ansible run <playbook>` runs a playbook as a k8s Job; `homelab cluster
+create [name|phases]` creates the k3d clusters; `homelab terraform genvars`
+regenerates the tfvars from `.env`, and other `homelab terraform ...` args go to
+`tofu` (`TERRAFORM_ENGINE` in `.env`). `homelab {ansible,cluster,terraform} native
+<args>` runs the underlying CLI verbatim (flags first allowed), e.g. `homelab
+terraform native apply`; the engines are the local `ansible`, the cluster engine
+(`CLUSTER_ENGINE` in `.env`, default `k3d`, must be k3d-CLI compatible) and
+`tofu`; defaults live in `scripts/Cargo.toml` under
+`[package.metadata.homelab]` (rebuild to change), env/`.env` overrides them.
+Without `native`, an argument that is not a known subcommand and does
+not start with a flag passes through the same way.
 
 ### Deploy (Terraform)
 
@@ -266,8 +280,8 @@ one-shot in-cluster Jobs:
 ```
 
 `terraform apply` covers the same ground on a full run; `ansible-run.sh` is the
-fast path for re-seeding after a change. `scripts/windows/ansible-run.ps1` is
-the equivalent.
+fast path for re-seeding after a change. On Windows: `homelab ansible run`
+(same arguments, see the `scripts` CLI above).
 
 ## Repo layout
 

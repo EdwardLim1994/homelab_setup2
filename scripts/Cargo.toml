@@ -1,0 +1,26 @@
+[package]
+autotests = false
+description = "homelab_setup2 operator CLI - replaces scripts/windows/*.ps1 and scripts/linux/*.sh"
+edition = "2021"
+name = "homelab"
+version = "0.1.0"
+
+# Default engine binaries for `homelab cluster ...` / `homelab terraform ...`,
+# baked in at build (re-run `cargo install --path . --force` after editing).
+# Override without rebuilding: set CLUSTER_ENGINE / TERRAFORM_ENGINE in the
+# repo's .env or the environment (those win over these values).
+# cluster_engine must be a k3d-CLI-compatible binary; terraform_engine can be
+# `tofu` or `terraform`.
+[package.metadata.homelab]
+cluster_engine = "k3d"
+terraform_engine = "terraform"
+
+[[bin]]
+name = "homelab"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = {version = "4", features = ["derive"]}
+ctrlc = "3"
+rand = "0.10.3"

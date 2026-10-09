@@ -15,3 +15,5 @@ terraform/**/tfplan
 /**/*/node_modules/
 helm/**/tmpcharts*/
 /.registries-mirror-*.yaml
+
+scripts/target/

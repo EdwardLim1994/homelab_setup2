@@ -46,10 +46,28 @@ binary_data = {}
 for path in image_files:
     with open(path, "rb") as f:
         binary_data[os.path.basename(path)] = base64.b64encode(f.read()).decode()
+# ponytail: pandoc gives "simple" pipe-table columns no explicit width when
+# every cell is one line, so LaTeX sizes each column to its content instead
+# of wrapping to the page -- long cells (and long single tokens like paths/
+# hostnames that can't hyphenate) then overlap the next column instead of
+# wrapping. Shrink table text and let LaTeX stretch/break lines rather than
+# overflow.
+#
+# ponytail: combined.md's 20 sections are each a level-1 "# N. Title"
+# heading, which the default LaTeX template maps to \section -- hooking
+# \section itself with \clearpage gives every section its own starting page
+# with zero reliance on the agent remembering to insert \newpage 20 times.
+header_tex = (
+    "\\usepackage{etoolbox}\n"
+    "\\AtBeginEnvironment{longtable}{\\small}\n"
+    "\\setlength{\\emergencystretch}{3em}\n"
+    "\\sloppy\n"
+    "\\pretocmd{\\section}{\\clearpage}{}{}\n"
+)
 print(json.dumps({
     "apiVersion": "v1", "kind": "ConfigMap",
     "metadata": {"name": id_, "namespace": ns},
-    "data": {"combined.md": data},
+    "data": {"combined.md": data, "header.tex": header_tex},
     "binaryData": binary_data,
 }))
 PY
@@ -91,7 +109,16 @@ print(json.dumps({
                     # directory -- without this every image silently drops
                     # (no error, no non-zero exit, just a text-only PDF,
                     # confirmed via `pdfimages -list` returning zero rows).
-                    "command": ["pandoc", "/input/combined.md", "--resource-path=/input", "--pdf-engine=xelatex", "--toc", "--toc-depth=2", "-o", "/output/development-plan.pdf"],
+                    # ponytail: no --toc -- pandoc's --toc auto-inserts the
+                    # generated TOC at the very start of the body (there's
+                    # no \maketitle/title metadata to anchor it after),
+                    # which shoved the Cover Page off page 1 and left the
+                    # markdown's own "2. Table of Contents" heading empty.
+                    # combined.md embeds a raw `\tableofcontents` at that
+                    # exact spot instead (see F-01-plan-release.json), so
+                    # the real TOC renders exactly where section 2 says it
+                    # does, in document order.
+                    "command": ["pandoc", "/input/combined.md", "--resource-path=/input", "--include-in-header=/input/header.tex", "--pdf-engine=xelatex", "-o", "/output/development-plan.pdf"],
                     "volumeMounts": [
                         {"name": "input", "mountPath": "/input", "readOnly": True},
                         {"name": "output", "mountPath": "/output"},

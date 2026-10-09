@@ -1,14 +1,19 @@
 // Minimal HTTP wrapper around mermaid-cli's `mmdc`, mirroring
 // helm/omp/adapter/server.py's plain-stdlib style. POST raw Mermaid source
-// to /render, get an SVG back. No framework, no persistence — this pod only
+// to /render, get a PNG back. No framework, no persistence — this pod only
 // exists while something is actively rendering (see
 // helm/omp/scripts/render-mermaid.sh, which scales it 0 -> 1 -> 0).
 //
-// ponytail: SVG, not PNG -- a fixed-pixel raster made diagram text
-// illegible once embedded in the PDF at print scale. mmdc renders true
-// vector SVG just as easily (same -o extension-detection), and the PDF
-// pipeline already has rsvg-convert on PATH (confirmed in pandoc/extra) to
-// embed it losslessly via xelatex -- no resolution ceiling either way.
+// ponytail: PNG, not SVG -- mermaid (v12, confirmed) renders flowchart/
+// class/state labels as HTML <foreignObject> content regardless of the
+// htmlLabels:false config (a known mermaid limitation on the new unified
+// renderer, not something this config can turn off). rsvg-convert -- what
+// the PDF pipeline uses to embed an SVG via xelatex -- can't render
+// foreignObject HTML at all, so every diagram came through with shapes but
+// zero visible words. mmdc renders PNG through the same Chromium/puppeteer
+// pass that drew the page in the first place, so foreignObject labels show
+// up correctly; -s (scale) below trades the vector-SVG's "no resolution
+// ceiling" for a high-enough fixed DPI to stay legible at print scale.
 const http = require('http');
 const { execFile } = require('child_process');
 const fs = require('fs');
@@ -31,10 +36,10 @@ http.createServer((req, res) => {
     const mermaidSrc = Buffer.concat(chunks).toString('utf8');
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const inFile = path.join(os.tmpdir(), `${id}.mmd`);
-    const outFile = path.join(os.tmpdir(), `${id}.svg`);
+    const outFile = path.join(os.tmpdir(), `${id}.png`);
     fs.writeFileSync(inFile, mermaidSrc);
 
-    const args = ['-i', inFile, '-o', outFile, '-b', 'white'];
+    const args = ['-i', inFile, '-o', outFile, '-b', 'white', '-s', '3'];
     // minlag/mermaid-cli ships a sandbox-safe puppeteer config at this
     // fixed path when one is needed in a container — use it if present.
     if (fs.existsSync('/puppeteer-config.json')) {
@@ -48,9 +53,9 @@ http.createServer((req, res) => {
           res.end(`mmdc failed: ${err.message}\n${stderr}`);
           return;
         }
-        const svg = fs.readFileSync(outFile);
-        res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
-        res.end(svg);
+        const png = fs.readFileSync(outFile);
+        res.writeHead(200, { 'Content-Type': 'image/png' });
+        res.end(png);
       } finally {
         fs.unlink(inFile, () => {});
         fs.unlink(outFile, () => {});
