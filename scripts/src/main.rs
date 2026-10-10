@@ -92,7 +92,7 @@ enum Command {
     /// else (`homelab cluster list`, `homelab cluster delete sit`) is passed
     /// straight to the engine CLI; `cluster native <args>` does so verbatim
     /// (`homelab cluster native version`).
-    Cluster {
+    K8S {
         #[command(subcommand)]
         action: ClusterAction,
     },
@@ -159,15 +159,21 @@ fn dispatch(command: Command) -> anyhow::Result<i32> {
     match command {
         Command::Ansible { action } => match action {
             AnsibleAction::Run { playbook, args } => commands::ansible_run::run(playbook, args),
-            AnsibleAction::Native { args } | AnsibleAction::Passthrough(args) => commands::ansible_run::native(args),
+            AnsibleAction::Native { args } | AnsibleAction::Passthrough(args) => {
+                commands::ansible_run::native(args)
+            }
         },
-        Command::Cluster { action } => match action {
+        Command::K8S { action } => match action {
             ClusterAction::Create { name } => commands::create_cluster::run_cmd(name),
-            ClusterAction::Native { args } | ClusterAction::Passthrough(args) => commands::create_cluster::native(args),
+            ClusterAction::Native { args } | ClusterAction::Passthrough(args) => {
+                commands::create_cluster::native(args)
+            }
         },
         Command::Terraform { action } => match action {
             Some(TerraformAction::Genvars) => commands::gen_tfvars::run(),
-            Some(TerraformAction::Native { args } | TerraformAction::Passthrough(args)) => commands::gen_tfvars::native(args),
+            Some(TerraformAction::Native { args } | TerraformAction::Passthrough(args)) => {
+                commands::gen_tfvars::native(args)
+            }
             None => commands::gen_tfvars::native(vec![]),
         },
         Command::ListUrls => commands::list_urls::run(),

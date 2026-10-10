@@ -13,7 +13,7 @@ version = "0.1.0"
 # `tofu` or `terraform`.
 [package.metadata.homelab]
 cluster_engine = "k3d"
-terraform_engine = "terraform"
+terraform_engine = "tofu"
 
 [[bin]]
 name = "homelab"
