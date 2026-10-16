@@ -80,7 +80,7 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Roll production back from the failed {{ $json.body.version }} deploy — there is no single ArgoCD Application per environment (each service has its own, `<ARGOCD_PROJECT>-<service>-production`), and 'rollback' here means restoring the previous known-good image tag, not re-syncing current (broken) state. For every file under env/production/*/values.yaml: run `git log -2 --format=%H -- <file>` to get its previous commit (before the {{ $json.body.version }} deploy that just failed), then `git show <previous-commit>:<file>` to read that prior version's content, and overwrite the current file with it. Commit all reverted files in one commit ('rollback: revert production to pre-{{ $json.body.version }} state') and push to main — ArgoCD's automated syncPolicy on each production Application picks up the reverted tag from there. Then wait for each service's production Deployment rollout to complete (kubectl --context $PRODUCTION_CLUSTER_CONTEXT rollout status deployment/<service> -n hr-portal --timeout=120s). If any env/production/*/values.yaml has no prior commit (first-ever deploy, nothing to roll back to), flag that service explicitly rather than silently skipping it. Report which services were reverted and to which tags.",
+              "value": "=Roll production back from the failed {{ $json.body.version }} deploy — there is no single deploy for the whole environment, each service deploys independently (its own `helm upgrade` in the deploy:production job), and 'rollback' here means restoring the previous known-good image tag, not re-running the current (broken) deploy. For every file under env/production/*/values.yaml: run `git log -2 --format=%H -- <file>` to get its previous commit (before the {{ $json.body.version }} deploy that just failed), then `git show <previous-commit>:<file>` to read that prior version's content, and overwrite the current file with it. Commit all reverted files in one commit ('rollback: revert production to pre-{{ $json.body.version }} state') and push to main — this same push triggers the pipeline's own deploy:production job to roll out the reverted tag (CI-managed, no GitOps). Then wait for each service's production Deployment rollout to complete (kubectl --context $PRODUCTION_CLUSTER_CONTEXT rollout status deployment/<service> -n hr-portal --timeout=120s). If any env/production/*/values.yaml has no prior commit (first-ever deploy, nothing to roll back to), flag that service explicitly rather than silently skipping it. Report which services were reverted and to which tags.",
               "type": "string"
             },
             {
@@ -163,6 +163,19 @@
           ]
         }
       }
+    },
+    {
+      "id": "d61f740f-23f1-44c8-bdc8-aa898021cd51",
+      "name": "Assert Rollback Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"DevOps: Revert Production\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nreturn $input.all();"
+      }
     }
   ],
   "connections": {
@@ -211,6 +224,17 @@
       ]
     },
     "Open Incident Ticket": {
+      "main": [
+        [
+          {
+            "node": "Assert Rollback Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Rollback Complete": {
       "main": [
         [
           {

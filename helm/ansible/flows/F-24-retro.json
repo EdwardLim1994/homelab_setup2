@@ -417,6 +417,32 @@
           ]
         }
       }
+    },
+    {
+      "id": "2f8a0f7b-5162-4186-8a64-1fdea705e7f4",
+      "name": "Assert Retro Inputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2100,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"TL: Tech Retro\", \"QA: Quality Retro\", \"Sec: Security Retro\", \"RM: Process Retro\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nreturn $input.all();"
+      }
+    },
+    {
+      "id": "ac835572-dca4-469d-a41f-7bf7b2473c71",
+      "name": "Assert Retro Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2600,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"PM: Synthesise Report\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nreturn $input.all();"
+      }
     }
   ],
   "connections": {
@@ -549,7 +575,7 @@
       "main": [
         [
           {
-            "node": "Notify: Synthesising",
+            "node": "Assert Retro Inputs",
             "type": "main",
             "index": 0
           }
@@ -579,6 +605,28 @@
       ]
     },
     "PM: Synthesise Report": {
+      "main": [
+        [
+          {
+            "node": "Assert Retro Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Retro Inputs": {
+      "main": [
+        [
+          {
+            "node": "Notify: Synthesising",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Retro Complete": {
       "main": [
         [
           {

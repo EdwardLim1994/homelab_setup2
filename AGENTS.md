@@ -13,7 +13,7 @@ autonomous SDLC this repo runs. For the repo's own layout/conventions see
   `omp`/`opencode` invocation below) — that repo's own stack, generated
   code, and build tooling are out of scope here.
 - Stack (this repo): Authentik SSO, GitLab, MinIO, n8n, SonarQube,
-  Nextcloud, ArgoCD, an LGTM observability stack, LiteLLM, OpenWebUI, MCP
+  Nextcloud, an LGTM observability stack, LiteLLM, OpenWebUI, MCP
   servers, and the `omp` agent stack.
 
 ### Which GitLab group/project — `sdlc/hr-portal` is a dry-run fixture, not a default to build real projects against
@@ -24,7 +24,7 @@ one — that pair exists only to verify the pipeline works, never treat it as
 "the" project). Every OTHER flow (`/kickoff`, `/develop`, `/uat`, …) does
 **not** read the group/project from the chat message at all — they read the
 static n8n Variables `GITLAB_PROJECT_PATH`, `GITLAB_PROJECT_ID`,
-`ARGOCD_PROJECT`, `DEPLOY_NAMESPACE` (same "one project in flight" pattern
+`DEPLOY_NAMESPACE` (same "one project in flight" pattern
 `RELEASE_VERSION` already uses). So starting a real project is two steps,
 not one:
 
@@ -97,7 +97,7 @@ section for the full table. Reproduced here for the same reference:
 | `/uat` | 3 — UAT | Milestone safeguard → manual CI → UAT deploy → QA → Security → PO stages |
 | `/release_staging` | 4 — Staging | UAT safeguard → RM release-plan ticket + promote/ branch → promotion CI |
 | `/release_production` | 5 — Production | RM Go status safeguard → promote→main MR → Edward reviews + merges |
-| `/rollback` | 5 — Production | ArgoCD rollback + incident ticket + RM monitoring |
+| `/rollback` | 5 — Production | helm rollback + incident ticket + RM monitoring |
 | `/rollback_story` | 5 — Production | Dependency check → revert MR → TL reviews → Edward merges → story Deferred → /uat re-triggered |
 | `/retro` | 6 — Retrospective | 4 pods compile in parallel (TL+QA+Sec+RM) → PM synthesises 11-section report |
 | `/projects` | Any | Instant DAG state query — no agent pod spawned |
@@ -116,7 +116,7 @@ Webhook paths below are each flow's actual `Webhook Trigger` `path` field.
 - **F-10** `/uat` → `webhook/uat` — milestone safeguard, UAT deploy, QA→Security→PO
 - **F-14** `/release_staging` → `webhook/release-staging` — RM release-plan + promote/ branch
 - **F-17** `/release_production` → `webhook/release-production` — RM Go status safeguard, create promote→main MR
-- **F-21** `/rollback` → `webhook/rollback` — ArgoCD rollback + incident ticket
+- **F-21** `/rollback` → `webhook/rollback` — helm rollback + incident ticket
 - **F-22** `/rollback_story` → `webhook/rollback-story` — dependency check + revert MR
 - **F-24** `/retro` → `webhook/retro` — 4 pods parallel, PM synthesises report
 - **F-25** `/escalate` → `webhook/escalate` — pause DAG + alert
@@ -130,7 +130,7 @@ Webhook paths below are each flow's actual `Webhook Trigger` `path` field.
 - **F-06** DoD check (`webhook/dod-check`) — TL slow model, pass → story MR, fail → feedback + re-trigger F-04
 - **F-07** Story MR open (`webhook/story-mr-open`) — TL opens MR (opencode+glab), QA tests, notify Edward
 - **F-08** Story MR merged (`webhook/gitlab-story-mr-merged`) — close tickets, sleep QA, check all stories done
-- **F-09** CI pipeline / version built (`webhook/gitlab-pipeline`) — update DAG state (ArgoCD Image Updater handles SIT)
+- **F-09** CI pipeline / version built (`webhook/gitlab-pipeline`) — update DAG state (the pipeline's own `deploy:sit` job handles SIT)
 - **F-11** UAT QA stage (`webhook/uat-qa`) — QA sign-off → `QA UAT Approved` status
 - **F-12** UAT Security stage (`webhook/uat-security`) — Security sign-off → `Security Cleared` status
 - **F-13** UAT PO stage (`webhook/uat-po`) — PO sign-off → `PO UAT Approved` status, notify Edward
@@ -204,24 +204,24 @@ parent to attach to and ends up as dead weight with nothing but a title:
 | Ticket | Kaneo resource | Parent link | Created by |
 |---|---|---|---|
 | Story | `task`, labelled `story` | none (top-level, tagged with the release label) | PM, at `/kickoff` |
-| Task | `task` | `task-relation`, `relationType: "subtask"`, source=task target=story | Tech Lead, one per role×feature (backend/frontend/api), at `/kickoff` |
-| QA | `task` | `task-relation`, `relationType: "subtask"`, source=QA-task target=story | QA Engineer, one per story, at `/kickoff` |
-| Security | `task` | `task-relation`, `relationType: "subtask"`, source=task target=story | Security Engineer, one per story, at `/kickoff` |
-| DevOps | `task` | `task-relation`, `relationType: "subtask"`, source=task target=story | DevOps Engineer, one per story, at `/kickoff` |
+| Task | `task` | `task-relation`, `relationType: "subtask"`, source=story target=task | Tech Lead, one per role×feature (backend/frontend/api), at `/kickoff` |
+| QA | `task` | `task-relation`, `relationType: "subtask"`, source=story target=QA-task | QA Engineer, one per story, at `/kickoff` |
+| Security | `task` | `task-relation`, `relationType: "subtask"`, source=story target=task | Security Engineer, one per story, at `/kickoff` |
+| DevOps | `task` | `task-relation`, `relationType: "subtask"`, source=story target=task | DevOps Engineer, one per story, at `/kickoff` |
 | Release | `task` | none | Release Manager, the instant UAT PO sign-off lands |
-| Bugfix | `task`, labelled `bugfix` | `task-relation`, `relationType: "subtask"`, source=bug target=story | Whoever finds it (QA/Security), not at kickoff |
+| Bugfix | `task`, labelled `bugfix` | `task-relation`, `relationType: "subtask"`, source=story target=bug | Whoever finds it (QA/Security), not at kickoff |
 
 Every create needs `project: $KANEO_PROJECT_ID`. Parent/child nesting uses
 Kaneo's real `task-relation` resource (confirmed: `POST /api/task-relation`
 body `{sourceTaskId, targetTaskId, relationType}`, `relationType` one of
 `subtask`/`blocks`/`related`; `GET /api/task-relation/{taskId}` lists a
-task's relations both directions) — the child is always `sourceTaskId`,
-the parent `targetTaskId`:
+task's relations both directions) — for a `subtask` relation, the parent
+story is `sourceTaskId` and the child task is `targetTaskId`:
 
 ```bash
 curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
   -H "Content-Type: application/json" \
-  -d "{\"sourceTaskId\": \"<child-id>\", \"targetTaskId\": \"<parent-id>\", \"relationType\": \"subtask\"}"
+  -d "{\"sourceTaskId\": \"<parent-id>\", \"targetTaskId\": \"<child-id>\", \"relationType\": \"subtask\"}"
 ```
 
 ### Release grouping — a GitLab milestone + a Kaneo label, no epic

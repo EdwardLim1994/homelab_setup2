@@ -5,7 +5,7 @@ edition = "2021"
 name = "homelab"
 version = "0.1.0"
 
-# Default engine binaries for `homelab cluster ...` / `homelab terraform ...`,
+# Default engine binaries for `homelab cluster ...` / `homelab tf ...`,
 # baked in at build (re-run `cargo install --path . --force` after editing).
 # Override without rebuilding: set CLUSTER_ENGINE / TERRAFORM_ENGINE in the
 # repo's .env or the environment (those win over these values).

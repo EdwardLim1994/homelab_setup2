@@ -42,12 +42,18 @@ oidc:
   clientSecret: "__KANEO_OIDC_CLIENT_SECRET__"
   autoLogin: true
 
-# ponytail: SSO-only — same shape OpenWebUI already uses
-# (ENABLE_LOGIN_FORM=False). No local password accounts for humans; the
-# bootstrap admin account (first signup, per Kaneo's hasUsers flag) is the
-# one exception, created once before this flips on (see kaneo.tf's
-# admin_password var / README bootstrap note).
-disableLoginForm: true
+# ponytail: password LOGIN is enabled (disableLoginForm: false) so the 12
+# SDLC role accounts -- admin-created via /api/auth/admin/create-user, never
+# self-registered -- can sign in headlessly (sign-in/email + impersonate +
+# api-key/create) to mint their own Kaneo API key. role-accounts.yml's
+# original design needed exactly this; every scripted OIDC-login workaround
+# (raw HTTP, Playwright) hit an unexplained intermittent failure a real
+# browser didn't, so this is the real fix, not a workaround. Self-SIGNUP
+# stays blocked (disablePasswordRegistration: true) -- the actual security
+# surface (an open registration form reachable by anyone on the tailnet),
+# not the role accounts' password login. Humans still use OIDC/SSO; this
+# only re-opens the password path role accounts need.
+disableLoginForm: false
 disablePasswordRegistration: true
 
 s3:

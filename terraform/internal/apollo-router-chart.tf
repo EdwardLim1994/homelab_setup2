@@ -1,10 +1,11 @@
 # ponytail: packages helm/apollo-router as an OCI artifact and pushes it to
 # Harbor — the chart NEVER lives in any generated project's own repo (see
 # devops-engineer/SKILL.md's "Apollo Router Provisioning"); every project's
-# ArgoCD Application references it by OCI ref + version instead, same as any
-# other externally-hosted Helm chart. Uses Harbor's default "library"
-# project (already exists, no separate provisioning — every image push in
-# this repo already targets library/... the same way, see harbor.tf).
+# own CI pipeline pulls it by OCI ref + version and `helm upgrade`s it
+# directly, same as any other externally-hosted Helm chart. Uses Harbor's
+# default "library" project (already exists, no separate provisioning —
+# every image push in this repo already targets library/... the same way,
+# see harbor.tf).
 #
 # local-exec runs on the HOST, which can't resolve harbor.harbor.svc.cluster.local
 # — port-forward for the duration of the push instead of standing up a new

@@ -137,6 +137,19 @@
           ]
         }
       }
+    },
+    {
+      "id": "a48b7f57-89eb-4121-b8c8-5559433a55ed",
+      "name": "Assert DoD Evaluation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"TL: DoD Evaluation\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nreturn $input.all();"
+      }
     }
   ],
   "connections": {
@@ -174,6 +187,17 @@
       ]
     },
     "TL: DoD Evaluation": {
+      "main": [
+        [
+          {
+            "node": "Assert DoD Evaluation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert DoD Evaluation": {
       "main": [
         [
           {

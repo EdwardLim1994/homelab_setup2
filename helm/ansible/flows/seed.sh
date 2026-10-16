@@ -58,7 +58,6 @@ MATTERMOST SETUP (required before flows work):
    MM_BASE_URL     = https://mattermost.yourdomain.com
    GITLAB_URL, GITLAB_TOKEN, GITLAB_PROJECT_ID
    N8N_WEBHOOK_BASE, GITLAB_WEBHOOK_SECRET
-   ARGOCD_URL, ARGOCD_PROJECT
    RELEASE_VERSION (the release ticket itself is looked up dynamically by
    `type::release` label + milestone — never set a static RELEASE_TICKET_ID)
 
@@ -156,6 +155,7 @@ FLOWS=(
   "F-29-flow-progress-sink.json"
   "F-30-flow-progress-poll.json"
   "F-31-spawn-agent-role.json"
+  "TMP-kaneo-authentik-login-probe.json"
 )
 
 for flow_file in "${FLOWS[@]}"; do

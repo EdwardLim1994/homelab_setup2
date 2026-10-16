@@ -13,6 +13,12 @@ Backs onto one of two agent CLIs, picked by BACKEND env (default "omp"):
   mode) per turn instead, using `--continue` to keep the conversation going
   in /workspace when the turn isn't a fresh session. Needs CLAUDE_CODE_OAUTH_TOKEN
   (values.yaml's claudeAuth secret) in the pod env.
+  ponytail: claude cli temporarily disabled below (not installed in image) —
+  BACKEND=codex is the active alternative CLI backend now.
+- codex: BACKEND=codex runs `codex exec` (Codex CLI's headless mode) per
+  turn, same one-shot-subprocess shape as claude. Auth is the CLI's own
+  ChatGPT login — values.yaml's codexAuth secret mounts its auth.json to
+  ~/.codex/auth.json, no API key env needed.
 
 ponytail: ONE session per pod, requests serialized by a lock. That is the
 "long-running session" model — turns on a pod accrete context. A short chat
@@ -41,6 +47,7 @@ OMP_CMD = os.environ.get(
 ).split()
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "sonnet")
 CLAUDE_EFFORT = os.environ.get("CLAUDE_EFFORT", "")
+CODEX_MODEL = os.environ.get("CODEX_MODEL", "")
 TURN_TIMEOUT = int(os.environ.get("OMP_TURN_TIMEOUT", "900"))
 RESET_AT = int(os.environ.get("OMP_RESET_AT", "2"))
 
@@ -63,6 +70,38 @@ MCP_SERVERS = {
         "token_env": "MCP_N8N_TOKEN"},
 }
 
+# ponytail: context-mode (https://github.com/mksglu/context-mode) is a
+# stdio MCP server (spawned as a local child process, no mcp-servers
+# Deployment/Service of its own) -- npm-installed into the image itself
+# (Dockerfile), unlike MCP_SERVERS above which are all remote http servers
+# this pod reaches over Service DNS.
+STDIO_MCP_SERVERS = {
+    "context-mode": {"command": "context-mode"},
+}
+
+
+def write_codex_agents_md():
+    """codex cli has no Skills-folder concept (unlike omp/claude, which read
+    ~/.omp/agent/skills or ~/.claude/skills) — it only reads AGENTS.md. This
+    role pod's SKILL.md (same ConfigMap mount used for the omp/claude skill
+    dirs, see roles.yaml + _pod.tpl) is appended into the image-baked
+    AGENTS.md (caveman/ponytail rules) so codex gets the role instructions
+    — including the openspec/*.md reading convention — too."""
+    role = MODEL_NAME.removeprefix("omp-") if MODEL_NAME.startswith("omp-") else ""
+    if not role:
+        return
+    skill_path = os.path.expanduser(f"~/.omp/agent/skills/{role}/SKILL.md")
+    agents_path = os.path.expanduser("~/.codex/AGENTS.md")
+    if not os.path.exists(skill_path) or not os.path.isdir(os.path.dirname(agents_path)):
+        return
+    with open(agents_path) as f:
+        if f"\n# role: {role}\n" in f.read():
+            return
+    with open(skill_path) as f:
+        skill = f.read()
+    with open(agents_path, "a") as f:
+        f.write(f"\n# role: {role}\n{skill}\n")
+
 
 def write_mcp_config():
     """Wire mcp-servers into whichever backend CLI this pod runs, at startup
@@ -74,6 +113,8 @@ def write_mcp_config():
         if token:
             entry["headers"] = {"Authorization": f"Bearer {token}"}
         servers[name] = entry
+    for name, cfg in STDIO_MCP_SERVERS.items():
+        servers[name] = {"command": cfg["command"]}
 
     home = os.path.expanduser("~")
     # claude backend: documented user-level MCP config (Claude Code reads
@@ -103,6 +144,10 @@ def write_mcp_config():
             lines = ["mcp:"]
             for name, entry in servers.items():
                 lines.append(f"  {name}:")
+                if "command" in entry:
+                    lines.append("    type: local")
+                    lines.append(f"    command: [\"{entry['command']}\"]")
+                    continue
                 lines.append("    type: remote")
                 lines.append(f"    url: {entry['url']}")
                 if "headers" in entry:
@@ -111,38 +156,102 @@ def write_mcp_config():
             with open(omp_cfg_path, "a") as f:
                 f.write("\n" + "\n".join(lines) + "\n")
 
+    # codex backend: ~/.codex/config.toml [mcp_servers.<name>] table.
+    # ponytail: hand-rolled TOML lines (stdlib has no toml writer) — these
+    # values never need quoting/escaping (DNS names, env var names), so a
+    # real TOML lib would be pure overhead here.
+    codex_cfg_path = os.path.join(home, ".codex/config.toml")
+    codex_dir = os.path.dirname(codex_cfg_path)
+    codex_existing = ""
+    if os.path.exists(codex_cfg_path):
+        with open(codex_cfg_path) as f:
+            codex_existing = f.read()
+    if os.path.isdir(codex_dir) and "[mcp_servers." not in codex_existing:
+        lines = []
+        for name, cfg in MCP_SERVERS.items():
+            lines.append(f"[mcp_servers.{name}]")
+            lines.append(f'url = "{cfg["url"]}"')
+            if cfg.get("token_env"):
+                lines.append(f'bearer_token_env_var = "{cfg["token_env"]}"')
+            lines.append("")
+        for name, cfg in STDIO_MCP_SERVERS.items():
+            lines.append(f"[mcp_servers.{name}]")
+            lines.append(f'command = "{cfg["command"]}"')
+            lines.append("")
+        with open(codex_cfg_path, "a") as f:
+            f.write("\n".join(lines))
 
-class ClaudeBackend:
-    """BACKEND=claude: no persistent child, one `claude -p` per turn."""
+
+# ponytail: temporarily disabled — claude cli not installed in the image
+# while BACKEND=codex is active. Re-enable by uncommenting and re-adding
+# @anthropic-ai/claude-code to the Dockerfile's npm install.
+# class ClaudeBackend:
+#     """BACKEND=claude: no persistent child, one `claude -p` per turn."""
+#
+#     def __init__(self, model):
+#         self.model = model
+#         self.lock = threading.Lock()
+#         self.started = False
+#
+#     def alive(self):
+#         return True  # stateless per-turn — nothing to keep alive between calls
+#
+#     def prompt(self, message, fresh):
+#         with self.lock:
+#             cmd = ["claude", "-p", message, "--output-format", "text"]
+#             if self.model:
+#                 cmd += ["--model", self.model]
+#             if CLAUDE_EFFORT:
+#                 cmd += ["--effort", CLAUDE_EFFORT]
+#             if not fresh and self.started:
+#                 cmd.append("--continue")
+#             self.started = True
+#             try:
+#                 r = subprocess.run(
+#                     cmd, cwd="/workspace", capture_output=True, text=True,
+#                     timeout=TURN_TIMEOUT,
+#                 )
+#             except subprocess.TimeoutExpired:
+#                 raise TimeoutError(f"claude turn exceeded {TURN_TIMEOUT}s")
+#             if r.returncode != 0:
+#                 raise RuntimeError(
+#                     f"claude exited {r.returncode}: {r.stderr.strip()[:500]}"
+#                 )
+#             return r.stdout.strip() or "(no assistant text)"
+
+
+class CodexBackend:
+    """BACKEND=codex: no persistent child, one `codex exec` per turn."""
 
     def __init__(self, model):
         self.model = model
         self.lock = threading.Lock()
-        self.started = False
 
     def alive(self):
         return True  # stateless per-turn — nothing to keep alive between calls
 
     def prompt(self, message, fresh):
         with self.lock:
-            cmd = ["claude", "-p", message, "--output-format", "text"]
+            # ponytail: codex sandboxes network access for its own tool
+            # calls by default, separate from the pod's real network — a
+            # headless pod needs this bypassed the same way omp's
+            # config.yml sets approvalMode: yolo. Found via the mcp-kaneo
+            # probe failing "dns-failure" from inside codex's shell tool
+            # while the pod's own network was fine.
+            cmd = ["codex", "exec", "--skip-git-repo-check",
+                   "--dangerously-bypass-approvals-and-sandbox", message]
             if self.model:
                 cmd += ["--model", self.model]
-            if CLAUDE_EFFORT:
-                cmd += ["--effort", CLAUDE_EFFORT]
-            if not fresh and self.started:
-                cmd.append("--continue")
-            self.started = True
             try:
                 r = subprocess.run(
                     cmd, cwd="/workspace", capture_output=True, text=True,
                     timeout=TURN_TIMEOUT,
                 )
             except subprocess.TimeoutExpired:
-                raise TimeoutError(f"claude turn exceeded {TURN_TIMEOUT}s")
+                raise TimeoutError(f"codex turn exceeded {TURN_TIMEOUT}s")
             if r.returncode != 0:
                 raise RuntimeError(
-                    f"claude exited {r.returncode}: {r.stderr.strip()[:500]}"
+                    f"codex exited {r.returncode}: {r.stderr.strip()[:500]}"
                 )
             return r.stdout.strip() or "(no assistant text)"
 
@@ -321,9 +430,11 @@ def _selftest():
             claude_cfg = json.load(f)
         assert claude_cfg["mcpServers"]["sonarqube"]["headers"]["Authorization"] == "Bearer tok123"
         assert "headers" not in claude_cfg["mcpServers"]["grafana"]
+        assert claude_cfg["mcpServers"]["context-mode"] == {"command": "context-mode"}
         with open(os.path.join(tmp, ".omp", "agent", "config.yml")) as f:
             omp_cfg = f.read()
         assert "mcp:" in omp_cfg and "Bearer tok123" in omp_cfg
+        assert 'type: local' in omp_cfg and 'command: ["context-mode"]' in omp_cfg
 
     print("selftest ok")
 
@@ -333,9 +444,13 @@ if __name__ == "__main__":
         _selftest()
         raise SystemExit(0)
     write_mcp_config()
-    if BACKEND == "claude":
-        RPC = ClaudeBackend(CLAUDE_MODEL)
-        print(f"pod-openai on :{PORT} backend=claude model={CLAUDE_MODEL}", flush=True)
+    write_codex_agents_md()
+    if BACKEND == "codex":
+        RPC = CodexBackend(CODEX_MODEL)
+        print(f"pod-openai on :{PORT} backend=codex model={CODEX_MODEL or '(default)'}", flush=True)
+    # elif BACKEND == "claude":  # temporarily disabled, see ClaudeBackend above
+    #     RPC = ClaudeBackend(CLAUDE_MODEL)
+    #     print(f"pod-openai on :{PORT} backend=claude model={CLAUDE_MODEL}", flush=True)
     else:
         # ponytail: the baked models.db has no entries (the image builds with no
         # Ollama reachable). omp resolves the config.yml model off this catalog, so

@@ -98,10 +98,8 @@ enum Command {
     },
 
     /// Terraform/OpenTofu (default binary tofu, from Cargo.toml; override with TERRAFORM_ENGINE in .env).
-    /// `terraform genvars` regenerates terraform/<env>/local.auto.tfvars from
-    /// .env. Anything else (`homelab terraform apply`) is passed straight to
-    /// the engine in the current directory; `terraform native <args>` does so
-    /// verbatim, flags first included (`homelab terraform native -chdir=x plan`).
+    /// `tf genvars` regenerates terraform/<env>/local.auto.tfvars from .env.
+    /// Other args pass to the engine; `tf native <args>` passes them verbatim.
     #[command(after_help = "Available options:
   genvars              regenerate terraform/<env>/local.auto.tfvars from the root
                        .env's TF_VAR_* lines (only vars each dir declares)
@@ -109,15 +107,15 @@ enum Command {
   <anything else>      shorthand for native, when it doesn't start with a flag
 
 Examples:
-  homelab terraform genvars
-  cd terraform/internal && homelab terraform plan
-  homelab terraform native apply -auto-approve
-  homelab terraform native -chdir=terraform/internal plan
-  homelab terraform                (no args: the engine's own help)
+  homelab tf genvars
+  cd terraform/internal && homelab tf plan
+  homelab tf native apply -auto-approve
+  homelab tf native -chdir=terraform/internal plan
+  homelab tf                     (no args: the engine's own help)
 
 Engine: TERRAFORM_ENGINE in .env/env, else Cargo.toml [package.metadata.homelab]
         terraform_engine (default tofu; terraform also works)")]
-    Terraform {
+    Tf {
         #[command(subcommand)]
         action: Option<TerraformAction>,
     },
@@ -169,7 +167,7 @@ fn dispatch(command: Command) -> anyhow::Result<i32> {
                 commands::create_cluster::native(args)
             }
         },
-        Command::Terraform { action } => match action {
+        Command::Tf { action } => match action {
             Some(TerraformAction::Genvars) => commands::gen_tfvars::run(),
             Some(TerraformAction::Native { args } | TerraformAction::Passthrough(args)) => {
                 commands::gen_tfvars::native(args)

@@ -56,7 +56,7 @@
       "parameters": {
         "conditions": {
           "options": {
-            "leftValue": "={{ JSON.parse($json.stdout).decision }}",
+            "leftValue": "={{ $json.decision }}",
             "operation": "equals",
             "rightValue": "GO"
           }
@@ -155,6 +155,19 @@
           ]
         }
       }
+    },
+    {
+      "id": "989bd2e2-eb7e-4608-9f38-b5c27e34daab",
+      "name": "Validate Go/No-Go Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const run = $input.first().json;\nlet report; try { report = run.exitCode === 0 ? JSON.parse(run.stdout || \"\") : null; } catch { report = null; }\nconst decision = report?.decision === \"GO\" ? \"GO\" : \"NO-GO\";\nreturn [{ json: { ...run, ...(report || {}), decision, reason: report?.reason || `Invalid or failed decision command (exit ${run.exitCode})` } }];"
+      }
     }
   ],
   "connections": {
@@ -184,7 +197,7 @@
       "main": [
         [
           {
-            "node": "GO?",
+            "node": "Validate Go/No-Go Result",
             "type": "main",
             "index": 0
           }
@@ -214,6 +227,17 @@
         [
           {
             "node": "Notify: GO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Go/No-Go Result": {
+      "main": [
+        [
+          {
+            "node": "GO?",
             "type": "main",
             "index": 0
           }

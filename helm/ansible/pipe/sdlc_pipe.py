@@ -119,7 +119,7 @@ COMMANDS: dict[str, Command] = {
         method="POST",
         params=["version"],
         optional=[],
-        description="ArgoCD rollback production + open incident ticket",
+        description="helm rollback production + open incident ticket",
         example="/rollback v1.2.0",
     ),
     "/rollback_story": Command(
@@ -171,7 +171,7 @@ HELP_TEXT = """**SDLC Commands**
 | `/uat` | — | UAT pipeline |
 | `/release_staging` | — | Stage the release |
 | `/release_production` | — | Create production MR |
-| `/rollback <version>` | version | ArgoCD rollback |
+| `/rollback <version>` | version | helm rollback |
 | `/rollback_story <story_id>` | story_id | Revert a story |
 | `/retro <version>` | version | Retrospective |
 | `/escalate <reason>` | reason | Pause DAG + alert |

@@ -1,408 +1,479 @@
 {
-  "name": "F-31 Spawn Agent Role",
-  "nodes": [
-    {
-      "id": "f31-0001-0000-0000-000000000001",
-      "name": "Execute Workflow Trigger",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        240,
-        300
-      ],
-      "parameters": {
-        "inputSource": "passthrough"
-      }
-    },
-    {
-      "id": "f31-0001-0000-0000-000000000002",
-      "name": "Build Job Manifest",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        460,
-        300
-      ],
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const role = $json.role;\nconst prompt = $json.prompt;\nconst story = (($json.story) || 'adhoc').toString().toLowerCase().replace(/[^a-z0-9-]/g, '-');\nconst ts = new Date().toISOString().replace(/[-:.]/g, '').replace('Z', '').slice(0, 14);\nlet jobName = `claude-${role}-${story}-${ts}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');\nconst rand = Math.random().toString(36).slice(2, 6);\njobName = (jobName + '-' + rand).slice(0, 63).replace(/-+$/, '');\nconst autonomyPrefix = 'You are running headless with no user available to answer questions or confirmations. glab is already authenticated for this GitLab host (gitlab-webservice-default.gitlab.svc.cluster.local:8181, http protocol) via a prior `glab auth login` that already succeeded — do not ask for clarification or report that you lack access. If a glab/git command errors, do not assume auth or network is broken: run `glab api user --hostname gitlab-webservice-default.gitlab.svc.cluster.local` to verify first, then retry the original command with corrected syntax/args before concluding anything is unreachable. Do not write status/handoff/README files describing a blocker instead of doing the task — either complete the task for real or, only after the verify-and-retry step above still fails, say exactly what command you ran and what error it returned. ';\nconst promptEscaped = String(autonomyPrefix + prompt).replace(/'/g, \"'\\\\''\");\n\nconst GITLAB_HOST = 'gitlab-webservice-default.gitlab.svc.cluster.local';\nconst GITLAB_API_HOST = `${GITLAB_HOST}:8181`;\n// ponytail: glab treats a bare GITLAB_TOKEN env var as a global override for\n// EVERY host (including defaulting to gitlab.com), which 401s there instead\n// of using our in-cluster instance. Feed the secret in as GL_TOKEN_RAW,\n// consume it once into glab's own config via `auth login`, then unset it.\n//\n// ponytail: GL_TOKEN_RAW is resolved shell-side from GL_TOKEN_ROLE (this\n// role's own minted PAT, from the omp-role-gitlab-tokens Secret --\n// optional, only present once helm/ansible/playbooks/role-accounts.yml has\n// been run) falling back to GL_TOKEN_SHARED (the one admin PAT every pod\n// used before) -- without this, every commit/MR gets authored as whoever\n// var.omp_gitlab_token belongs to, regardless of the `--assignee\n// \"<role>\"` cosmetic field every SKILL.md already sets (found live: a\n// dry-run MR showed up as the human operator's own GitLab account).\nconst resolveGlToken = `GL_TOKEN_RAW=\"\\${GL_TOKEN_ROLE:-$GL_TOKEN_SHARED}\"`;\nconst glabLogin = `${resolveGlToken}; glab auth login --hostname ${GITLAB_HOST} --token \\\"$GL_TOKEN_RAW\\\" --api-host ${GITLAB_API_HOST} --api-protocol http --git-protocol http >/dev/null 2>&1; glab config set host ${GITLAB_HOST} -g >/dev/null 2>&1`;\n\n// ponytail: KN_TOKEN_ROLE is this role's own minted Kaneo API key (from the\n// omp-role-kaneo-tokens Secret -- optional, only present once\n// helm/ansible/playbooks/role-accounts.yml has been run), falling back to\n// KANEO_TOKEN_SHARED (one admin key every pod used before). Same split as\n// GL_TOKEN_ROLE/GL_TOKEN_SHARED above, for the same reason: without a real\n// per-role credential, every Kaneo call would be attributable only to\n// whoever var.kaneo_api_token belongs to. EXPORTed (unlike GL_TOKEN_RAW,\n// which glab persists to its own config file) because every role's\n// SKILL.md curl examples read $KANEO_TOKEN directly -- those run as Bash\n// tool calls spawned by the claude process below, which only inherit env\n// vars actually exported into this shell, not shell-local assignments.\nconst resolveKnToken = `export KANEO_TOKEN=\"\\${KN_TOKEN_ROLE:-$KANEO_TOKEN_SHARED}\"`;\n\n// ponytail: kaneo MCP server, in-cluster address (mirrors mcp-servers-gitlab's\n// own DNS-rebind-guard reasoning) — written to a file at container start since\n// the bearer token comes from a Secret env var, not something Helm can bake\n// into a static ConfigMap-mounted mcp-config.json. Single-quoted JSON skeleton\n// with the token spliced in via the standard '...'\"$VAR\"'...' shell trick\n// (close single-quote, expand inside double-quotes, reopen single-quote) — no\n// nested-quote escaping needed since none of these tokens ever collide.\n// kaneo-mcp has no credential of its own -- it forwards this exact bearer\n// straight through to Kaneo's API, so this role's real per-role API key is\n// the identity on every call it makes (see helm/mcp-servers/kaneo-mcp).\n// mcp__kaneo__* in --allowedTools below is Claude Code's own MCP tool-naming\n// convention (mcp__<server-name>__<tool-name>).\nconst mcpConfigCmd = `echo '{\"mcpServers\":{\"kaneo\":{\"type\":\"http\",\"url\":\"http://mcp-servers-kaneo.mcp-servers.svc.cluster.local:8300/mcp\",\"headers\":{\"Authorization\":\"Bearer '\"$KANEO_TOKEN\"'\"}},\"sonarqube\":{\"type\":\"http\",\"url\":\"http://mcp-servers-sonarqube.mcp-servers.svc.cluster.local:8080/mcp\",\"headers\":{\"Authorization\":\"Bearer '\"$SONARQUBE_MCP_AUTH_TOKEN\"'\"}}}}' > /tmp/mcp-config.json`;\n\n// ponytail: haiku sometimes reports \"done\" without actually publishing the\n// artifact it was told to. Hard-fail the Job when the outcome is\n// mechanically checkable so a silent no-op shows up as a Job failure\n// instead of a false Complete. Extend this map as more roles get one.\nconst rawStory = ($json.story || 'adhoc').toString();\n// ponytail: wiki verify targets GitLab's own per-project wiki (Kaneo has no\n// wiki module at all -- see AGENT.md's \"Kaneo\" section). GitLab wiki slugs\n// keep '/' as a literal hierarchy separator (no '.'/'/' mangling like\n// Taiga's did), but DO need percent-encoding in the URL path segment.\nconst wikiSlugByRole = { architect: `${rawStory}/Architecture` };\nconst wikiSlug = $json.skipWikiVerify ? undefined : wikiSlugByRole[role];\nconst verifyCmd = wikiSlug\n  ? `; if [ \\\"$cstatus\\\" = \\\"0\\\" ]; then wcode=$(curl -s -o /dev/null -w '%{http_code}' -H \\\"Authorization: Bearer $GL_TOKEN_RAW\\\" \\\"http://${GITLAB_API_HOST}/api/v4/projects/$GITLAB_PROJECT_ID/wikis/$(echo -n '${wikiSlug}' | sed 's#/#%2F#g')\\\"); if [ \\\"$wcode\\\" != \\\"200\\\" ]; then echo \\\"VERIFY FAILED: GitLab wiki page ${wikiSlug} not found (HTTP $wcode)\\\" >&2; cstatus=1; fi; fi`\n  : '';\n\nconst manifest = {\n  apiVersion: 'batch/v1',\n  kind: 'Job',\n  metadata: {\n    name: jobName,\n    namespace: 'sdlc',\n    labels: { 'app.kubernetes.io/name': 'omp-agent', 'omp-role': role }\n  },\n  spec: {\n    ttlSecondsAfterFinished: 1800,\n    backoffLimit: 1,\n    template: {\n      metadata: { labels: { 'app.kubernetes.io/name': 'omp-agent', 'omp-role': role, 'job-name': jobName } },\n      spec: {\n        restartPolicy: 'Never',\n        serviceAccountName: 'omp-agent',\n        containers: [{\n      name: 'claude',\n      image: 'k3d-registry:5111/omp-box:dev',\n      imagePullPolicy: 'Always',\n      command: ['sh', '-c'],\n      args: [`${glabLogin}; ${resolveKnToken}; ${mcpConfigCmd}; claude -p '${promptEscaped}' --model sonnet --mcp-config /tmp/mcp-config.json --allowedTools 'Bash,Edit,Write,Read,Glob,Grep,mcp__kaneo__kaneo_get,mcp__kaneo__kaneo_post,mcp__kaneo__kaneo_patch,mcp__kaneo__kaneo_delete,mcp__sonarqube__analyze_code_snippet,mcp__sonarqube__search_sonar_issues_in_projects,mcp__sonarqube__get_project_quality_gate_status,mcp__sonarqube__show_rule,mcp__sonarqube__search_my_sonarqube_projects' --permission-mode acceptEdits --no-session-persistence; cstatus=$?${verifyCmd}; unset GL_TOKEN_RAW GL_TOKEN_ROLE GL_TOKEN_SHARED KN_TOKEN_ROLE KANEO_TOKEN KANEO_TOKEN_SHARED SONARQUBE_MCP_AUTH_TOKEN; exit $cstatus`],\n      env: [\n        { name: 'CLAUDE_CODE_OAUTH_TOKEN', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'claude_code_token' } } },\n        { name: 'GL_TOKEN_ROLE', valueFrom: { secretKeyRef: { name: 'omp-role-gitlab-tokens', key: role, optional: true } } },\n        { name: 'GL_TOKEN_SHARED', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'gitlab_token' } } },\n        { name: 'KN_TOKEN_ROLE', valueFrom: { secretKeyRef: { name: 'omp-role-kaneo-tokens', key: role, optional: true } } },\n        { name: 'KANEO_TOKEN_SHARED', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'kaneo_token' } } },\n        { name: 'KANEO_URL', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'kaneo_url' } } },\n        { name: 'GRAFANA_URL', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'grafana_url' } } },\n        { name: 'SONARQUBE_MCP_AUTH_TOKEN', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'sonarqube_mcp_auth_token' } } },\n        { name: 'KANEO_PROJECT_ID', value: String($json.kaneo_project_id || $env.KANEO_PROJECT_ID || '') },\n        { name: 'KANEO_WORKSPACE_ID', value: String($json.kaneo_workspace_id || $env.KANEO_WORKSPACE_ID || '') },\n        { name: 'GITLAB_PROJECT_ID', value: String($json.gitlab_project_id || $env.GITLAB_PROJECT_ID || '') },\n        { name: 'NEXTCLOUD_URL', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'nextcloud_url' } } },\n        { name: 'NEXTCLOUD_USER', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'nextcloud_user' } } },\n        { name: 'NEXTCLOUD_PASSWORD', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'nextcloud_password' } } },\n        { name: 'MINIO_ENDPOINT', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'minio_endpoint' } } },\n        { name: 'MINIO_ROOT_USER', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'minio_root_user' } } },\n        { name: 'MINIO_ROOT_PASSWORD', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'minio_root_password' } } }\n      ]\n    }]\n      }\n    }\n  }\n};\n\nreturn [{ json: { jobName, manifest } }];"
-      }
-    },
-    {
-      "id": "f31-0001-0000-0000-000000000003",
-      "name": "Read SA Token",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        680,
-        300
-      ],
-      "parameters": {
-        "command": "cat /var/run/secrets/kubernetes.io/serviceaccount/token"
-      }
-    },
-    {
-      "id": "f31-0001-0000-0000-000000000004",
-      "name": "Create Job",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        900,
-        300
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://kubernetes.default.svc/apis/batch/v1/namespaces/sdlc/jobs",
-        "authentication": "none",
-        "sendHeaders": true,
-        "specifyHeaders": "keypair",
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $node[\"Read SA Token\"].json.stdout.trim() }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "json",
-        "specifyBody": "json",
-        "jsonBody": "={{ $node[\"Build Job Manifest\"].json.manifest }}",
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      }
-    },
-    {
-      "id": "f31-0001-0000-0000-00000000000b",
-      "name": "Set Deadline",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        1010,
-        300
-      ],
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "// ponytail: single wall-clock deadline set once, looked up by node name\n// from every loop iteration below (not carried through item json, which\n// Get Job Status overwrites each pass with the raw k8s API response).\nreturn [{ json: { deadline: Date.now() + 20 * 60 * 1000 } }];"
-      }
-    },
-    {
-      "id": "f31-0001-0000-0000-000000000005",
-      "name": "Wait For Job",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        1120,
-        300
-      ],
-      "parameters": {
-        "resume": "timeInterval",
-        "amount": 15,
-        "unit": "seconds"
-      },
-      "webhookId": "f31wait0-0000-0000-0000-000000000001"
-    },
-    {
-      "id": "f31-0001-0000-0000-000000000006",
-      "name": "Get Job Status",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1340,
-        300
-      ],
-      "parameters": {
-        "method": "GET",
-        "url": "=https://kubernetes.default.svc/apis/batch/v1/namespaces/sdlc/jobs/{{ $node[\"Build Job Manifest\"].json.jobName }}",
-        "authentication": "none",
-        "sendHeaders": true,
-        "specifyHeaders": "keypair",
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $node[\"Read SA Token\"].json.stdout.trim() }}"
-            }
-          ]
-        },
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      }
-    },
-    {
-      "id": "f31-0001-0000-0000-00000000000c",
-      "name": "Job Done or Timed Out?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        1450,
-        300
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
-          "combinator": "or",
-          "conditions": [
-            {
-              "leftValue": "={{ ($json.status.succeeded || 0) >= 1 }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
+    "name":  "F-31 Spawn Agent Role",
+    "nodes":  [
+                  {
+                      "id":  "f31-0001-0000-0000-000000000001",
+                      "name":  "Execute Workflow Trigger",
+                      "type":  "n8n-nodes-base.executeWorkflowTrigger",
+                      "typeVersion":  1.2,
+                      "position":  [
+                                       240,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "inputSource":  "passthrough"
+                                     }
+                  },
+                  {
+                      "id":  "f31-0001-0000-0000-000000000002",
+                      "name":  "Build Job Manifest",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  1,
+                      "position":  [
+                                       460,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "mode":  "runOnceForAllItems",
+                                         "jsCode":  "const role = $json.role;\nconst prompt = $json.prompt;\nconst outcomeContract = $json.requireOutcomeMarker\n  ? '\\n\\nEnd with exactly one standalone line: FLOW_RESULT: SUCCESS only if every required action is complete and verified; FLOW_RESULT: BLOCKED: <reason> if blocked by a prerequisite; or FLOW_RESULT: FAILED: <reason> if attempted work fails. Never report SUCCESS when work is skipped, blocked, unverifiable, or produced no required artifact.'\n  : '';\nconst story = (($json.story) || 'adhoc').toString().toLowerCase().replace(/[^a-z0-9-]/g, '-');\nconst ts = new Date().toISOString().replace(/[-:.]/g, '').replace('Z', '').slice(0, 14);\nlet jobName = `codex-${role}-${story}-${ts}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');\nconst rand = Math.random().toString(36).slice(2, 6);\njobName = (jobName + '-' + rand).slice(0, 63).replace(/-+$/, '');\nconst autonomyPrefix = 'You are running headless with no user available to answer questions or confirmations. glab is already authenticated for this GitLab host (gitlab-webservice-default.gitlab.svc.cluster.local:8181, http protocol) via a prior `glab auth login` that already succeeded \u00e2\u20ac\u201d do not ask for clarification or report that you lack access. If a glab/git command errors, do not assume auth or network is broken: run `glab api user --hostname gitlab-webservice-default.gitlab.svc.cluster.local` to verify first, then retry the original command with corrected syntax/args before concluding anything is unreachable. Do not write status/handoff/README files describing a blocker instead of doing the task \u00e2\u20ac\u201d either complete the task for real or, only after the verify-and-retry step above still fails, say exactly what command you ran and what error it returned. ';\nconst promptEscaped = String(autonomyPrefix + outcomeContract + prompt).replace(/'/g, \"'\\\\''\");\n\nconst GITLAB_HOST = 'gitlab-webservice-default.gitlab.svc.cluster.local';\nconst GITLAB_API_HOST = `${GITLAB_HOST}:8181`;\n// ponytail: glab treats a bare GITLAB_TOKEN env var as a global override for\n// EVERY host (including defaulting to gitlab.com), which 401s there instead\n// of using our in-cluster instance. Feed the secret in as GL_TOKEN_RAW,\n// consume it once into glab's own config via `auth login`, then unset it.\n//\n// ponytail: GL_TOKEN_RAW is resolved shell-side from GL_TOKEN_ROLE (this\n// role's own minted PAT, from the omp-role-gitlab-tokens Secret --\n// optional, only present once helm/ansible/playbooks/role-accounts.yml has\n// been run) falling back to GL_TOKEN_SHARED (the one admin PAT every pod\n// used before) -- without this, every commit/MR gets authored as whoever\n// var.omp_gitlab_token belongs to, regardless of the `--assignee\n// \"<role>\"` cosmetic field every SKILL.md already sets (found live: a\n// dry-run MR showed up as the human operator's own GitLab account).\nconst resolveGlToken = `GL_TOKEN_RAW=\"\\${GL_TOKEN_ROLE:-$GL_TOKEN_SHARED}\"`;\nconst glabLogin = `${resolveGlToken}; glab auth login --hostname ${GITLAB_HOST} --token \\\"$GL_TOKEN_RAW\\\" --api-host ${GITLAB_API_HOST} --api-protocol http --git-protocol http >/dev/null 2>&1; glab config set host ${GITLAB_HOST} -g >/dev/null 2>&1`;\n\n// ponytail: KN_TOKEN_ROLE is this role's own minted Kaneo API key (from the\n// omp-role-kaneo-tokens Secret -- optional, only present once\n// helm/ansible/playbooks/role-accounts.yml has been run), falling back to\n// KANEO_TOKEN_SHARED (one admin key every pod used before). Same split as\n// GL_TOKEN_ROLE/GL_TOKEN_SHARED above, for the same reason: without a real\n// per-role credential, every Kaneo call would be attributable only to\n// whoever var.kaneo_api_token belongs to. EXPORTed (unlike GL_TOKEN_RAW,\n// which glab persists to its own config file) because every role's\n// SKILL.md curl examples read $KANEO_TOKEN directly -- those run as Bash\n// tool calls spawned by the codex process below, which only inherit env\n// vars actually exported into this shell, not shell-local assignments.\nconst resolveKnToken = `export KANEO_TOKEN=\"\\${KN_TOKEN_ROLE:-$KANEO_TOKEN_SHARED}\"`;\n\n// ponytail: kaneo MCP server, in-cluster address (mirrors mcp-servers-gitlab's\n// own DNS-rebind-guard reasoning) \u00e2\u20ac\u201d written to a file at container start since\n// the bearer token comes from a Secret env var, not something Helm can bake\n// into a static ConfigMap-mounted mcp-config.json. Single-quoted JSON skeleton\n// with the token spliced in via the standard '...'\"$VAR\"'...' shell trick\n// (close single-quote, expand inside double-quotes, reopen single-quote) \u00e2\u20ac\u201d no\n// nested-quote escaping needed since none of these tokens ever collide.\n// kaneo-mcp has no credential of its own -- it forwards this exact bearer\n// straight through to Kaneo's API, so this role's real per-role API key is\n// the identity on every call it makes (see helm/mcp-servers/kaneo-mcp).\n// mcp__kaneo__* are MCP tool names exposed to the Codex agent.\n// convention (mcp__<server-name>__<tool-name>). context-mode\n// (github.com/mksglu/context-mode) is a stdio server -- no url/credential,\n// npm-installed into omp-box:dev itself (helm/omp/Dockerfile) -- registered\n// the same way helm/omp/adapter/pod-openai.py wires it for the persistent\n// omp pods.\nconst mcpConfigCmd = `mkdir -p /root/.codex && printf '%s\\\\n' '[mcp_servers.kaneo]' 'url = \"http://mcp-servers-kaneo.mcp-servers.svc.cluster.local:8300/mcp\"' 'bearer_token_env_var = \"KANEO_TOKEN\"' '' '[mcp_servers.sonarqube]' 'url = \"http://mcp-servers-sonarqube.mcp-servers.svc.cluster.local:8080/mcp\"' 'bearer_token_env_var = \"SONARQUBE_MCP_AUTH_TOKEN\"' '' '[mcp_servers.context-mode]' 'command = \"context-mode\"' > /root/.codex/config.toml`;\nconst codexAgentRulesCmd = 'if [ -f \"/root/.omp/agent/skills/$OMP_ROLE/SKILL.md\" ]; then printf \"\\\\n# role: %s\\\\n\" \"$OMP_ROLE\" >> /root/.codex/AGENTS.md; cat \"/root/.omp/agent/skills/$OMP_ROLE/SKILL.md\" >> /root/.codex/AGENTS.md; fi';\n\n// ponytail: haiku sometimes reports \"done\" without actually publishing the\n// artifact it was told to. Hard-fail the Job when the outcome is\n// mechanically checkable so a silent no-op shows up as a Job failure\n// instead of a false Complete. Extend this map as more roles get one.\nconst rawStory = ($json.story || 'adhoc').toString();\n// ponytail: wiki verify targets GitLab's own per-project wiki (Kaneo has no\n// wiki module at all -- see AGENT.md's \"Kaneo\" section). GitLab wiki slugs\n// keep '/' as a literal hierarchy separator (no '.'/'/' mangling like\n// Taiga's did), but DO need percent-encoding in the URL path segment.\nconst wikiSlugByRole = { architect: `${rawStory}/Architecture` };\nconst wikiSlug = $json.skipWikiVerify ? undefined : wikiSlugByRole[role];\n// ponytail: GITLAB_PROJECT_ID is never populated by any gate upstream --\n// verify by group%2Fproject path instead (same identifier form every\n// glab api call in the role prompts already uses), not a numeric ID.\nconst verifyCmd = wikiSlug\n  ? `; if [ \\\"$cstatus\\\" = \\\"0\\\" ]; then wcode=$(curl -s -o /dev/null -w '%{http_code}' -H \\\"Authorization: Bearer $GL_TOKEN_RAW\\\" \\\"http://${GITLAB_API_HOST}/api/v4/projects/$(echo -n \\\"$GITLAB_GROUP/$GITLAB_PROJECT_NAME\\\" | sed 's#/#%2F#g')/wikis/$(echo -n '${wikiSlug}' | sed 's#/#%2F#g')\\\"); if [ \\\"$wcode\\\" != \\\"200\\\" ]; then echo \\\"VERIFY FAILED: GitLab wiki page ${wikiSlug} not found (HTTP $wcode)\\\" >&2; cstatus=1; fi; fi`\n  : '';\n\nconst manifest = {\n  apiVersion: 'batch/v1',\n  kind: 'Job',\n  metadata: {\n    name: jobName,\n    namespace: 'sdlc',\n    labels: { 'app.kubernetes.io/name': 'omp-agent', 'omp-role': role }\n  },\n  spec: {\n    ttlSecondsAfterFinished: 1800,\n    backoffLimit: 1,\n    template: {\n      metadata: { labels: { 'app.kubernetes.io/name': 'omp-agent', 'omp-role': role, 'job-name': jobName } },\n      spec: {\n        restartPolicy: 'Never',\n        serviceAccountName: 'omp-agent',\n        volumes: [{ name: 'codex-auth', secret: { secretName: 'omp-agent-secrets', items: [{ key: 'codex_auth_json', path: 'auth.json' }] } }],\n        containers: [{\n      name: 'codex',\n      image: 'k3d-registry:5111/omp-box:dev',\n      imagePullPolicy: 'Always',\n      command: ['sh', '-c'],\n      args: [`${glabLogin}; ${resolveKnToken}; ${mcpConfigCmd}; ${codexAgentRulesCmd}; codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox '${promptEscaped}'; cstatus=$?${verifyCmd}; unset GL_TOKEN_RAW GL_TOKEN_ROLE GL_TOKEN_SHARED KN_TOKEN_ROLE KANEO_TOKEN KANEO_TOKEN_SHARED SONARQUBE_MCP_AUTH_TOKEN; exit $cstatus`],\n      env: [\n        { name: 'OMP_ROLE', value: role },\n        { name: 'GL_TOKEN_ROLE', valueFrom: { secretKeyRef: { name: 'omp-role-gitlab-tokens', key: role, optional: true } } },\n        { name: 'GL_TOKEN_SHARED', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'gitlab_token' } } },\n        { name: 'KN_TOKEN_ROLE', valueFrom: { secretKeyRef: { name: 'omp-role-kaneo-tokens', key: role, optional: true } } },\n        { name: 'KANEO_TOKEN_SHARED', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'kaneo_token' } } },\n        { name: 'KANEO_URL', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'kaneo_url' } } },\n        { name: 'GRAFANA_URL', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'grafana_url' } } },\n        { name: 'SONARQUBE_MCP_AUTH_TOKEN', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'sonarqube_mcp_auth_token' } } },\n        { name: 'KANEO_PROJECT_ID', value: String($json.kaneo_project_id || $env.KANEO_PROJECT_ID || '') },\n        { name: 'KANEO_WORKSPACE_ID', value: String($json.kaneo_workspace_id || $env.KANEO_WORKSPACE_ID || '') },\n        { name: 'GITLAB_PROJECT_ID', value: String($json.gitlab_project_id || $env.GITLAB_PROJECT_ID || '') },\n        { name: 'GITLAB_GROUP', value: String($json.group || $env.GITLAB_GROUP || 'sdlc') },\n        { name: 'GITLAB_PROJECT_NAME', value: String($json.project || $env.GITLAB_PROJECT_NAME || 'hr-portal') },\n        { name: 'NEXTCLOUD_URL', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'nextcloud_url' } } },\n        { name: 'NEXTCLOUD_USER', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'nextcloud_user' } } },\n        { name: 'NEXTCLOUD_PASSWORD', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'nextcloud_password' } } },\n        { name: 'MINIO_ENDPOINT', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'minio_endpoint' } } },\n        { name: 'MINIO_ROOT_USER', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'minio_root_user' } } },\n        { name: 'MINIO_ROOT_PASSWORD', valueFrom: { secretKeyRef: { name: 'omp-agent-secrets', key: 'minio_root_password' } } }\n      ],\n      volumeMounts: [{ name: 'codex-auth', mountPath: '/root/.codex/auth.json', subPath: 'auth.json', readOnly: true }]\n    }]\n      }\n    }\n  }\n};\n\nreturn [{ json: { jobName, manifest } }];"
+                                     }
+                  },
+                  {
+                      "id":  "f31-0001-0000-0000-000000000003",
+                      "name":  "Read SA Token",
+                      "type":  "n8n-nodes-base.executeCommand",
+                      "typeVersion":  1,
+                      "position":  [
+                                       680,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "command":  "cat /var/run/secrets/kubernetes.io/serviceaccount/token"
+                                     }
+                  },
+                  {
+                      "id":  "f31-0001-0000-0000-000000000004",
+                      "name":  "Create Job",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       900,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "https://kubernetes.default.svc/apis/batch/v1/namespaces/sdlc/jobs",
+                                         "authentication":  "none",
+                                         "sendHeaders":  true,
+                                         "specifyHeaders":  "keypair",
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "Authorization",
+                                                                                         "value":  "=Bearer {{ $node[\"Read SA Token\"].json.stdout.trim() }}"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "Content-Type",
+                                                                                         "value":  "application/json"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "sendBody":  true,
+                                         "contentType":  "json",
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ $node[\"Build Job Manifest\"].json.manifest }}",
+                                         "options":  {
+                                                         "allowUnauthorizedCerts":  true
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "f31-0001-0000-0000-00000000000b",
+                      "name":  "Set Deadline",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  1,
+                      "position":  [
+                                       1010,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "mode":  "runOnceForAllItems",
+                                         "jsCode":  "// ponytail: single wall-clock deadline set once, looked up by node name\n// from every loop iteration below (not carried through item json, which\n// Get Job Status overwrites each pass with the raw k8s API response).\nreturn [{ json: { deadline: Date.now() + 20 * 60 * 1000 } }];"
+                                     }
+                  },
+                  {
+                      "id":  "f31-0001-0000-0000-000000000005",
+                      "name":  "Wait For Job",
+                      "type":  "n8n-nodes-base.wait",
+                      "typeVersion":  1.1,
+                      "position":  [
+                                       1120,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "resume":  "timeInterval",
+                                         "amount":  15,
+                                         "unit":  "seconds"
+                                     },
+                      "webhookId":  "f31wait0-0000-0000-0000-000000000001"
+                  },
+                  {
+                      "id":  "f31-0001-0000-0000-000000000006",
+                      "name":  "Get Job Status",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       1340,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "method":  "GET",
+                                         "url":  "=https://kubernetes.default.svc/apis/batch/v1/namespaces/sdlc/jobs/{{ $node[\"Build Job Manifest\"].json.jobName }}",
+                                         "authentication":  "none",
+                                         "sendHeaders":  true,
+                                         "specifyHeaders":  "keypair",
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "Authorization",
+                                                                                         "value":  "=Bearer {{ $node[\"Read SA Token\"].json.stdout.trim() }}"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "options":  {
+                                                         "allowUnauthorizedCerts":  true
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "f31-0001-0000-0000-00000000000c",
+                      "name":  "Job Done or Timed Out?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       1450,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "loose"
+                                                                        },
+                                                            "combinator":  "or",
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "leftValue":  "={{ ($json.status.succeeded || 0) \u003e= 1 }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               },
+                                                                               {
+                                                                                   "leftValue":  "={{ ($json.status.failed || 0) \u003e= 1 }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               },
+                                                                               {
+                                                                                   "leftValue":  "={{ Date.now() \u003e $node[\"Set Deadline\"].json.deadline }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               }
+                                                                           ]
+                                                        }
+                                     }
+                  },
+                  {
+                      "id":  "f31-0001-0000-0000-000000000007",
+                      "name":  "List Job Pods",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       1560,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "method":  "GET",
+                                         "url":  "=https://kubernetes.default.svc/api/v1/namespaces/sdlc/pods?labelSelector=job-name={{ $node[\"Build Job Manifest\"].json.jobName }}",
+                                         "authentication":  "none",
+                                         "sendHeaders":  true,
+                                         "specifyHeaders":  "keypair",
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "Authorization",
+                                                                                         "value":  "=Bearer {{ $node[\"Read SA Token\"].json.stdout.trim() }}"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "options":  {
+                                                         "allowUnauthorizedCerts":  true
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "f31-0001-0000-0000-000000000008",
+                      "name":  "Extract Pod Name",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  1,
+                      "position":  [
+                                       1780,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "mode":  "runOnceForAllItems",
+                                         "jsCode":  "const items = ($json.items) || [];\nconst podName = items.length ? items[0].metadata.name : \u0027\u0027;\nreturn [{ json: { podName } }];"
+                                     }
+                  },
+                  {
+                      "id":  "f31-0001-0000-0000-000000000009",
+                      "name":  "Get Pod Logs",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       2000,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "method":  "GET",
+                                         "url":  "=https://kubernetes.default.svc/api/v1/namespaces/sdlc/pods/{{ $json.podName }}/log",
+                                         "authentication":  "none",
+                                         "sendHeaders":  true,
+                                         "specifyHeaders":  "keypair",
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "Authorization",
+                                                                                         "value":  "=Bearer {{ $node[\"Read SA Token\"].json.stdout.trim() }}"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "options":  {
+                                                         "allowUnauthorizedCerts":  true,
+                                                         "response":  {
+                                                                          "response":  {
+                                                                                           "responseFormat":  "text"
+                                                                                       }
+                                                                      }
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "f31-0001-0000-0000-00000000000a",
+                      "name":  "Format Output",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  1,
+                      "position":  [
+                                       2220,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "mode":  "runOnceForAllItems",
+                                         "jsCode":  "const status = $node[\"Get Job Status\"].json.status || {};\nconst succeeded = (status.succeeded || 0) >= 1;\nconst failed = (status.failed || 0) >= 1;\nconst jobName = $node[\"Build Job Manifest\"].json.jobName;\nconst output = $json.data !== undefined ? $json.data : ($json.body !== undefined ? $json.body : JSON.stringify($json));\nconst outputText = typeof output === 'string' ? output.trim() : JSON.stringify(output ?? '');\n// Shell can exit 0 after swallowing the Codex command into an unterminated heredoc.\nif (succeeded && (!outputText || outputText === '{}')) throw new Error(`Agent job ${jobName} completed without assistant output`);\nconst resultLines = outputText.split(/\\r?\\n/).map(line => line.trim()).filter(line => line.startsWith('FLOW_RESULT:'));\nconst resultMatch = resultLines.length === 1 ? resultLines[0].match(/^FLOW_RESULT: (SUCCESS|BLOCKED|FAILED)(?:: (.+))?$/) : null;\nconst outcome = resultMatch ? resultMatch[1].toLowerCase() : 'unreported';\nconst outcomeDetail = resultMatch?.[2] || (outcome === 'unreported' ? 'Missing or invalid FLOW_RESULT line' : '');\nreturn [{ json: { jobName, succeeded, failed, outcome, outcomeDetail, output } }];"
+                                     }
+                  }
+,
+              {
+                "id": "f31-0001-0000-0000-00000000000b",
+                "name": "Cleanup Agent Job",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                  2440,
+                  300
+                ],
+                "parameters": {
+                  "method": "DELETE",
+                  "url": "=https://kubernetes.default.svc/apis/batch/v1/namespaces/sdlc/jobs/{{ $node[\"Build Job Manifest\"].json.jobName }}?propagationPolicy=Foreground",
+                  "authentication": "none",
+                  "sendHeaders": true,
+                  "specifyHeaders": "keypair",
+                  "headerParameters": {
+                    "parameters": [
+                      {
+                        "name": "Authorization",
+                        "value": "=Bearer {{ $node[\"Read SA Token\"].json.stdout.trim() }}"
+                      }
+                    ]
+                  },
+                  "options": {
+                    "allowUnauthorizedCerts": true
+                  }
+                },
+                "retryOnFail": true,
+                "maxTries": 3,
+                "waitBetweenTries": 1000
+              },
+              {
+                "id": "f31-0001-0000-0000-00000000000c",
+                "name": "Return Agent Result",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                  2660,
+                  300
+                ],
+                "parameters": {
+                  "mode": "runOnceForAllItems",
+                  "jsCode": "return [{ json: $node[\"Format Output\"].json }];"
+                }
               }
-            },
-            {
-              "leftValue": "={{ ($json.status.failed || 0) > 1 }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            },
-            {
-              "leftValue": "={{ Date.now() > $node[\"Set Deadline\"].json.deadline }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "f31-0001-0000-0000-000000000007",
-      "name": "List Job Pods",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1560,
-        300
-      ],
-      "parameters": {
-        "method": "GET",
-        "url": "=https://kubernetes.default.svc/api/v1/namespaces/sdlc/pods?labelSelector=job-name={{ $node[\"Build Job Manifest\"].json.jobName }}",
-        "authentication": "none",
-        "sendHeaders": true,
-        "specifyHeaders": "keypair",
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $node[\"Read SA Token\"].json.stdout.trim() }}"
-            }
-          ]
-        },
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      }
-    },
-    {
-      "id": "f31-0001-0000-0000-000000000008",
-      "name": "Extract Pod Name",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        1780,
-        300
-      ],
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const items = ($json.items) || [];\nconst podName = items.length ? items[0].metadata.name : '';\nreturn [{ json: { podName } }];"
-      }
-    },
-    {
-      "id": "f31-0001-0000-0000-000000000009",
-      "name": "Get Pod Logs",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2000,
-        300
-      ],
-      "parameters": {
-        "method": "GET",
-        "url": "=https://kubernetes.default.svc/api/v1/namespaces/sdlc/pods/{{ $json.podName }}/log",
-        "authentication": "none",
-        "sendHeaders": true,
-        "specifyHeaders": "keypair",
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $node[\"Read SA Token\"].json.stdout.trim() }}"
-            }
-          ]
-        },
-        "options": {
-          "allowUnauthorizedCerts": true,
-          "response": {
-            "response": {
-              "responseFormat": "text"
-            }
-          }
-        }
-      }
-    },
-    {
-      "id": "f31-0001-0000-0000-00000000000a",
-      "name": "Format Output",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [
-        2220,
-        300
-      ],
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const status = $node[\"Get Job Status\"].json.status || {};\nconst succeeded = (status.succeeded || 0) >= 1;\nconst failed = (status.failed || 0) >= 1;\nconst jobName = $node[\"Build Job Manifest\"].json.jobName;\nconst output = $json.data !== undefined ? $json.data : ($json.body !== undefined ? $json.body : JSON.stringify($json));\nreturn [{ json: { jobName, succeeded, failed, output } }];"
-      }
-    }
-  ],
-  "connections": {
-    "Execute Workflow Trigger": {
-      "main": [
-        [
-          {
-            "node": "Build Job Manifest",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build Job Manifest": {
-      "main": [
-        [
-          {
-            "node": "Read SA Token",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Read SA Token": {
-      "main": [
-        [
-          {
-            "node": "Create Job",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Create Job": {
-      "main": [
-        [
-          {
-            "node": "Set Deadline",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Set Deadline": {
-      "main": [
-        [
-          {
-            "node": "Wait For Job",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait For Job": {
-      "main": [
-        [
-          {
-            "node": "Get Job Status",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Job Status": {
-      "main": [
-        [
-          {
-            "node": "Job Done or Timed Out?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Job Done or Timed Out?": {
-      "main": [
-        [
-          {
-            "node": "List Job Pods",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Wait For Job",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "List Job Pods": {
-      "main": [
-        [
-          {
-            "node": "Extract Pod Name",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extract Pod Name": {
-      "main": [
-        [
-          {
-            "node": "Get Pod Logs",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Pod Logs": {
-      "main": [
-        [
-          {
-            "node": "Format Output",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
-  },
-  "settings": {}
+              ],
+    "connections":  {
+                        "Execute Workflow Trigger":  {
+                                                         "main":  [
+                                                                      [
+                                                                          {
+                                                                              "node":  "Build Job Manifest",
+                                                                              "type":  "main",
+                                                                              "index":  0
+                                                                          }
+                                                                      ]
+                                                                  ]
+                                                     },
+                        "Build Job Manifest":  {
+                                                   "main":  [
+                                                                [
+                                                                    {
+                                                                        "node":  "Read SA Token",
+                                                                        "type":  "main",
+                                                                        "index":  0
+                                                                    }
+                                                                ]
+                                                            ]
+                                               },
+                        "Read SA Token":  {
+                                              "main":  [
+                                                           [
+                                                               {
+                                                                   "node":  "Create Job",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ]
+                                                       ]
+                                          },
+                        "Create Job":  {
+                                           "main":  [
+                                                        [
+                                                            {
+                                                                "node":  "Set Deadline",
+                                                                "type":  "main",
+                                                                "index":  0
+                                                            }
+                                                        ]
+                                                    ]
+                                       },
+                        "Set Deadline":  {
+                                             "main":  [
+                                                          [
+                                                              {
+                                                                  "node":  "Wait For Job",
+                                                                  "type":  "main",
+                                                                  "index":  0
+                                                              }
+                                                          ]
+                                                      ]
+                                         },
+                        "Wait For Job":  {
+                                             "main":  [
+                                                          [
+                                                              {
+                                                                  "node":  "Get Job Status",
+                                                                  "type":  "main",
+                                                                  "index":  0
+                                                              }
+                                                          ]
+                                                      ]
+                                         },
+                        "Get Job Status":  {
+                                               "main":  [
+                                                            [
+                                                                {
+                                                                    "node":  "Job Done or Timed Out?",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ]
+                                                        ]
+                                           },
+                        "Job Done or Timed Out?":  {
+                                                       "main":  [
+                                                                    [
+                                                                        {
+                                                                            "node":  "List Job Pods",
+                                                                            "type":  "main",
+                                                                            "index":  0
+                                                                        }
+                                                                    ],
+                                                                    [
+                                                                        {
+                                                                            "node":  "Wait For Job",
+                                                                            "type":  "main",
+                                                                            "index":  0
+                                                                        }
+                                                                    ]
+                                                                ]
+                                                   },
+                        "List Job Pods":  {
+                                              "main":  [
+                                                           [
+                                                               {
+                                                                   "node":  "Extract Pod Name",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ]
+                                                       ]
+                                          },
+                        "Extract Pod Name":  {
+                                                 "main":  [
+                                                              [
+                                                                  {
+                                                                      "node":  "Get Pod Logs",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  }
+                                                              ]
+                                                          ]
+                                             },
+                        "Get Pod Logs":  {
+                                             "main":  [
+                                                          [
+                                                              {
+                                                                  "node":  "Format Output",
+                                                                  "type":  "main",
+                                                                  "index":  0
+                                                              }
+                                                          ]
+                                                      ]
+                                         }
+,
+                        "Format Output":  {
+                        "main": [
+                          [
+                            {
+                              "node": "Cleanup Agent Job",
+                              "type": "main",
+                              "index": 0
+                            }
+                          ]
+                        ]
+                      },
+                      "Cleanup Agent Job": {
+                        "main": [
+                          [
+                            {
+                              "node": "Return Agent Result",
+                              "type": "main",
+                              "index": 0
+                            }
+                          ]
+                        ]
+                      }
+                    },
+    "settings":  {
+
+                 }
 }

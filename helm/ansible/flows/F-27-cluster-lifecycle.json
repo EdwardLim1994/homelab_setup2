@@ -13,7 +13,7 @@
       "parameters": {
         "path": "cluster-lifecycle",
         "httpMethod": "POST",
-        "responseMode": "onReceived",
+        "responseMode": "lastNode",
         "responseData": "allEntries"
       },
       "webhookId": "8ae0992e-3a28-46f4-91e8-01d980907f1b"
@@ -65,7 +65,7 @@
         200
       ],
       "parameters": {
-        "command": "=kubectl scale deploy --all --replicas=1 -n {{ $node['Webhook Trigger'].json.body.deploy_namespace ?? $env.DEPLOY_NAMESPACE }} --context=k3d-{{ $json.body.cluster }}"
+        "command": "=kubectl scale deploy --all --replicas=1 -n {{ $node['Webhook Trigger'].json.body.deploy_namespace ?? $env.DEPLOY_NAMESPACE }} --context=k3d-{{ $json.body.cluster }} && kubectl wait --for=condition=available deployment --all -n {{ $node['Webhook Trigger'].json.body.deploy_namespace ?? $env.DEPLOY_NAMESPACE }} --timeout=180s --context=k3d-{{ $json.body.cluster }}"
       }
     },
     {
@@ -160,6 +160,32 @@
           ]
         }
       }
+    },
+    {
+      "id": "d022536f-0f81-44da-af66-96c9776b36e2",
+      "name": "Assert Cluster Wake",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        260
+      ],
+      "parameters": {
+        "jsCode": "const run = $input.first().json;\nif (run.exitCode !== 0) throw new Error(`kubectl action failed: ${run.stderr || run.stdout || run.exitCode}`);\nreturn $input.all();"
+      }
+    },
+    {
+      "id": "d562ff8c-3ede-48db-be1a-e92a57b8dd9c",
+      "name": "Assert Cluster Sleep",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        440
+      ],
+      "parameters": {
+        "jsCode": "const run = $input.first().json;\nif (run.exitCode !== 0) throw new Error(`kubectl action failed: ${run.stderr || run.stdout || run.exitCode}`);\nreturn $input.all();"
+      }
     }
   ],
   "connections": {
@@ -196,7 +222,7 @@
       "main": [
         [
           {
-            "node": "Notify: Cluster woken",
+            "node": "Assert Cluster Wake",
             "type": "main",
             "index": 0
           }
@@ -204,6 +230,28 @@
       ]
     },
     "kubectl: Scale Down": {
+      "main": [
+        [
+          {
+            "node": "Assert Cluster Sleep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Cluster Wake": {
+      "main": [
+        [
+          {
+            "node": "Notify: Cluster woken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Cluster Sleep": {
       "main": [
         [
           {

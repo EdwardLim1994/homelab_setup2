@@ -100,7 +100,7 @@ bug_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/t
 # Link it as a subtask of its story — Kaneo's real parent-link mechanism.
 curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
   -H "Content-Type: application/json" \
-  -d "{\"sourceTaskId\": \"$bug_id\", \"targetTaskId\": \"<story task id>\", \"relationType\": \"subtask\"}"
+  -d "{\"sourceTaskId\": \"<story task id>\", \"targetTaskId\": \"$bug_id\", \"relationType\": \"subtask\"}"
 ```
 
 After creating bug ticket:

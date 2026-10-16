@@ -86,9 +86,24 @@
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "id": "1", "name": "role", "value": "release-manager", "type": "string" },
-            { "id": "2", "name": "prompt", "value": "=Check Grafana/Prometheus for {{ $node['Webhook Trigger'].json.body.body.version }}: error rate, latency p95, pod restarts. Output JSON only: {\"status\": \"clean\"|\"incident\", \"findings\": \"string\"}", "type": "string" },
-            { "id": "3", "name": "story", "value": "={{ $node['Webhook Trigger'].json.body.body.version }}", "type": "string" }
+            {
+              "id": "1",
+              "name": "role",
+              "value": "release-manager",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Check Grafana/Prometheus for {{ $node['Webhook Trigger'].json.body.body.version }}: error rate, latency p95, pod restarts. Output JSON only: {\"status\": \"clean\"|\"incident\", \"findings\": \"string\"}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
           ]
         }
       }
@@ -104,7 +119,10 @@
       ],
       "parameters": {
         "source": "database",
-        "workflowId": { "mode": "id", "value": "jAv16SAzGy9fA5G4" },
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
         "mode": "once"
       }
     },
@@ -119,10 +137,12 @@
       ],
       "parameters": {
         "conditions": {
-          "options": {
-            "leftValue": "={{ $json.output.includes('\"status\"') && $json.output.includes('\"clean\"') }}",
-            "operation": "equals",
-            "rightValue": "true"
+          "leftValue": "={ $json.health_clean }",
+          "rightValue": "",
+          "operator": {
+            "type": "boolean",
+            "operation": "true",
+            "singleValue": true
           }
         }
       }
@@ -180,9 +200,24 @@
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "id": "1", "name": "role", "value": "pm", "type": "string" },
-            { "id": "2", "name": "prompt", "value": "=Post release comms for {{ $node['Webhook Trigger'].json.body.body.version }}: changelog summary, what changed, who to contact.", "type": "string" },
-            { "id": "3", "name": "story", "value": "={{ $node['Webhook Trigger'].json.body.body.version }}", "type": "string" }
+            {
+              "id": "1",
+              "name": "role",
+              "value": "pm",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Post release comms for {{ $node['Webhook Trigger'].json.body.body.version }}: changelog summary, what changed, who to contact.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+              "type": "string"
+            }
           ]
         }
       }
@@ -198,7 +233,10 @@
       ],
       "parameters": {
         "source": "database",
-        "workflowId": { "mode": "id", "value": "jAv16SAzGy9fA5G4" },
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
         "mode": "once"
       }
     },
@@ -264,6 +302,19 @@
           ]
         }
       }
+    },
+    {
+      "id": "5109ad83-9039-427f-b100-8a759d7f6f33",
+      "name": "Parse Health Check Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const result = $(\"RM: Health Check\").first().json;\nif (result.failed === true || result.succeeded === false) throw new Error(`Health check job failed: ${result.output || JSON.stringify(result)}`);\nlet report; try { report = JSON.parse(result.output || \"\"); } catch { report = {}; }\nreturn [{ json: { ...result, health_clean: report.status === \"clean\" } }];"
+      }
     }
   ],
   "connections": {
@@ -315,7 +366,7 @@
       "main": [
         [
           {
-            "node": "Clean?",
+            "node": "Parse Health Check Result",
             "type": "main",
             "index": 0
           }
@@ -367,6 +418,17 @@
         [
           {
             "node": "→ Escalate Incident",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Health Check Result": {
+      "main": [
+        [
+          {
+            "node": "Clean?",
             "type": "main",
             "index": 0
           }

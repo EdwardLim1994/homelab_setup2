@@ -75,37 +75,38 @@ fn cluster_create_and_native_parse() {
 }
 
 #[test]
-fn terraform_genvars_and_native_parse() {
+fn tf_genvars_and_native_parse() {
     assert!(matches!(
-        parse(&["terraform", "genvars"]),
-        Command::Terraform {
+        parse(&["tf", "genvars"]),
+        Command::Tf {
             action: Some(TerraformAction::Genvars)
         }
     ));
-    match parse(&["terraform", "apply", "-auto-approve"]) {
-        Command::Terraform {
+    match parse(&["tf", "apply", "-auto-approve"]) {
+        Command::Tf {
             action: Some(TerraformAction::Passthrough(a)),
         } => assert_eq!(a, ["apply", "-auto-approve"]),
         _ => panic!("wrong variant"),
     }
     assert!(matches!(
-        parse(&["terraform"]),
-        Command::Terraform { action: None }
+        parse(&["tf"]),
+        Command::Tf { action: None }
     ));
+    assert!(Cli::try_parse_from(["homelab", "terraform", "plan"]).is_err());
     assert!(Cli::try_parse_from(["homelab", "gen-tfvars"]).is_err());
 }
 
 #[test]
 fn native_subcommand_takes_everything_verbatim() {
     match parse(&[
-        "terraform",
+        "tf",
         "native",
         "-chdir=x",
         "apply",
         "-auto-approve",
         "--help",
     ]) {
-        Command::Terraform {
+        Command::Tf {
             action: Some(TerraformAction::Native { args }),
         } => {
             assert_eq!(args, ["-chdir=x", "apply", "-auto-approve", "--help"]);
@@ -160,13 +161,13 @@ fn dispatch_native_forms_reach_the_engine() {
     let _b = SetEnv::new("CLUSTER_ENGINE", &cl);
     // explicit `native` (flag-first ok) and bare shorthand both land on the engine
     assert_eq!(
-        dispatch(parse(&["terraform", "native", "-chdir=x", "plan"])).unwrap(),
+        dispatch(parse(&["tf", "native", "-chdir=x", "plan"])).unwrap(),
         7
     );
     assert_eq!(recorded_args(&tf_out), "-chdir=x plan");
-    assert_eq!(dispatch(parse(&["terraform", "apply"])).unwrap(), 7);
+    assert_eq!(dispatch(parse(&["tf", "apply"])).unwrap(), 7);
     assert_eq!(recorded_args(&tf_out), "apply");
-    assert_eq!(dispatch(parse(&["terraform"])).unwrap(), 7);
+    assert_eq!(dispatch(parse(&["tf"])).unwrap(), 7);
     assert_eq!(recorded_args(&tf_out), "");
     assert_eq!(dispatch(parse(&["k8s", "native", "version"])).unwrap(), 7);
     assert_eq!(recorded_args(&cl_out), "version");
@@ -181,8 +182,8 @@ fn dispatch_routes_commands() {
     let _p = EmptyPath::new();
     assert!(dispatch(parse(&["ansible", "all"])).is_err());
     assert!(dispatch(parse(&["k8s", "list"])).is_err());
-    assert!(dispatch(parse(&["terraform", "plan"])).is_err());
-    assert!(dispatch(parse(&["terraform", "native", "plan"])).is_err());
+    assert!(dispatch(parse(&["tf", "plan"])).is_err());
+    assert!(dispatch(parse(&["tf", "native", "plan"])).is_err());
     assert!(dispatch(parse(&["ansible", "native", "--version"])).is_err());
     assert!(dispatch(parse(&["k8s", "native", "version"])).is_err());
     assert!(dispatch(parse(&["k8s", "create", "internal"])).is_err());

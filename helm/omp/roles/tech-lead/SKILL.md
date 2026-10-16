@@ -61,7 +61,7 @@ task_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/
 # see F-02-kickoff.json's "TL Input (Tasks)" node for the exact call shape).
 curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
   -H "Content-Type: application/json" \
-  -d "{\"sourceTaskId\": \"$task_id\", \"targetTaskId\": \"<story task id>\", \"relationType\": \"subtask\"}"
+  -d "{\"sourceTaskId\": \"<story task id>\", \"targetTaskId\": \"$task_id\", \"relationType\": \"subtask\"}"
 ```
 
 No task ticket is orphaned — every one has exactly one parent story. A story
@@ -322,7 +322,7 @@ $TICKET_LINK
 Changed services: {list}
 RC versions: {service}: v{X}.{Y}.{Z}-rc{N}
 
-SIT cluster: https://sit.{project} (deployed by CI + ArgoCD Image Updater — no separate QA cluster)
+SIT cluster: https://sit.{project} (deployed by CI's own `deploy:sit` job — no separate QA cluster)
 
 ## Proof of success
 {link every task MR's proof-of-success recording/screenshot rolled up here}

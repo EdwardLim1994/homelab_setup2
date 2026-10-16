@@ -1,5 +1,5 @@
 {{/*
-Lets n8n's own ServiceAccount create/inspect omp-agent Jobs in the sdlc
+Lets n8n's own ServiceAccount create/inspect/delete omp-agent Jobs in the sdlc
 namespace (n8n itself, not the Job pods — those use omp-agent's own SA,
 see helm/omp-agent/templates/role.yaml). n8n subchart default SA name is
 release-fullname ("n8n" for this release) — verify with
@@ -13,7 +13,7 @@ metadata:
 rules:
   - apiGroups: ["batch"]
     resources: ["jobs"]
-    verbs: ["create", "get"]
+    verbs: ["create", "get", "delete"]
   # ponytail: needed to find the Job's pod and read its output once finished —
   # the Job resource itself doesn't carry the omp/opencode CLI's stdout.
   - apiGroups: [""]

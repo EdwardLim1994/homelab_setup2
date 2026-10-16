@@ -1,0 +1,78 @@
+{
+  "name": "TMP OMP Kaneo Authentik Login Probe",
+  "nodes": [
+    {
+      "id": "tmp-kaneo-probe-webhook",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "path": "tmp-kaneo-authentik-probe-4d4301de9ae64ce6a6a695d55a2a3f66",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "webhookId": "tmp-kaneo-probe-webhook-4d4301de-9ae6-4ce6-a6a6-95d55a2a3f66"
+    },
+    {
+      "id": "tmp-kaneo-probe-token",
+      "name": "Read SA Token",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "command": "cat /var/run/secrets/kubernetes.io/serviceaccount/token"
+      }
+    },
+    {
+      "id": "tmp-kaneo-probe-run",
+      "name": "Wake, Probe, Restore",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const token = $node['Read SA Token'].json.stdout.trim();\nconst base = 'https://kubernetes.default.svc';\nconst deploymentPath = '/apis/apps/v1/namespaces/omp/deployments/omp-backend-developer';\nconst headers = { Authorization: `Bearer ${token}` };\nconst kube = (method, path, body, contentType) => this.helpers.httpRequest({ method, url: `${base}${path}`, headers: { ...headers, ...(contentType ? { 'Content-Type': contentType } : {}) }, ...(body === undefined ? {} : { body, json: true }), skipSslCertificateValidation: true, timeout: 15000 });\nconst sleep = ms => new Promise(resolve => setTimeout(resolve, ms));\nconst report = { role: 'backend-developer', kaneo_identity: 'role api key (backend-developer)' };\nlet originalReplicas = 0;\nlet patched = false;\nlet result;\ntry {\n  const before = await kube('GET', deploymentPath);\n  originalReplicas = before.spec.replicas ?? 0;\n  const containerIndex = before.spec.template.spec.containers.findIndex(c => c.name === 'omp');\n  if (containerIndex < 0) throw new Error('omp container missing from deployment');\n  const envPath = `/spec/template/spec/containers/${containerIndex}/env`;\n  const env = before.spec.template.spec.containers[containerIndex].env || [];\n  if (env.some(e => ['KANEO_API_KEY'].includes(e.name))) throw new Error('probe env already exists; refusing to overwrite it');\n  const probeEnv = [\n    { name: 'KANEO_API_KEY', valueFrom: { secretKeyRef: { name: 'kaneo-authentik-probe', key: 'api_key' } } }\n  ];\n  const ops = [{ op: 'add', path: '/spec/replicas', value: 1 }];\n  if (before.spec.template.spec.containers[containerIndex].env) {\n    for (const item of probeEnv) ops.push({ op: 'add', path: `${envPath}/-`, value: item });\n  } else {\n    ops.push({ op: 'add', path: envPath, value: probeEnv });\n  }\n  patched = true;\n  await kube('PATCH', deploymentPath, ops, 'application/json-patch+json');\n\n  const deadline = Date.now() + 180000;\n  let ready = false;\n  while (Date.now() < deadline) {\n    const current = await kube('GET', deploymentPath);\n    if ((current.status?.availableReplicas || 0) > 0) { ready = true; break; }\n    await sleep(5000);\n  }\n  if (!ready) throw new Error('backend-developer pod did not become ready within 180 seconds');\n\n  let health;\n  const healthDeadline = Date.now() + 60000;\n  while (Date.now() < healthDeadline) {\n    try {\n      health = await this.helpers.httpRequest({ method: 'GET', url: 'http://omp-backend-developer.omp.svc:4096/healthz', json: true, timeout: 5000 });\n      if (health.status === 'ok') break;\n    } catch (e) { health = undefined; }\n    await sleep(2000);\n  }\n  if (!health || health.status !== 'ok') throw new Error('backend-developer health endpoint did not report ok within 60 seconds');\n  const prompt = `Kaneo is reachable in-cluster at http://kaneo.kaneo.svc.cluster.local:5173. KANEO_API_KEY (from this process environment) is the backend-developer SDLC role's real, pre-minted Kaneo API key — minted by role-accounts.yml by signing in as the Kaneo admin, impersonating this role's account, and calling api-key/create under that impersonated session (NOT a password or OIDC login; this role's Kaneo account has no password at all by design). Role accounts cannot sign in directly — do NOT attempt /api/auth/sign-in/email, /api/auth/sign-in/social, or any Authentik/OIDC redirect; all of those are wrong for this identity. Authenticate instead by calling GET http://kaneo.kaneo.svc.cluster.local:5173/api/workspace with header Authorization: Bearer KANEO_API_KEY. A 200 response (even an empty or non-empty workspace list) confirms this role's API key authenticates correctly against Kaneo's REST API; a 401/403 means the key is rejected. Do not print, echo, log, or reveal the key value, or any full response body. Do not dump the environment. Do not create, read, or modify tickets. Use only in-cluster URLs and non-interactive HTTP tools; no browser. Return JSON only: {\"http_status\":200,\"authenticated\":true,\"failure_class\":null} on success; otherwise report actual numeric http_status, authenticated false, and sanitized failure_class. Never claim an unobserved status. Never include secret values.`;\n  const completion = await this.helpers.httpRequest({ method: 'POST', url: 'http://omp-backend-developer.omp.svc:4096/v1/chat/completions', body: { model: 'omp-backend-developer', messages: [{ role: 'user', content: prompt }], stream: false }, json: true, timeout: 600000 });\n  const text = completion.choices?.[0]?.message?.content || '(no probe result returned)';\n  result = { ...report, health: health.status, probe: text.replace(/\\b[0-9a-f]{64}\\b/gi, '[redacted]') };\n} catch (error) {\n  result = { ...report, error: String(error.message || error).replace(/\\b[0-9a-f]{64}\\b/gi, '[redacted]') };\n} finally {\n  if (patched) {\n    try {\n      const current = await kube('GET', deploymentPath);\n      const containerIndex = current.spec.template.spec.containers.findIndex(c => c.name === 'omp');\n      const env = current.spec.template.spec.containers[containerIndex].env || [];\n      const indexes = env.map((e, i) => ['KANEO_API_KEY'].includes(e.name) ? i : -1).filter(i => i >= 0).sort((a, b) => b - a);\n      const ops = [{ op: 'replace', path: '/spec/replicas', value: originalReplicas }];\n      for (const i of indexes) ops.push({ op: 'remove', path: `/spec/template/spec/containers/${containerIndex}/env/${i}` });\n      await kube('PATCH', deploymentPath, ops, 'application/json-patch+json');\n      result.cleanup = 'deployment restored';\n    } catch (error) {\n      result.cleanup = `manual cleanup required: ${String(error.message || error).replace(/\\b[0-9a-f]{64}\\b/gi, '[redacted]')}`;\n    }\n  }\n  try {\n    await kube('DELETE', '/api/v1/namespaces/omp/secrets/kaneo-authentik-probe');\n    result.secret = 'temporary credential deleted';\n  } catch (error) {\n    result.secret = `manual secret cleanup required: ${String(error.message || error).replace(/\\b[0-9a-f]{64}\\b/gi, '[redacted]')}`;\n  }\n}\nlet probeReport = {}; try { probeReport = JSON.parse(result.probe || ''); } catch {}\nconst probeOk = probeReport.http_status === 200 && probeReport.authenticated === true;\nconst cleanupOk = (!patched || result.cleanup === 'deployment restored') && result.secret === 'temporary credential deleted';\nreturn [{ json: { ...result, probeReport, succeeded: probeOk && cleanupOk, failed: !(probeOk && cleanupOk) } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read SA Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read SA Token": {
+      "main": [
+        [
+          {
+            "node": "Wake, Probe, Restore",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": false
+  },
+  "active": true,
+  "tags": []
+}

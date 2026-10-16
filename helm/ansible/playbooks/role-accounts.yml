@@ -41,6 +41,9 @@
   vars:
     gitlab_ns: gitlab
     sdlc_ns: sdlc
+    kaneo_ns: kaneo
+    postgres_ns: postgres
+    shared_db_password: "{{ lookup('env', 'shared_db_password') }}"
     gitlab_url: >-
       {{ lookup('env', 'GITLAB_URL')
          | default('http://gitlab-webservice-default.gitlab.svc.cluster.local:8181', true) }}
@@ -50,6 +53,8 @@
          | default('http://kaneo.kaneo.svc.cluster.local:5173', true) }}
     kaneo_admin_email: "{{ lookup('env', 'kaneo_admin_email') }}"
     kaneo_admin_password: "{{ lookup('env', 'kaneo_admin_password') }}"
+    kaneo_external_url: "{{ lookup('env', 'kaneo_external_url') }}"
+    authentik_url: "{{ lookup('env', 'authentik_url') }}"
     group_ref: "{{ lookup('env', 'gitlab_group_id') | default('sdlc', true) }}"
     # ponytail: single source of truth is helm/omp/values.yaml's `roles:`
     # list -- keep these in sync if a role is ever added/removed there.
@@ -282,10 +287,118 @@
       no_log: true
       when: role_token_map is defined
 
-    # --- Kaneo: sign in as bootstrap admin to get a session cookie ---
-    - name: Sign in as the Kaneo bootstrap admin
+    # --- Kaneo: local-password admin + per-role users, no OIDC/browser ---
+    # ponytail: Kaneo's admin/create-user and sign-in/email both 403 by
+    # default (disableLoginForm / disablePasswordRegistration, see
+    # helm/kaneo/values.yaml) -- SSO-only was the plan, but every attempt to
+    # drive a role's login through its real Authentik account headlessly
+    # (raw HTTP, Playwright) hit the same intermittent failure a real
+    # browser never did: password check succeeds (Authentik's own event
+    # log confirms it) but the session never completes the OAuth
+    # continuation back to Kaneo. Root cause not found despite extensive
+    # testing (ruled out: account type, headers, HTTP version, network
+    # path, request pacing).
+    #
+    # Fix: re-enable password LOGIN (disableLoginForm: false) while leaving
+    # SELF-REGISTRATION blocked (disablePasswordRegistration: true) -- the
+    # actual security surface is open signup, not password login for
+    # admin-provisioned accounts. admin/create-user is still blocked by
+    # disablePasswordRegistration, so role users and the admin's own local
+    # credential are upserted directly in Kaneo's postgres database
+    # (role=db=kaneo, shared postgres) instead -- bcrypt-hashed the same
+    # way Kaneo's own backend does (its bundled bcryptjs, cost 10), so
+    # Better Auth's own password verification accepts it transparently.
+    # From there the ORIGINAL design works: admin signs in -> impersonates
+    # each role -> mints that role's own API key under the impersonated
+    # session. No browser, no OIDC, no intermittent failure.
+    - name: Find the kaneo pod
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ kaneo_ns }}"
+        label_selectors: ["app=kaneo"]
+        field_selectors: ["status.phase=Running"]
+      register: kaneo_pods
+      until: kaneo_pods.resources | length > 0
+      retries: 20
+      delay: 15
+
+    - name: Find the postgres pod
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ postgres_ns }}"
+        label_selectors: ["app=postgres"]
+        field_selectors: ["status.phase=Running"]
+      register: postgres_pods
+      until: postgres_pods.resources | length > 0
+      retries: 20
+      delay: 15
+
+    - name: Compute bcrypt hash of the Kaneo admin password (Kaneo's own bundled bcryptjs, cost 10)
+      kubernetes.core.k8s_exec:
+        namespace: "{{ kaneo_ns }}"
+        pod: "{{ kaneo_pods.resources[0].metadata.name }}"
+        container: kaneo
+        command: >-
+          /bin/sh -c "cd /app/apps/api && node -e \"require('bcryptjs').hash('{{ kaneo_admin_password }}', 10).then(h=>console.log(h))\""
+      register: kaneo_pw_hash_out
+      no_log: true
+
+    - name: Extract the bcrypt hash
+      ansible.builtin.set_fact:
+        kaneo_pw_hash: "{{ kaneo_pw_hash_out.stdout | trim }}"
+      no_log: true
+
+    # ponytail: SQL travels base64-encoded -- avoids any nested-quote hell
+    # from PostgreSQL's reserved-word "user" table needing double quotes
+    # while already inside k8s_exec's own command-string quoting.
+    - name: Upsert the Kaneo admin's local credential (idempotent re-mint)
+      vars:
+        _sql: >-
+          INSERT INTO account (id, account_id, provider_id, user_id, password, created_at, updated_at)
+          SELECT 'cred-admin-bootstrap', id, 'credential', id, '{{ kaneo_pw_hash }}', now(), now()
+          FROM "user" WHERE email='{{ kaneo_admin_email }}'
+          ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password;
+      kubernetes.core.k8s_exec:
+        namespace: "{{ postgres_ns }}"
+        pod: "{{ postgres_pods.resources[0].metadata.name }}"
+        container: postgres
+        command: >-
+          /bin/sh -c "echo {{ _sql | b64encode }} | base64 -d | PGPASSWORD='{{ shared_db_password }}' psql -U kaneo -d kaneo"
+      no_log: true
+
+    # ponytail: id defaults to the role name on first creation, but earlier
+    # manual OIDC-signup testing already created some of these 12 users
+    # with random Better-Auth-generated ids -- ON CONFLICT (email) keeps
+    # whichever id the row already has, so RETURNING id and capturing it is
+    # required; never assume id == role name downstream.
+    - name: Upsert each role's Kaneo user and capture its real id
+      vars:
+        _sql: >-
+          INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at)
+          VALUES ('{{ item }}', '{{ item }}', 'sdlc-{{ item }}@homelab.local', true, now(), now())
+          ON CONFLICT (email) DO UPDATE SET updated_at = now()
+          RETURNING id;
+      kubernetes.core.k8s_exec:
+        namespace: "{{ postgres_ns }}"
+        pod: "{{ postgres_pods.resources[0].metadata.name }}"
+        container: postgres
+        command: >-
+          /bin/sh -c "echo {{ _sql | b64encode }} | base64 -d | PGPASSWORD='{{ shared_db_password }}' psql -tA -U kaneo -d kaneo"
+      register: kaneo_user_upsert_out
+      loop: "{{ sdlc_roles }}"
+      loop_control: { label: "{{ item }}" }
+      no_log: true
+
+    - name: Build role -> Kaneo user id map
+      ansible.builtin.set_fact:
+        kaneo_user_id_map: "{{ kaneo_user_id_map | default({}) | combine({ item.item: (item.stdout | trim) }) }}"
+      loop: "{{ kaneo_user_upsert_out.results }}"
+      loop_control: { label: "{{ item.item }}" }
+      no_log: true
+
+    - name: Sign in as the Kaneo admin (local credential upserted above)
       ansible.builtin.uri:
-        url: "{{ kaneo_url }}/api/auth/sign-in/email"
+        url: "{{ kaneo_external_url }}/api/auth/sign-in/email"
         method: POST
         body_format: json
         body: { email: "{{ kaneo_admin_email }}", password: "{{ kaneo_admin_password }}" }
@@ -295,63 +408,97 @@
 
     - name: Extract the admin session cookie
       ansible.builtin.set_fact:
-        kaneo_admin_cookie: "{{ kaneo_signin.set_cookie.split(';') | first }}"
+        kaneo_admin_cookie: "__Secure-better-auth.session_token={{ kaneo_signin.cookies['__Secure-better-auth.session_token'] }}"
       no_log: true
 
-    # --- Kaneo: create one user per role (idempotent) ---
-    - name: Resolve a throwaway Kaneo role-account password
-      ansible.builtin.set_fact:
-        kaneo_role_password: "{{ lookup('ansible.builtin.password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
-      no_log: true
-
-    - name: Create each role's Kaneo user (admin plugin, tolerate already-exists)
+    - name: Look up the sdlc Kaneo workspace id
       ansible.builtin.uri:
-        url: "{{ kaneo_url }}/api/auth/admin/create-user"
+        url: "{{ kaneo_external_url }}/api/workspace"
+        method: GET
+        headers: { Authorization: "Bearer {{ lookup('env', 'kaneo_api_token') }}" }
+        return_content: true
+        status_code: [200]
+      register: kaneo_workspaces
+      no_log: true
+
+    - name: Resolve sdlc workspace id
+      ansible.builtin.set_fact:
+        kaneo_sdlc_workspace_id: "{{ (kaneo_workspaces.json | selectattr('slug', 'equalto', 'sdlc') | first).id }}"
+      no_log: true
+
+    - name: Admin-invite every role into the sdlc Kaneo workspace
+      ansible.builtin.uri:
+        url: "{{ kaneo_external_url }}/api/auth/organization/invite-member"
         method: POST
-        headers: { Cookie: "{{ kaneo_admin_cookie }}" }
+        headers: { Authorization: "Bearer {{ lookup('env', 'kaneo_api_token') }}" }
         body_format: json
-        body:
-          email: "sdlc-{{ item }}@homelab.local"
-          password: "{{ kaneo_role_password }}"
-          name: "{{ item }}"
-        status_code: [200, 400, 422]
-      register: kaneo_create_out
+        body: { organizationId: "{{ kaneo_sdlc_workspace_id }}", email: "sdlc-{{ item }}@homelab.local", role: member }
+        status_code: [200, 400]
       loop: "{{ sdlc_roles }}"
       loop_control: { label: "{{ item }}" }
       no_log: true
 
-    # --- Kaneo: impersonate each role, mint an API key under that session ---
+    # --- Kaneo: impersonate each role (admin session), accept its invite, mint its key ---
     - name: Impersonate each role's Kaneo user
       ansible.builtin.uri:
-        url: "{{ kaneo_url }}/api/auth/admin/impersonate-user"
+        url: "{{ kaneo_external_url }}/api/auth/admin/impersonate-user"
         method: POST
-        headers: { Cookie: "{{ kaneo_admin_cookie }}" }
+        headers: { Cookie: "{{ kaneo_admin_cookie }}", Origin: "{{ kaneo_external_url }}" }
         body_format: json
-        body: { userId: "{{ item.json.user.id | default(item.json.id) }}" }
+        body: { userId: "{{ kaneo_user_id_map[item] }}" }
         status_code: [200]
       register: kaneo_impersonate_out
-      loop: "{{ kaneo_create_out.results }}"
+      loop: "{{ sdlc_roles }}"
+      loop_control: { label: "{{ item }}" }
+      no_log: false # TEMP DEBUG
+
+    - name: List each impersonated role's pending invitations
+      ansible.builtin.uri:
+        url: "{{ kaneo_external_url }}/api/auth/organization/list-user-invitations"
+        method: GET
+        headers: { Cookie: "__Secure-better-auth.session_token={{ item.cookies['__Secure-better-auth.session_token'] }}" }
+        return_content: true
+        status_code: [200]
+      register: kaneo_invites_out
+      loop: "{{ kaneo_impersonate_out.results }}"
       loop_control: { label: "{{ item.item }}" }
       no_log: true
 
-    - name: Create an API key under each impersonated role session
+    - name: Accept each role's pending sdlc invitation
       ansible.builtin.uri:
-        url: "{{ kaneo_url }}/api/auth/api-key/create"
+        url: "{{ kaneo_external_url }}/api/auth/organization/accept-invitation"
         method: POST
-        headers: { Cookie: "{{ item.set_cookie.split(';') | first }}" }
+        headers:
+          Cookie: "__Secure-better-auth.session_token={{ item.item.cookies['__Secure-better-auth.session_token'] }}"
+          Origin: "{{ kaneo_external_url }}"
         body_format: json
-        body: { name: "sdlc-role-key" }
+        body: { invitationId: "{{ (item.json | selectattr('status', 'equalto', 'pending') | first).id }}" }
+        status_code: [200]
+      loop: "{{ kaneo_invites_out.results }}"
+      loop_control: { label: "{{ item.item.item }}" }
+      when: (item.json | selectattr('status', 'equalto', 'pending') | list) | length > 0
+      no_log: true
+
+    - name: Mint an API key under each impersonated session
+      ansible.builtin.uri:
+        url: "{{ kaneo_external_url }}/api/auth/api-key/create"
+        method: POST
+        headers:
+          Cookie: "__Secure-better-auth.session_token={{ item.cookies['__Secure-better-auth.session_token'] }}"
+          Origin: "{{ kaneo_external_url }}"
+        body_format: json
+        body: { name: sdlc-role-key }
         status_code: [200]
       register: kaneo_key_out
       loop: "{{ kaneo_impersonate_out.results }}"
-      loop_control: { label: "{{ item.item.item }}" }
+      loop_control: { label: "{{ item.item }}" }
       no_log: true
 
     - name: Build role -> Kaneo API key map
       ansible.builtin.set_fact:
-        kaneo_role_token_map: "{{ kaneo_role_token_map | default({}) | combine({ item.item.item.item: item.json.key }) }}"
+        kaneo_role_token_map: "{{ kaneo_role_token_map | default({}) | combine({ item.item.item: item.json.key }) }}"
       loop: "{{ kaneo_key_out.results }}"
-      loop_control: { label: "{{ item.item.item.item }}" }
+      loop_control: { label: "{{ item.item.item }}" }
       when: item.json is defined and item.json.key is defined
       no_log: true
 

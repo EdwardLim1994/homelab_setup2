@@ -1,9 +1,0 @@
-dependencies:
-- name: argo-cd
-  repository: https://argoproj.github.io/argo-helm
-  version: 7.9.1
-- name: argocd-image-updater
-  repository: https://argoproj.github.io/argo-helm
-  version: 0.12.1
-digest: sha256:2ac586b950711a4a48f4a6eb848aa17a35e311e250bc71ffe7ff7c5df1fe118c
-generated: "2026-09-22T11:56:46.1560866+08:00"

@@ -169,6 +169,19 @@
           ]
         }
       }
+    },
+    {
+      "id": "6c97f4b5-d417-48b2-a34f-dc9dbeddc712",
+      "name": "Assert Staging Test Commands",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"QA: k6 Load Test\", \"Security: ZAP DAST\"];\nconst failures = names.filter(name => $(name).first().json.exitCode !== 0);\nif (failures.length) throw new Error(`Staging test command failed: ${failures.join(\", \")}`);\nreturn $input.all();"
+      }
     }
   ],
   "connections": {
@@ -225,7 +238,7 @@
       "main": [
         [
           {
-            "node": "Notify: Tests done, RM deciding",
+            "node": "Assert Staging Test Commands",
             "type": "main",
             "index": 0
           }
@@ -237,6 +250,17 @@
         [
           {
             "node": "→ F-16 Go/No-Go",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Staging Test Commands": {
+      "main": [
+        [
+          {
+            "node": "Notify: Tests done, RM deciding",
             "type": "main",
             "index": 0
           }

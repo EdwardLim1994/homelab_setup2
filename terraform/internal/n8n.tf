@@ -19,11 +19,9 @@ resource "kubernetes_config_map" "n8n_oidc_hooks" {
 # server-side (Node's https client) against OIDC_ISSUER_URL, the external
 # tailnet URL — coredns.tf rewrites that to in-cluster traefik, which serves
 # a homelab-CA cert Node doesn't trust ("unable to verify the first
-# certificate"). Same read-and-copy pattern as minio.tf/openwebui.tf/
-# argocd.tf; separate data source name per module-uniqueness rule. Unlike
-# argocd's Go binary, Node natively supports an *additive* extra-CA file
-# (NODE_EXTRA_CA_CERTS) — no need for argocd's combine-and-overwrite-the-
-# system-bundle trick.
+# certificate"). Same read-and-copy pattern as minio.tf/openwebui.tf;
+# separate data source name per module-uniqueness rule. Node natively
+# supports an *additive* extra-CA file (NODE_EXTRA_CA_CERTS).
 data "kubernetes_secret" "homelab_ca_n8n" {
   metadata {
     name      = "homelab-ca-secret"
@@ -89,18 +87,11 @@ resource "helm_release" "n8n" {
     value = var.omp_gitlab_token
   }
 
-  # F-10/F-21/F-27 ArgoCD sync calls — mint by hand, see variables.tf comment
-  set_sensitive {
-    name  = "n8n.main.extraEnvVars.ARGOCD_TOKEN"
-    value = var.argocd_token
-  }
-
   # Kaneo ticket API — replaces GitLab issues calls in the flow prompts
   # (wiki moved to GitLab's own wiki module instead — see AGENTS.md). Mint
   # by hand (browser, admin user's API key). KANEO_URL/KANEO_PROJECT_ID are
   # plain in-cluster defaults baked into values.yaml — no override needed
-  # here (see its comment: pods can't reach the tailnet VIP, same reason
-  # ARGOCD_URL stays in-cluster).
+  # here (pods can't reach the tailnet VIP, so this stays in-cluster).
   set_sensitive {
     name  = "n8n.main.extraEnvVars.KANEO_TOKEN"
     value = var.kaneo_api_token

@@ -18,6 +18,31 @@ resource "kubernetes_config_map" "ansible_n8n_flows" {
   }
 }
 
+# The ConfigMap feeds the runner, but n8n stores workflows in its database.
+# Re-seed after flow edits so the deployed definitions do not stay stale.
+resource "null_resource" "n8n_flow_seed" {
+  # The full n8n playbook mints an API key when unset; leave first-run setup
+  # to its documented manual run so apply cannot print a new secret.
+  count = nonsensitive(var.n8n_mcp_api_key) == "" ? 0 : 1
+
+  triggers = {
+    flow_hash = sha1(join(",", [
+      for f in fileset("${path.module}/../../helm/ansible/flows", "*") : filesha1("${path.module}/../../helm/ansible/flows/${f}")
+    ]))
+  }
+
+  provisioner "local-exec" {
+    working_dir = abspath("${path.module}/../..")
+    command     = "cargo run --manifest-path scripts/Cargo.toml -- ansible run n8n"
+  }
+
+  depends_on = [
+    helm_release.ansible,
+    helm_release.n8n,
+    kubernetes_config_map.ansible_n8n_flows,
+  ]
+}
+
 # ponytail: the SDLC OpenWebUI pipe (helm/ansible/pipe/sdlc_pipe.py) — mounted
 # at /pipe, same pattern as ansible_n8n_flows. Kept out of the helm chart
 # package via helm/ansible/.helmignore.
@@ -62,14 +87,26 @@ resource "kubernetes_secret" "ansible_secrets" {
     litellm_master_key    = var.litellm_master_key
     gitlab_webhook_secret = var.gitlab_webhook_secret
     gitlab_group_id       = var.gitlab_group_id
-    # ponytail: role-accounts.yml's shared-fallback Kaneo credential (per-role
-    # keys it mints go into omp-role-kaneo-tokens instead, same split as
+    # ponytail: role-accounts.yml's admin Kaneo credential -- used to invite
+    # every role into the sdlc workspace (per-role keys it mints after each
+    # role logs in via its own Authentik account go into
+    # omp-role-kaneo-tokens instead, same split as
     # omp_gitlab_token/omp-role-gitlab-tokens).
     kaneo_api_token = var.kaneo_api_token
-    # role-accounts.yml signs in as this bootstrap admin (POST
-    # /api/auth/sign-in/email) to create per-role Kaneo users + API keys.
     kaneo_admin_email    = var.admin_email
     kaneo_admin_password = var.kaneo_admin_password
+    # role-accounts.yml's Kaneo section upserts rows directly in Kaneo's own
+    # shared-postgres database (role=db=kaneo) -- its admin/create-user API
+    # is blocked by disablePasswordRegistration (deliberately left on, see
+    # helm/kaneo/values.yaml).
+    shared_db_password = var.shared_db_password
+    # role-accounts.yml's kaneo-role-auth.py recomputes each role's real
+    # Authentik password from this (see provision-app-providers.py). It
+    # needs the EXTERNAL https URLs, not the in-cluster http ones -- Kaneo's
+    # __Secure- prefixed OAuth-state cookie only persists over https.
+    SDLC_ROLE_PASSWORD_SEED = var.sdlc_role_password_seed
+    authentik_url           = local.authentik_url
+    kaneo_external_url      = local.app_url["kaneo"]
     # ponytail: gitlab-webhook.yml also sets these as sdlc-group CI/CD
     # variables so generated projects can push to Harbor without GitLab's
     # own $CI_REGISTRY_* auto-vars (which only exist for its bundled registry).
@@ -146,31 +183,74 @@ resource "kubernetes_role_binding" "ansible_gitlab_exec" {
   }
 }
 
-# argocd-clusters.yml writes one Secret per registered external cluster
-# (argocd.argoproj.io/secret-type: cluster convention — ArgoCD reads these
-# directly, no argocd CLI/API token needed for registration itself).
-resource "kubernetes_role" "ansible_argocd_clusters" {
+# role-accounts.yml's Kaneo section: exec into the kaneo pod (bcrypt-hash
+# the admin password via its own bundled bcryptjs) and into the shared
+# postgres pod (upsert the admin credential row + one user row per role --
+# Kaneo's admin/create-user API is blocked by disablePasswordRegistration,
+# which also gates self-signup and is deliberately left on, see
+# helm/kaneo/values.yaml).
+resource "kubernetes_role" "ansible_kaneo_exec" {
   metadata {
-    name      = "ansible-argocd-clusters"
-    namespace = "argocd"
+    name      = "ansible-kaneo-exec"
+    namespace = "kaneo"
   }
   rule {
     api_groups = [""]
-    resources  = ["secrets"]
-    verbs      = ["get", "list", "create", "patch"]
+    resources  = ["pods"]
+    verbs      = ["get", "list"]
   }
-  depends_on = [kubernetes_namespace.argocd]
+  rule {
+    api_groups = [""]
+    resources  = ["pods/exec"]
+    verbs      = ["get", "create"]
+  }
+  depends_on = [kubernetes_namespace.kaneo]
 }
 
-resource "kubernetes_role_binding" "ansible_argocd_clusters" {
+resource "kubernetes_role_binding" "ansible_kaneo_exec" {
   metadata {
-    name      = "ansible-argocd-clusters"
-    namespace = "argocd"
+    name      = "ansible-kaneo-exec"
+    namespace = "kaneo"
   }
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "Role"
-    name      = kubernetes_role.ansible_argocd_clusters.metadata[0].name
+    name      = kubernetes_role.ansible_kaneo_exec.metadata[0].name
+  }
+  subject {
+    kind      = "ServiceAccount"
+    name      = "ansible-runner"
+    namespace = kubernetes_namespace.ansible.metadata[0].name
+  }
+}
+
+resource "kubernetes_role" "ansible_postgres_exec" {
+  metadata {
+    name      = "ansible-postgres-exec"
+    namespace = "postgres"
+  }
+  rule {
+    api_groups = [""]
+    resources  = ["pods"]
+    verbs      = ["get", "list"]
+  }
+  rule {
+    api_groups = [""]
+    resources  = ["pods/exec"]
+    verbs      = ["get", "create"]
+  }
+  depends_on = [kubernetes_namespace.postgres]
+}
+
+resource "kubernetes_role_binding" "ansible_postgres_exec" {
+  metadata {
+    name      = "ansible-postgres-exec"
+    namespace = "postgres"
+  }
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "Role"
+    name      = kubernetes_role.ansible_postgres_exec.metadata[0].name
   }
   subject {
     kind      = "ServiceAccount"

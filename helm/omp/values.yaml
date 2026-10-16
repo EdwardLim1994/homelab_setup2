@@ -17,12 +17,12 @@ command: ["python3"]
 args: ["/opt/pod-openai.py"]
 
 # ponytail: BACKEND selects the agent CLI pod-openai.py drives — "omp" (default,
-# Ollama-backed) or "claude" (Claude Code print-mode, needs claudeAuth below).
-# e.g. env: {BACKEND: "claude", CLAUDE_MODEL: "sonnet"}
+# Ollama-backed) or "codex" (Codex CLI print-mode, needs codexAuth below).
 env:
-  BACKEND: "claude"
-  CLAUDE_MODEL: "sonnet"
-  CLAUDE_EFFORT: "low"
+  BACKEND: "codex"
+  CODEX_MODEL: ""
+  # ponytail: codex auth is the codexAuth secret's auth.json file below, not
+  # an env var — no CODEX_API_KEY/OPENAI_API_KEY here.
   # ponytail: same tokens as helm/litellm's mcpSonarqubeAuthToken /
   # mcpGitlabAuthToken / mcpN8nAuthToken — this chart has no terraform
   # release of its own (only its Dockerfile is used, by omp-agent.tf), so
@@ -31,11 +31,13 @@ env:
   MCP_GITLAB_TOKEN: ""
   MCP_N8N_TOKEN: ""
 
-# ponytail: Secret (key CLAUDE_CODE_OAUTH_TOKEN) mounted as envFrom into every
-# omp pod — used when a pod runs the `claude` CLI instead of omp. Set
-# secretName: "" to drop the mount entirely.
-claudeAuth:
-  secretName: omp-claude-auth
+# ponytail: Secret (key auth.json — the file `codex login` writes to
+# ~/.codex/auth.json) mounted as a file into every omp pod, so `codex exec`
+# uses the CLI's own ChatGPT-account login instead of OPENAI_API_KEY billing.
+# Set secretName: "" to drop the mount entirely (codex then needs
+# OPENAI_API_KEY in env instead).
+codexAuth:
+  secretName: omp-codex-auth
 
 # ponytail: git URL of a skills repo (layout: skills/<name>/SKILL.md, same as
 # caveman/ponytail). When set, an initContainer clones it and the main

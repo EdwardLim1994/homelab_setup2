@@ -92,7 +92,8 @@ posting the consolidated result to Mattermost.
 
 `omp-agent-secrets` (plain K8s Secret — no ExternalSecret operator in this
 cluster) carries `gitlab_token` (reuses `TF_VAR_omp_gitlab_token`),
-`claude_code_token` (reuses `TF_VAR_claude_code_token`), and
+`codex_auth_json` (reuses `TF_VAR_omp_codex_token`, mounted as
+`/root/.codex/auth.json`), and
 `gitlab_repo_url` (new: `TF_VAR_omp_gitlab_repo_url`, set in `.env`),
 `kaneo_token` (`TF_VAR_kaneo_api_token`, bootstrap-once via the
 browser like `openwebui_api_key`), and `kaneo_url` (the in-cluster service

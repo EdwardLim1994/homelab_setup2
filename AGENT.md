@@ -9,7 +9,7 @@ A self-hosted homelab that runs on a local **k3d** cluster. One Authentik SSO
 in front of everything, every app reachable over Tailscale MagicDNS
 (`https://<app>.<tailnet>.ts.net`) and on the LAN (`https://<app>.local`).
 
-Apps: Authentik, GitLab (+ runner), MinIO, n8n, SonarQube, Nextcloud, ArgoCD,
+Apps: Authentik, GitLab (+ runner), MinIO, n8n, SonarQube, Nextcloud,
 an LGTM observability stack, LiteLLM, OpenWebUI, Kafbat Kafka UI (views
 sit/uat/production's kafka — see "Kafka UI" below), Harbor (container
 registry — see "Harbor" below), Kaneo (ticket tracker — see
@@ -187,8 +187,8 @@ pipeline pushes to `harbor.harbor.svc.cluster.local:80/library/<group>/
 — group-level CI/CD variables on `sdlc` set by `gitlab-webhook.yml`, since
 Harbor isn't GitLab's own registry and gets none of the `$CI_REGISTRY_*`
 auto-vars for free. `admin` / `var.harbor_admin_password` is reused for CI
-push, ArgoCD Image Updater, and Harbor's own admin login — no separate robot
-account, homelab-scoped. `create-cluster.sh`'s phase-cluster containerd
+push, CI pull (every `deploy:{env}` job — see devops-engineer/SKILL.md),
+and Harbor's own admin login — no separate robot account, homelab-scoped. `create-cluster.sh`'s phase-cluster containerd
 mirror also points here now (was gitlab-registry) — see Known issues below,
 this only takes effect on a freshly-created phase cluster.
 
@@ -201,19 +201,21 @@ project (Harbor's default project, already exists, same one every image
 push already targets) whenever the chart changes. Every generated project
 gets its own router **instance** per (project, env) on the phase clusters,
 provisioned by the devops-engineer agent pod at `/kickoff` — see
-devops-engineer/SKILL.md's "Apollo Router Provisioning" for the full
-ArgoCD multi-source Application shape (chart from Harbor OCI, values from
-the project's own repo) and devops-engineer's `.gitlab-ci.yml`
-`compose-supergraph` stage for how the composed supergraph schema gets kept
-in sync (`rover supergraph compose` over every backend subgraph, written
-into the project's own `env/{env}/apollo-router/values.yaml`, ArgoCD
-auto-syncs from there). The chart itself is deliberately never copied into
-any generated project's repo — one chart, many independent instances,
-same "shared source, per-consumer instance" shape `terraform/{sit,uat,production}`
-already uses for `platform-apps`, just keyed by project instead of by
-phase-cluster. Push uses a `kubectl port-forward` to Harbor for the
-duration of the push (host can't resolve `harbor.harbor.svc.cluster.local`)
-— phase clusters' ArgoCD instances instead pull the chart via the same
+devops-engineer/SKILL.md's "Apollo Router Provisioning" for how its
+`deploy:{env}` CI job special-cases this chart (pulled from Harbor's
+`library/charts` by its own fixed version, instead of this project's own
+per-service Harbor path) and the `compose-supergraph` stage for how the
+composed supergraph schema gets kept in sync (`rover supergraph compose`
+over every backend subgraph, written into the project's own
+`env/{env}/apollo-router/values.yaml`, picked up by that same `deploy:{env}`
+job on the next pipeline run). The chart itself is deliberately never
+copied into any generated project's repo — one chart, many independent
+instances, same "shared source, per-consumer instance" shape
+`terraform/{sit,uat,production}` already uses for `platform-apps`, just
+keyed by project instead of by phase-cluster. Terraform's own push uses a
+`kubectl port-forward` to Harbor for the duration of the push (host can't
+resolve `harbor.harbor.svc.cluster.local`) — each phase cluster's CI
+runner instead pulls the chart via the same
 `host.docker.internal:$REGISTRY_MIRROR_PORT` NodePort bridge every image
 pull from those clusters already uses.
 
@@ -314,8 +316,8 @@ scripts/                Rust CLI (Windows) -- `cargo build` then
                         `homelab ansible run role-accounts`. One subcommand
                         per former scripts/windows/*.ps1 file; `--help` at
                         every level. `ansible run <playbook>` / `cluster
-                        create [name|phases]`; `terraform genvars` (= old
-                        gen-tfvars), other `terraform ...` goes to tofu; bare `ansible ...` / `cluster
+                        create [name|phases]`; `tf genvars` (= old
+                        gen-tfvars), other `tf ...` goes to tofu; bare `ansible ...` / `cluster
                         ...` pass through to the ansible CLI / cluster engine
                         (`CLUSTER_ENGINE` in .env, default k3d).
 .env / .env.example    single source of truth for both paths
@@ -342,8 +344,7 @@ logical DB 0 (its components' default), **authentik** on DB 1
 
 Each consumer's `.tf` has `depends_on = [helm_release.postgres(, .redis)]`.
 **nextcloud keeps its own
-MariaDB** (different engine); **argocd keeps its bundled redis** (tightly
-coupled to the argo-cd subchart). Old per-app `<app>-postgres` /
+MariaDB** (different engine). Old per-app `<app>-postgres` /
 `<app>-redis` templates are gone — after switching, orphan
 `data-<app>-postgres-0` PVCs must be deleted by hand (StatefulSet PVCs aren't
 pruned).
@@ -392,7 +393,31 @@ it's CLI / `--mode rpc` (newline-JSON over stdio) / ACP only.
   `values.yaml: roles` (12 SDLC roles), and `omp-adapter`.
 - **Every omp pod runs `helm/omp/adapter/pod-openai.py` as PID 1** — an
   OpenAI-compatible API on `:4096` wrapping one persistent `omp --mode rpc`
-  child (requests serialized by a lock).
+  child (requests serialized by a lock), or a `codex exec` subprocess per
+  turn when `BACKEND=codex` (`values.yaml: env.BACKEND`, the active setting).
+  The Codex backend replaces the agent loop; MCP and role instructions are
+  wired separately for each backend.
+  - **codex auth**: not an API key — `codex login`'s own `~/.codex/
+    auth.json` (ChatGPT account), the whole file content as one minified
+    JSON string in `TF_VAR_omp_codex_token` (`.env.example`), landing in
+    Secret `omp-codex-auth` (`terraform/internal/omp-agent.tf`, in the `omp`
+    namespace) mounted to `/root/.codex/auth.json` by `_pod.tpl`. The same
+    value is placed in `omp-agent-secrets` for F-31 Jobs in `sdlc`. Expires
+    periodically — redo `codex login` + re-apply when `codex exec` starts
+    failing auth.
+  - **codex has no Skills-folder concept** (unlike omp, which reads
+    `~/.omp/agent/skills`) — it only reads `AGENTS.md`.
+    `pod-openai.py`'s `write_codex_agents_md()` appends this role pod's
+    `SKILL.md` into the image-baked `/root/.codex/AGENTS.md` (caveman/
+    ponytail rules, copied there from `RULES.md` at build time) at boot, so
+    codex gets the role instructions (including the `openspec/*.md` reading
+    convention) used by omp.
+  - **codex MCP wiring** is a separate code path from omp's `config.yml`
+    append — `write_mcp_config()` also writes
+    `~/.codex/config.toml` `[mcp_servers.*]` entries (remote via `url` +
+    `bearer_token_env_var`, local `context-mode` via `command`). Unverified
+    against the exact pinned `@openai/codex` version — check `codex mcp
+    list` / pod startup logs if a server doesn't show up.
 - `helm/omp/adapter/server.py` (`omp-adapter`) is a scale-to-zero waker + flat
   proxy so LiteLLM can list the omp pods as models. (It only wakes — never
   scales back down; `helm/mermaid-render` below does both directions.)
@@ -559,12 +584,23 @@ Working and verified end-to-end:
   is the identity on every call. Registered in LiteLLM's `mcp_servers` like
   the others, and wired directly into every omp-agent Job via
   `--mcp-config` (F-31's `Build Job Manifest` node) — this is the only
-  in-house-built one in the set).
+  in-house-built one in the set), and **context-mode**
+  (`github.com/mksglu/context-mode`, npm package baked into `omp-box:dev`
+  itself — a stdio server, not a remote one, so it has no `mcp-servers`
+  Deployment/Service of its own. 11 tools for context-window
+  optimization/session-memory-across-compaction. Wired into both the
+  persistent omp pods (`helm/omp/adapter/pod-openai.py`'s
+  `STDIO_MCP_SERVERS`) and F-31's ephemeral per-task Jobs).
 - **GitLab webhook** — `gitlab-webhook.yml` registers a project-level SDLC
   hook on every project in the `sdlc` group (CE has no group hooks).
 
 Known issues / next steps:
 
+- **F-31 role Jobs use Codex CLI.** They mount the Codex auth file, write
+  `[mcp_servers.*]` entries to `~/.codex/config.toml`, append the role
+  `SKILL.md` to `AGENTS.md`, then run `codex exec`. Rebuild the image,
+  apply Terraform to update `omp-agent-secrets`, and reseed n8n flows before
+  testing the deployed change.
 - **OpenProject → Taiga swap left orphans**, same class of leftover
   Mattermost's removal did (see below): the `openproject` OAuth2Provider/
   Application in Authentik's DB, the shared-postgres `openproject` role/db,
@@ -607,6 +643,22 @@ Known issues / next steps:
   browser's "Add to Home Screen" (iOS: Safari only) / install icon (desktop
   Chrome/Edge). Login is SSO-only (`ENABLE_LOGIN_FORM: "False"`) — no
   password form.
+- **ArgoCD removed** — replaced by a push-based deploy: every project's own
+  `.gitlab-ci.yml` pushes its `helm/{service}` chart to Harbor (OCI) and a
+  `deploy:{env}` job pulls it back and runs `helm upgrade` directly against
+  the target phase cluster, on the SAME trigger surface SIT/UAT/production
+  already used (see devops-engineer/SKILL.md's "Deploy stage"). No GitOps,
+  no cluster-registration step, no Image Updater — rollback is `helm
+  rollback`, not `argocd rollback` (release-manager/SKILL.md). `argocd.tf`,
+  `helm/argocd/`, the `argocd-clusters*.yml` playbooks, and every
+  ArgoCD-scoped RBAC Role/RoleBinding are deleted. **Not** cleaned up: the
+  `ArgoCD` OAuth2Provider/Application still sits in Authentik's DB (the
+  provisioner only creates/updates, never deletes — remove it by hand via
+  `ak shell` if it matters); the `argocd` namespace and its PVCs (if the
+  release ever came up) aren't dropped either, `helm uninstall`/`tofu
+  destroy` was never run against the live cluster as part of this change;
+  the tailnet ACL's `svc:argocd` grant (external, in the Tailscale admin
+  console — outside this repo) needs manual removal if it was ever added.
 - **Mattermost removed** (superseded by OpenWebUI for chat — see above). Live
   cluster resources torn down via `tofu destroy`; `helm/mattermost/` and
   `terraform/internal/mattermost.tf` deleted; its shared-postgres db entry, MinIO

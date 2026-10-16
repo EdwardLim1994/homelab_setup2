@@ -4,8 +4,30 @@ resource "kubernetes_namespace" "sdlc" {
   }
 }
 
+# ponytail: helm/omp itself has no terraform release (Dockerfile only, built
+# above) — deployed by hand per SPAWN.md, so its namespace isn't created
+# anywhere else either. Needed here just to hold the codex auth secret below.
+resource "kubernetes_namespace" "omp" {
+  metadata {
+    name = "omp"
+  }
+}
+
+# ponytail: helm/omp's codexAuth secret (BACKEND=codex) — _pod.tpl mounts
+# this to /root/.codex/auth.json, same slot `codex login` writes to.
+# var.omp_codex_token is the whole minified auth.json, not a single token.
+resource "kubernetes_secret" "omp_codex_auth" {
+  metadata {
+    name      = "omp-codex-auth"
+    namespace = kubernetes_namespace.omp.metadata[0].name
+  }
+  data = {
+    "auth.json" = var.omp_codex_token
+  }
+}
+
 # ponytail: omp-agent's Job image is the same image helm/omp's Dockerfile
-# builds (omp + opencode + claude CLIs, every role's skill dir baked in) —
+# builds (omp + opencode + codex CLIs, every role's skill dir baked in) —
 # reused rather than duplicated. Mirrors the build step that used to live in
 # the now-deleted terraform/omp.tf.
 resource "null_resource" "omp_agent_image" {
@@ -22,48 +44,19 @@ resource "null_resource" "omp_agent_image" {
       for f in fileset("${path.module}/../../helm/omp/scripts", "**") :
       filesha1("${path.module}/../../helm/omp/scripts/${f}")
     ]))
+    # ponytail: same gap as scripts above, found the hard way — a
+    # pod-openai.py edit (e.g. adding the codex backend) silently kept
+    # serving the old image until something else happened to bump
+    # dockerfile/roles/scripts.
+    adapter = sha1(join(",", [
+      for f in fileset("${path.module}/../../helm/omp/adapter", "**") :
+      filesha1("${path.module}/../../helm/omp/adapter/${f}")
+    ]))
   }
 
   provisioner "local-exec" {
     working_dir = abspath("${path.module}/../../helm/omp")
     command     = "docker build -t localhost:5111/omp-box:dev . && docker push localhost:5111/omp-box:dev"
-  }
-}
-
-# ponytail: devops-engineer role's F-02 kickoff step needs to get/apply
-# ArgoCD Applications it just built (helm chart + env values scaffolding) --
-# omp-agent's own Role (helm/omp-agent/templates/role.yaml) is namespace-
-# scoped to sdlc only, so this needs a second Role+RoleBinding in argocd
-# itself, same cross-namespace shape as ansible.tf's ansible_gitlab_exec /
-# ansible_argocd_clusters. Found via a live Job run reporting Forbidden on
-# every `kubectl get/apply application.argoproj.io -n argocd` attempt.
-resource "kubernetes_role" "omp_agent_argocd" {
-  metadata {
-    name      = "omp-agent-argocd"
-    namespace = "argocd"
-  }
-  rule {
-    api_groups = ["argoproj.io"]
-    resources  = ["applications"]
-    verbs      = ["get", "list", "create", "patch"]
-  }
-  depends_on = [kubernetes_namespace.argocd]
-}
-
-resource "kubernetes_role_binding" "omp_agent_argocd" {
-  metadata {
-    name      = "omp-agent-argocd"
-    namespace = "argocd"
-  }
-  role_ref {
-    api_group = "rbac.authorization.k8s.io"
-    kind      = "Role"
-    name      = kubernetes_role.omp_agent_argocd.metadata[0].name
-  }
-  subject {
-    kind      = "ServiceAccount"
-    name      = "omp-agent"
-    namespace = kubernetes_namespace.sdlc.metadata[0].name
   }
 }
 
@@ -73,7 +66,10 @@ resource "helm_release" "omp_agent" {
   namespace         = kubernetes_namespace.sdlc.metadata[0].name
   dependency_update = true
 
-  values = [file("${path.module}/../../helm/omp-agent/values.yaml")]
+  values = [
+    file("${path.module}/../../helm/omp-agent/values.yaml"),
+    yamlencode({ secrets = { codexAuth = var.omp_codex_token } })
+  ]
 
   set {
     name  = "namespace"
@@ -96,11 +92,6 @@ resource "helm_release" "omp_agent" {
   set_sensitive {
     name  = "secrets.gitlabToken"
     value = var.omp_gitlab_token
-  }
-
-  set_sensitive {
-    name  = "secrets.claudeCodeToken"
-    value = var.claude_code_token
   }
 
   set_sensitive {

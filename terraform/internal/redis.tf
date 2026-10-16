@@ -1,5 +1,5 @@
 # ponytail: one shared redis:7-alpine (no auth, no persistence) for gitlab
-# (logical DB 0) and authentik (logical DB 1). argocd keeps its bundled redis.
+# (logical DB 0) and authentik (logical DB 1).
 resource "kubernetes_namespace" "redis" {
   metadata {
     name = "redis"

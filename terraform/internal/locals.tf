@@ -16,7 +16,6 @@ locals {
     n8n           = { namespace = "n8n", service = "n8n", port = 5678 }
     sonarqube     = { namespace = "sonarqube", service = "sonarqube-sonarqube", port = 9000 }
     nextcloud     = { namespace = "nextcloud", service = "nextcloud", port = 8080 }
-    argocd        = { namespace = "argocd", service = "argocd-server", port = 80 }
     grafana       = { namespace = "observability", service = "observability-grafana", port = 80 }
     litellm       = { namespace = "litellm", service = "litellm", port = 4000 }
     openwebui     = { namespace = "openwebui", service = "openwebui", port = 8080 }

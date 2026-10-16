@@ -45,6 +45,12 @@ spec:
       containers:
         - name: omp
           image: "{{ omp_image }}"       # e.g. registry.homelab/omp:latest
+          command: ["codex"]
+          args:
+            - exec
+            - --skip-git-repo-check
+            - --dangerously-bypass-approvals-and-sandbox
+            - "{{ prompt }}"
           env:
             - name: OMP_ROLE
               value: "{{ role }}"
@@ -64,11 +70,6 @@ spec:
                 secretKeyRef:
                   name: omp-agent-secrets
                   key: gitlab_token
-            - name: CLAUDE_CODE_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: omp-agent-secrets
-                  key: claude_code_token
             - name: KANEO_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -90,9 +91,19 @@ spec:
             - name: skills
               mountPath: /agents/skills/
               readOnly: true
+            - name: codex-auth
+              mountPath: /root/.codex/auth.json
+              subPath: auth.json
+              readOnly: true
       volumes:
         - name: workspace
           emptyDir: {}
         - name: skills
           configMap:
             name: "omp-skill-{{ role }}"   # matches ConfigMap label omp-role
+        - name: codex-auth
+          secret:
+            secretName: omp-agent-secrets
+            items:
+              - key: codex_auth_json
+                path: auth.json

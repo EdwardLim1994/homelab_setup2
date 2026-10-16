@@ -2,8 +2,7 @@
 # The initdb script creates a LOGIN role + owned database per entry in
 # `databases` below, all with the same password (`appPassword`) — a homelab
 # doesn't need per-app credential isolation, and one secret is one thing to
-# rotate. nextcloud stays on its own MariaDB (different engine); argocd keeps
-# its bundled redis.
+# rotate. nextcloud stays on its own MariaDB (different engine).
 image: postgres:16
 
 # superuser + every app role share this. Set via terraform (var.shared_db_password).

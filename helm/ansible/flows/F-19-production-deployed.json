@@ -68,7 +68,7 @@
         300
       ],
       "parameters": {
-        "command": "omp --role release-manager --model default --project {{ $env.REPO_DIR }} --prompt 'Run smoke test suite against production for {{ $json.body.version }}. Output: pass/fail + key metrics.' --non-interactive"
+        "command": "omp --role release-manager --model default --project {{ $env.REPO_DIR }} --prompt 'Run smoke test suite against production for {{ $json.body.version }}. Output JSON only: {\"pass\": true|false, \"metrics\": \"string\"}.' --non-interactive"
       }
     },
     {
@@ -83,9 +83,9 @@
       "parameters": {
         "conditions": {
           "options": {
-            "leftValue": "={{ JSON.parse($json.stdout).pass }}",
+            "leftValue": "={{ $json.smoke_pass }}",
             "operation": "equals",
-            "rightValue": "true"
+            "rightValue": true
           }
         }
       }
@@ -175,6 +175,19 @@
           ]
         }
       }
+    },
+    {
+      "id": "f2bbb191-6a75-4a4b-a8ed-48a1333f0d1f",
+      "name": "Validate Smoke Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const run = $input.first().json;\nlet report; try { report = run.exitCode === 0 ? JSON.parse(run.stdout || \"\") : null; } catch { report = null; }\nreturn [{ json: { ...run, smoke_pass: report?.pass === true, smoke_report: report } }];"
+      }
     }
   ],
   "connections": {
@@ -204,7 +217,7 @@
       "main": [
         [
           {
-            "node": "Smoke Pass?",
+            "node": "Validate Smoke Result",
             "type": "main",
             "index": 0
           }
@@ -234,6 +247,17 @@
         [
           {
             "node": "→ Escalate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Smoke Result": {
+      "main": [
+        [
+          {
+            "node": "Smoke Pass?",
             "type": "main",
             "index": 0
           }

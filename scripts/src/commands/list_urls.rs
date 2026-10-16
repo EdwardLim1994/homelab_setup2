@@ -18,7 +18,6 @@ const APPS: &[App] = &[
     App { name: "n8n", host: "n8n", ingress: "", path: "" },
     App { name: "sonarqube", host: "sonarqube", ingress: "sonarqube.local", path: "" },
     App { name: "nextcloud", host: "nextcloud", ingress: "nextcloud.local", path: "" },
-    App { name: "argocd", host: "argocd", ingress: "argocd.local", path: "" },
     App { name: "grafana", host: "grafana", ingress: "grafana.local", path: "" },
     App { name: "litellm", host: "litellm", ingress: "", path: "/ui" },
     App { name: "openwebui", host: "openwebui", ingress: "", path: "" },

@@ -48,14 +48,17 @@ spec:
                   mountPath: /backup
           containers:
             - name: upload
-              image: minio/mc:latest
+              image: alpine:3.22
               command:
                 - sh
                 - -c
                 - |
                   set -euo pipefail
-                  mc alias set local {{ .Values.backup.minioEndpoint }} "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-                  mc cp /backup/*.sql local/{{ .Values.backup.bucket }}/
+                  mc_version=RELEASE.2025-08-13T08-35-41Z
+                  wget -qO /tmp/mc "https://github.com/minio/mc/releases/download/${mc_version}/mc.linux-amd64.${mc_version}"
+                  chmod +x /tmp/mc
+                  /tmp/mc alias set local {{ .Values.backup.minioEndpoint }} "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+                  /tmp/mc cp /backup/*.sql local/{{ .Values.backup.bucket }}/
               env:
                 - name: MINIO_ROOT_USER
                   value: {{ .Values.backup.minioRootUser | quote }}

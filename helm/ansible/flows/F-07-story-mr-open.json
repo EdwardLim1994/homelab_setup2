@@ -133,7 +133,7 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Run the integration test suite for story {{ $node['Webhook Trigger'].json.body.story_id }} against the SIT cluster (story/task-level QA testing runs here, not a dedicated QA cluster). Report pass/fail with coverage.",
+              "value": "=Run the integration test suite for story {{ $node['Webhook Trigger'].json.body.story_id }} against the SIT cluster (story/task-level QA testing runs here, not a dedicated QA cluster). Output JSON only: {\"pass\": true|false, \"coverage\": \"string\", \"notes\": \"string\"}",
               "type": "string"
             },
             {
@@ -218,6 +218,19 @@
           ]
         }
       }
+    },
+    {
+      "id": "3475f936-0511-4819-9f01-4931ede8a0b4",
+      "name": "Assert Story MR Readiness",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"TL: Open Story MR\", \"QA: Story Integration Tests\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nconst qa = $(\"QA: Story Integration Tests\").first().json;\nlet report;\ntry { report = JSON.parse(qa.output || \"\"); } catch { throw new Error(\"QA result must be JSON {\\\"pass\\\":true|false,...}\"); }\nif (report.pass !== true) throw new Error(`QA did not pass: ${JSON.stringify(report)}`);\nreturn $input.all();"
+      }
     }
   ],
   "connections": {
@@ -293,6 +306,17 @@
       ]
     },
     "Merge TL+QA": {
+      "main": [
+        [
+          {
+            "node": "Assert Story MR Readiness",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Story MR Readiness": {
       "main": [
         [
           {

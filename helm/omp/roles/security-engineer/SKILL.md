@@ -46,7 +46,7 @@ sec_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/t
 # (confirmed: task-relation resource, relationType "subtask"/"blocks"/"related").
 curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
   -H "Content-Type: application/json" \
-  -d "{\"sourceTaskId\": \"$sec_id\", \"targetTaskId\": \"<story task id>\", \"relationType\": \"subtask\"}"
+  -d "{\"sourceTaskId\": \"<story task id>\", \"targetTaskId\": \"$sec_id\", \"relationType\": \"subtask\"}"
 ```
 
 ---

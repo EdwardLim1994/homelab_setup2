@@ -64,7 +64,7 @@ pub fn engine() -> String {
     env_binary("CLUSTER_ENGINE", "cluster_engine", "k3d")
 }
 
-/// IaC binary for `homelab terraform ...`. Set TERRAFORM_ENGINE in .env or the
+/// IaC binary for `homelab tf ...`. Set TERRAFORM_ENGINE in .env or the
 /// environment (default: Cargo.toml terraform_engine, "tofu", what this repo uses; set "terraform" for HashiCorp's).
 pub fn tf_engine() -> String {
     env_binary("TERRAFORM_ENGINE", "terraform_engine", "tofu")

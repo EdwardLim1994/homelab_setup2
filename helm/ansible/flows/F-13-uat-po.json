@@ -6,7 +6,10 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 300],
+      "position": [
+        240,
+        300
+      ],
       "parameters": {
         "path": "uat-po",
         "httpMethod": "POST",
@@ -20,20 +23,37 @@
       "name": "Notify: UAT PO review",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [680, 300],
+      "position": [
+        680,
+        300
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            { "name": "flow_id", "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}" },
-            { "name": "message", "value": "📦 UAT PO sign-off stage" },
-            { "name": "notes", "value": "" }
+            {
+              "name": "flow_id",
+              "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "📦 UAT PO sign-off stage"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
           ]
         }
       }
@@ -43,14 +63,32 @@
       "name": "PO Input",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [900, 300],
+      "position": [
+        900,
+        300
+      ],
       "parameters": {
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "id": "1", "name": "role", "value": "product-owner", "type": "string" },
-            { "id": "2", "name": "prompt", "value": "=Review the UAT results for {{ $node['Webhook Trigger'].json.body.version }}. Verify all acceptance criteria are met. Output JSON only: {\"status\": \"approved\"|\"rejected\", \"notes\": \"string\"}", "type": "string" },
-            { "id": "3", "name": "story", "value": "={{ $node['Webhook Trigger'].json.body.version }}", "type": "string" }
+            {
+              "id": "1",
+              "name": "role",
+              "value": "product-owner",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=Review the UAT results for {{ $node['Webhook Trigger'].json.body.version }}. Verify all acceptance criteria are met. Output JSON only: {\"status\": \"approved\"|\"rejected\", \"notes\": \"string\"}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.version }}",
+              "type": "string"
+            }
           ]
         }
       }
@@ -60,10 +98,16 @@
       "name": "PO: UAT Acceptance",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1080, 300],
+      "position": [
+        1080,
+        300
+      ],
       "parameters": {
         "source": "database",
-        "workflowId": { "mode": "id", "value": "jAv16SAzGy9fA5G4" },
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
         "mode": "once"
       }
     },
@@ -72,13 +116,18 @@
       "name": "PO Approved?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1300, 300],
+      "position": [
+        1300,
+        300
+      ],
       "parameters": {
         "conditions": {
-          "options": {
-            "leftValue": "={{ $json.output.includes('\"status\"') && $json.output.includes('\"approved\"') }}",
-            "operation": "equals",
-            "rightValue": "true"
+          "leftValue": "={ $json.uat_po_approved }",
+          "rightValue": "",
+          "operator": {
+            "type": "boolean",
+            "operation": "true",
+            "singleValue": true
           }
         }
       }
@@ -88,14 +137,32 @@
       "name": "RM Input",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1520, 120],
+      "position": [
+        1520,
+        120
+      ],
       "parameters": {
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "id": "1", "name": "role", "value": "release-manager", "type": "string" },
-            { "id": "2", "name": "prompt", "value": "=All 3 UAT sign-offs are now confirmed for {{ $node['Webhook Trigger'].json.body.version }} (QA passed, Security cleared, PO just approved — this chain only reaches here if all three passed in order). Create the release ticket now in Kaneo (`$KANEO_URL`/`$KANEO_TOKEN`/`$KANEO_PROJECT_ID`, `Authorization: Bearer $KANEO_TOKEN` — see AGENTS.md's Ticket & MR Conventions and release-manager/SKILL.md's Release Ticket Creation section for the exact curl/jq shape, mirror it exactly). Kaneo has one ticket resource (task) — no separate epic/userstory/issue types, so every step below operates on the project's task list directly. Steps: 1) list the stories-in-scope for this release via `GET /api/task/tasks/$KANEO_PROJECT_ID?label={{ $node['Webhook Trigger'].json.body.version }}` (// ponytail: verify the label query param against the deployed Kaneo version). 2) Kaneo tasks carry a plain `status` field, no separate per-type status-id lookup — use whatever this deployment's board calls the 'PO UAT Approved' column (e.g. `po-uat-approved`); this one status now carries all 3 sign-offs at once, replacing GitLab's old three-labels-together convention (the release ticket itself is just a Kaneo task like every other ticket — see release-manager/SKILL.md). 3) `POST /api/task` with title '[release] {{ $node['Webhook Trigger'].json.body.version }}', `projectId` set to $KANEO_PROJECT_ID, `status` set to the PO-UAT-approved value, and a label '{{ $node['Webhook Trigger'].json.body.version }}' for release grouping (// ponytail: verify exact create-task field names against the deployed Kaneo version — Kaneo's label is the closest equivalent to Taiga's release-grouping tags). Description per release-manager/SKILL.md's Release Ticket Creation template (scope/services/rollback/deployment window/staging sign-offs pending/monitoring thresholds/observation window/comms/dependencies) — pull the stories-in-scope list from step 1. If a release ticket for this version already exists (re-run — find it via the same label-filtered task list, filtered client-side by title starting with '[release]'), skip creation and just report its id. Report the release ticket's id.", "type": "string" },
-            { "id": "3", "name": "story", "value": "={{ $node['Webhook Trigger'].json.body.version }}", "type": "string" }
+            {
+              "id": "1",
+              "name": "role",
+              "value": "release-manager",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "prompt",
+              "value": "=All 3 UAT sign-offs are now confirmed for {{ $node['Webhook Trigger'].json.body.version }} (QA passed, Security cleared, PO just approved — this chain only reaches here if all three passed in order). Create the release ticket now in Kaneo (`$KANEO_URL`/`$KANEO_TOKEN`/`$KANEO_PROJECT_ID`, `Authorization: Bearer $KANEO_TOKEN` — see AGENTS.md's Ticket & MR Conventions and release-manager/SKILL.md's Release Ticket Creation section for the exact curl/jq shape, mirror it exactly). Kaneo has one ticket resource (task) — no separate epic/userstory/issue types, so every step below operates on the project's task list directly. Steps: 1) list the stories-in-scope for this release via `GET /api/task/tasks/$KANEO_PROJECT_ID?label={{ $node['Webhook Trigger'].json.body.version }}` (// ponytail: verify the label query param against the deployed Kaneo version). 2) Kaneo tasks carry a plain `status` field, no separate per-type status-id lookup — use whatever this deployment's board calls the 'PO UAT Approved' column (e.g. `po-uat-approved`); this one status now carries all 3 sign-offs at once, replacing GitLab's old three-labels-together convention (the release ticket itself is just a Kaneo task like every other ticket — see release-manager/SKILL.md). 3) `POST /api/task` with title '[release] {{ $node['Webhook Trigger'].json.body.version }}', `projectId` set to $KANEO_PROJECT_ID, `status` set to the PO-UAT-approved value, and a label '{{ $node['Webhook Trigger'].json.body.version }}' for release grouping (// ponytail: verify exact create-task field names against the deployed Kaneo version — Kaneo's label is the closest equivalent to Taiga's release-grouping tags). Description per release-manager/SKILL.md's Release Ticket Creation template (scope/services/rollback/deployment window/staging sign-offs pending/monitoring thresholds/observation window/comms/dependencies) — pull the stories-in-scope list from step 1. If a release ticket for this version already exists (re-run — find it via the same label-filtered task list, filtered client-side by title starting with '[release]'), skip creation and just report its id. Report the release ticket's id.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "story",
+              "value": "={{ $node['Webhook Trigger'].json.body.version }}",
+              "type": "string"
+            }
           ]
         }
       }
@@ -105,10 +172,16 @@
       "name": "RM: Create Release Ticket",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1700, 120],
+      "position": [
+        1700,
+        120
+      ],
       "parameters": {
         "source": "database",
-        "workflowId": { "mode": "id", "value": "jAv16SAzGy9fA5G4" },
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
         "mode": "once"
       }
     },
@@ -117,20 +190,37 @@
       "name": "Notify: UAT complete",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1740, 200],
+      "position": [
+        1740,
+        200
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            { "name": "flow_id", "value": "={{ $node['Webhook Trigger'].json.body.flow_id ?? '' }}" },
-            { "name": "message", "value": "✅ UAT complete — all stages approved. Ready for /release_staging" },
-            { "name": "notes", "value": "" }
+            {
+              "name": "flow_id",
+              "value": "={{ $node['Webhook Trigger'].json.body.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "✅ UAT complete — all stages approved. Ready for /release_staging"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
           ]
         }
       }
@@ -140,49 +230,174 @@
       "name": "Notify: PO rejected UAT",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1520, 400],
+      "position": [
+        1520,
+        400
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            { "name": "flow_id", "value": "={{ $node['Webhook Trigger'].json.body.flow_id ?? '' }}" },
-            { "name": "message", "value": "=❌ PO rejected UAT — {{ $node['PO: UAT Acceptance'].json.output }}" },
-            { "name": "notes", "value": "" }
+            {
+              "name": "flow_id",
+              "value": "={{ $node['Webhook Trigger'].json.body.flow_id ?? '' }}"
+            },
+            {
+              "name": "message",
+              "value": "=❌ PO rejected UAT — {{ $node['PO: UAT Acceptance'].json.output }}"
+            },
+            {
+              "name": "notes",
+              "value": ""
+            }
           ]
         }
+      }
+    },
+    {
+      "id": "25065ec4-71b6-4268-893d-7a50b94ffb23",
+      "name": "Assert PO Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"PO: UAT Acceptance\"];\nconst failures = names.flatMap(name => { const result = $(name).first().json; return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : []; });\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nconst result = $input.first().json;\nlet report; try { report = JSON.parse(result.output || \"\"); } catch { report = {}; }\nreturn [{ json: { ...result, uat_po_approved: report.status === \"approved\" } }];"
+      }
+    },
+    {
+      "id": "09bfdb03-2b7e-46c7-b157-8cd178aecfd2",
+      "name": "Assert Release Ticket",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1900,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"RM: Create Release Ticket\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nreturn $input.all();"
       }
     }
   ],
   "connections": {
     "Webhook Trigger": {
-      "main": [[{ "node": "Notify: UAT PO review", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Notify: UAT PO review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Notify: UAT PO review": {
-      "main": [[{ "node": "PO Input", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "PO Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "PO Input": {
-      "main": [[{ "node": "PO: UAT Acceptance", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "PO: UAT Acceptance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "PO: UAT Acceptance": {
-      "main": [[{ "node": "PO Approved?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Assert PO Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "PO Approved?": {
       "main": [
-        [{ "node": "RM Input", "type": "main", "index": 0 }],
-        [{ "node": "Notify: PO rejected UAT", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "RM Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify: PO rejected UAT",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "RM Input": {
-      "main": [[{ "node": "RM: Create Release Ticket", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "RM: Create Release Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "RM: Create Release Ticket": {
-      "main": [[{ "node": "Notify: UAT complete", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Assert Release Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert PO Job": {
+      "main": [
+        [
+          {
+            "node": "PO Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Release Ticket": {
+      "main": [
+        [
+          {
+            "node": "Notify: UAT complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,

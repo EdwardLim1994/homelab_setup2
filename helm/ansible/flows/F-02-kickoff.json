@@ -1,32 +1,34 @@
 {
+  "id": "FOVTz690U4aJK6aN",
   "name": "F-02 /kickoff",
+  "description": null,
+  "active": true,
+  "activeVersionId": "23258dc5-c837-4cc0-93a5-1527c5dbf6f3",
+  "createdAt": "2026-09-11T10:02:45.838Z",
+  "updatedAt": "2026-10-14T09:54:00.474Z",
+  "isArchived": false,
+  "versionId": "9e34dcc5-4a1a-42e8-b53d-38bda00f365b",
+  "versionCounter": 22,
+  "sourceWorkflowId": null,
+  "triggerCount": 1,
   "nodes": [
     {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "kickoff",
+        "options": {}
+      },
       "id": "516ef61b-d041-49ae-824a-d528608d6980",
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
         240,
-        300
+        512
       ],
-      "parameters": {
-        "path": "kickoff",
-        "httpMethod": "POST",
-        "responseMode": "onReceived",
-        "responseData": "allEntries"
-      },
       "webhookId": "61ec943e-86b1-4118-b28b-fda8049c924d"
     },
     {
-      "id": "90948b75-fde9-49d4-8339-dbf4dd3edd4a",
-      "name": "Notify: Kickoff started",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        680,
-        300
-      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
@@ -51,24 +53,23 @@
               "value": "🚀 kickoff started — repo+project create -> scaffold+wiki -> PM stories -> TL tasks -> release branch -> TL story/task branches, DevOps in parallel"
             },
             {
-              "name": "notes",
-              "value": ""
+              "name": "notes"
             }
           ]
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "90948b75-fde9-49d4-8339-dbf4dd3edd4a",
+      "name": "Notify: Kickoff started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        464,
+        512
+      ]
     },
     {
-      "id": "c1000001-0000-0000-0000-000000000001",
-      "name": "PM Project Input",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        900,
-        60
-      ],
       "parameters": {
-        "mode": "manual",
         "assignments": {
           "assignments": [
             {
@@ -90,64 +91,63 @@
               "type": "string"
             }
           ]
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "c1000001-0000-0000-0000-000000000001",
+      "name": "PM Project Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        688,
+        512
+      ]
     },
     {
+      "parameters": {
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "options": {}
+      },
       "id": "c1000001-0000-0000-0000-000000000002",
       "name": "PM: Ensure Project Exists",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        1080,
-        60
-      ],
-      "parameters": {
-        "source": "database",
-        "workflowId": {
-          "mode": "id",
-          "value": "jAv16SAzGy9fA5G4"
-        },
-        "mode": "once"
-      }
+        912,
+        512
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "// ponytail: mirrors the old Taiga project-creation step, adapted to\n// Kaneo's workspace -> project -> task hierarchy (no epic/userstory/issue\n// resources -- see AGENT.md's \"Kaneo\" section). One shared 'sdlc' workspace\n// holds every generated project, same role the single Taiga instance played.\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst projectName = $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal';\nconst slug = projectName.toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');\n\n// ponytail: verify this exact path against the deployed Kaneo version --\n// GET /api/workspace (list) is inferred from the confirmed GET /api/project\n// naming convention, not confirmed from docs.\nconst workspaces = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/workspace`, headers: auth, json: true, ignoreHttpStatusErrors: true });\nlet workspace = (Array.isArray(workspaces) ? workspaces : workspaces?.workspaces || []).find(w => w.slug === 'sdlc' || w.name === 'sdlc');\nif (!workspace) {\n  // ponytail: verify this exact path/body against the deployed Kaneo version.\n  workspace = await this.helpers.httpRequest({ method: 'POST', url: `${$env.KANEO_URL}/api/auth/organization/create`, headers: auth, json: true, body: { name: 'sdlc', slug: 'sdlc' } });\n}\nconst workspaceId = workspace.id;\n\n// GET /api/project -- confirmed endpoint, lists projects in a workspace.\nconst projects = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/project`, headers: auth, json: true, qs: { workspaceId }, ignoreHttpStatusErrors: true });\nconst existing = (Array.isArray(projects) ? projects : projects?.projects || []).find(p => p.slug === slug || p.name === projectName);\nif (existing) {\n  return [{ json: { kaneo_workspace_id: workspaceId, kaneo_project_id: existing.id, kaneo_project_slug: existing.slug, kaneo_project_created: false } }];\n}\n\n// ponytail: verify this exact path/body against the deployed Kaneo version\n// -- POST /api/project is inferred from the confirmed GET /api/project\n// naming convention, not confirmed from docs.\nconst created = await this.helpers.httpRequest({ method: 'POST', url: `${$env.KANEO_URL}/api/project`, headers: auth, json: true, body: { name: projectName, slug, workspaceId, icon: 'Layout' } });\nreturn [{ json: { kaneo_workspace_id: workspaceId, kaneo_project_id: created.id, kaneo_project_slug: created.slug, kaneo_project_created: true } }];"
+      },
       "id": "c1000001-0000-0000-0000-000000000003",
       "name": "Ensure Kaneo Project",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1170,
-        60
-      ],
-      "parameters": {
-        "jsCode": "// ponytail: mirrors the old Taiga project-creation step, adapted to\n// Kaneo's workspace -> project -> task hierarchy (no epic/userstory/issue\n// resources -- see AGENT.md's \"Kaneo\" section). One shared 'sdlc' workspace\n// holds every generated project, same role the single Taiga instance played.\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst projectName = $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal';\nconst slug = projectName.toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');\n\n// ponytail: verify this exact path against the deployed Kaneo version --\n// GET /api/workspace (list) is inferred from the confirmed GET /api/project\n// naming convention, not confirmed from docs.\nconst workspaces = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/workspace`, headers: auth, json: true, ignoreHttpStatusErrors: true });\nlet workspace = (Array.isArray(workspaces) ? workspaces : workspaces?.workspaces || []).find(w => w.slug === 'sdlc' || w.name === 'sdlc');\nif (!workspace) {\n  // ponytail: verify this exact path/body against the deployed Kaneo version.\n  workspace = await this.helpers.httpRequest({ method: 'POST', url: `${$env.KANEO_URL}/api/workspace`, headers: auth, json: true, body: { name: 'sdlc', slug: 'sdlc' } });\n}\nconst workspaceId = workspace.id;\n\n// GET /api/project -- confirmed endpoint, lists projects in a workspace.\nconst projects = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/project`, headers: auth, json: true, qs: { workspaceId }, ignoreHttpStatusErrors: true });\nconst existing = (Array.isArray(projects) ? projects : projects?.projects || []).find(p => p.slug === slug || p.name === projectName);\nif (existing) {\n  return [{ json: { kaneo_workspace_id: workspaceId, kaneo_project_id: existing.id, kaneo_project_slug: existing.slug, kaneo_project_created: false } }];\n}\n\n// ponytail: verify this exact path/body against the deployed Kaneo version\n// -- POST /api/project is inferred from the confirmed GET /api/project\n// naming convention, not confirmed from docs.\nconst created = await this.helpers.httpRequest({ method: 'POST', url: `${$env.KANEO_URL}/api/project`, headers: auth, json: true, body: { name: projectName, slug, workspaceId, description: `${projectName} \\u2014 created by /kickoff` } });\nreturn [{ json: { kaneo_workspace_id: workspaceId, kaneo_project_id: created.id, kaneo_project_slug: created.slug, kaneo_project_created: true } }];"
-      }
+        1136,
+        512
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "// ponytail: one dedicated Kaneo user per SDLC role (created once by\n// helm/ansible/playbooks/role-accounts.yml, email sdlc-<role>@homelab.local)\n// so tickets can be assigned to the role that did the work instead of the\n// single shared admin identity. Kaneo membership is per-project -- same\n// per-project-at-kickoff-time call the old Taiga membership step made.\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst projectId = $json.kaneo_project_id;\nconst sdlcRoles = ['backend-developer','data-engineer','devops-engineer','frontend-developer','product-owner','project-manager','qa-engineer','release-manager','security-engineer','solution-architect','tech-lead','uiux-designer'];\n\n// confirmed: no plain /api/user listing endpoint exists, and the Better\n// Auth admin list-users route needs a cookie session (401 on Bearer) --\n// role accounts also can't exist yet while Kaneo's local sign-in stays\n// disabled (see role-accounts.yml). Degrade to \\\"skip everyone\\\" rather than\n// failing kickoff entirely -- Kaneo role membership is a nice-to-have, not\n// a kickoff blocker.\nlet userList = [];\ntry {\n  const allUsers = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/user`, headers: auth, json: true });\n  userList = Array.isArray(allUsers) ? allUsers : (allUsers?.users || []);\n} catch (e) {\n  console.log(`Kaneo user lookup unavailable (${e.message}) -- skipping role-member assignment for this project.`);\n}\n\nconst added = [];\nconst skipped = [];\nconst unconfirmed = [];\nfor (const roleName of sdlcRoles) {\n  const email = `sdlc-${roleName}@homelab.local`;\n  const user = userList.find(u => u.email === email);\n  if (!user) { skipped.push(roleName); continue; }\n  try {\n    // ponytail: verify this exact path against the deployed Kaneo version\n    // -- POST /api/project/<id>/members inferred from the confirmed\n    // /api/project naming convention.\n    await this.helpers.httpRequest({ method: 'POST', url: `${$env.KANEO_URL}/api/project/${projectId}/members`, headers: auth, json: true, body: { userId: user.id, role: 'member' } });\n    added.push(roleName);\n  } catch (e) {\n    // The deployed endpoint does not distinguish duplicate membership reliably.\n    unconfirmed.push(roleName);\n  }\n}\nif (skipped.length) {\n  console.log(`Role accounts not found in Kaneo (run role-accounts.yml first): ${skipped.join(', ')}`);\n}\nreturn [{ json: { ...$json, role_members_added: added, role_members_skipped: skipped, role_members_unconfirmed: unconfirmed } }];"
+      },
       "id": "c1000001-0000-0000-0000-000000000004",
       "name": "Add Role Members to Kaneo Project",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1220,
-        60
-      ],
-      "parameters": {
-        "jsCode": "// ponytail: one dedicated Kaneo user per SDLC role (created once by\n// helm/ansible/playbooks/role-accounts.yml, email sdlc-<role>@homelab.local)\n// so tickets can be assigned to the role that did the work instead of the\n// single shared admin identity. Kaneo membership is per-project -- same\n// per-project-at-kickoff-time call the old Taiga membership step made.\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst projectId = $json.kaneo_project_id;\nconst sdlcRoles = ['backend-developer','data-engineer','devops-engineer','frontend-developer','product-owner','project-manager','qa-engineer','release-manager','security-engineer','solution-architect','tech-lead','uiux-designer'];\n\n// ponytail: verify this exact path against the deployed Kaneo version -- a\n// plain user-listing endpoint isn't confirmed from docs, inferred from the\n// same /api/<resource> convention as the confirmed project/task ones.\nconst allUsers = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/user`, headers: auth, json: true });\nconst userList = Array.isArray(allUsers) ? allUsers : (allUsers?.users || []);\n\nconst added = [];\nconst skipped = [];\nfor (const roleName of sdlcRoles) {\n  const email = `sdlc-${roleName}@homelab.local`;\n  const user = userList.find(u => u.email === email);\n  if (!user) { skipped.push(roleName); continue; }\n  try {\n    // ponytail: verify this exact path against the deployed Kaneo version\n    // -- POST /api/project/<id>/members inferred from the confirmed\n    // /api/project naming convention.\n    await this.helpers.httpRequest({ method: 'POST', url: `${$env.KANEO_URL}/api/project/${projectId}/members`, headers: auth, json: true, body: { userId: user.id, role: 'member' } });\n    added.push(roleName);\n  } catch (e) {\n    // already a member -- tolerate like the old Taiga 400-on-duplicate path\n    added.push(roleName);\n  }\n}\nif (skipped.length) {\n  console.log(`Role accounts not found in Kaneo (run role-accounts.yml first): ${skipped.join(', ')}`);\n}\nreturn [{ json: { ...$json, role_members_added: added, role_members_skipped: skipped } }];"
-      }
+        1360,
+        512
+      ]
     },
     {
-      "id": "c1000002-0000-0000-0000-000000000001",
-      "name": "Architect Input (Scaffold)",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        1260,
-        60
-      ],
       "parameters": {
-        "mode": "manual",
         "assignments": {
           "assignments": [
             {
@@ -173,40 +173,51 @@
               "name": "kaneo_project_id",
               "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_project_id }}",
               "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "group",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.group ?? 'sdlc' }}",
+              "type": "string"
+            },
+            {
+              "id": "6",
+              "name": "project",
+              "value": "={{ $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal' }}",
+              "type": "string"
             }
           ]
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "c1000002-0000-0000-0000-000000000001",
+      "name": "Architect Input (Scaffold)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1808,
+        512
+      ]
     },
     {
+      "parameters": {
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "options": {}
+      },
       "id": "c1000002-0000-0000-0000-000000000002",
       "name": "Architect: Scaffold Repo",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        1260,
-        200
-      ],
-      "parameters": {
-        "source": "database",
-        "workflowId": {
-          "mode": "id",
-          "value": "jAv16SAzGy9fA5G4"
-        },
-        "mode": "once"
-      }
+        2032,
+        512
+      ]
     },
     {
-      "id": "b2000001-0000-0000-0000-000000000002",
-      "name": "PM Input",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        900,
-        200
-      ],
       "parameters": {
-        "mode": "manual",
         "assignments": {
           "assignments": [
             {
@@ -240,38 +251,37 @@
               "type": "string"
             }
           ]
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "b2000001-0000-0000-0000-000000000002",
+      "name": "PM Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2256,
+        336
+      ]
     },
     {
+      "parameters": {
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "options": {}
+      },
       "id": "e1dc6899-3754-4706-ade7-ae3a5bc076ac",
       "name": "PM: Create Story Work Items",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        1120,
-        200
-      ],
-      "parameters": {
-        "source": "database",
-        "workflowId": {
-          "mode": "id",
-          "value": "jAv16SAzGy9fA5G4"
-        },
-        "mode": "once"
-      }
+        2480,
+        336
+      ]
     },
     {
-      "id": "b2000002-0000-0000-0000-000000000001",
-      "name": "QA Tickets Input",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        1320,
-        40
-      ],
       "parameters": {
-        "mode": "manual",
         "assignments": {
           "assignments": [
             {
@@ -283,7 +293,7 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Query the Kaneo tasks tagged `story` for {{ $node['Webhook Trigger'].json.body.body.version }} (from the previous step's output, or re-query via `GET $KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID` with bearer `$KANEO_TOKEN` and filter client-side for a `{{ $node['Webhook Trigger'].json.body.body.version }}` label and a `story` label if needed -- Kaneo has no server-side label-filter query param confirmed). Resolve the qa-engineer role account's Kaneo user id once (`GET $KANEO_URL/api/user` with bearer `$KANEO_TOKEN`, filter for email \"sdlc-qa-engineer@homelab.local\" -- // ponytail: verify this exact user-listing path against the deployed Kaneo version). For each story, if a QA ticket doesn't exist yet (check its `qa` label), create one via `POST $KANEO_URL/api/task`: `{\"projectId\": \"$KANEO_PROJECT_ID\", \"title\": \"[qa] {story short description} — test plan\", \"description\": \"{the concrete test scenarios this plan covers, 2-4 sentences}\", \"assigneeId\": \"<qa-engineer id>\", \"status\": \"Pending\"}` (bearer `$KANEO_TOKEN`), then attach the \"{{ $node['Webhook Trigger'].json.body.body.version }}\" and \"qa\" labels to it. Kaneo has no \"labels\" field on task creation at all (confirmed) -- labels are a separate resource: resolve-or-create each one via `GET $KANEO_URL/api/label/workspace/$KANEO_WORKSPACE_ID` (filter by name) then `POST $KANEO_URL/api/label` with `{\"name\": \"<label>\", \"color\": \"#888888\", \"workspaceId\": \"$KANEO_WORKSPACE_ID\", \"taskId\": \"<new task id>\"}` if it does not exist yet (creating with taskId attaches it in the same call), or `PUT $KANEO_URL/api/label/<id>/task` with `{\"taskId\": \"<new task id>\"}` if it already does -- never blind-POST a label that might already exist. -- every ticket MUST have a real description, never title-only. Then immediately link it to its story with `POST $KANEO_URL/api/task-relation`: `{\"sourceTaskId\": \"<new ticket id>\", \"targetTaskId\": \"<story id>\", \"relationType\": \"subtask\"}` (bearer `$KANEO_TOKEN` -- Kaneo confirmed parent-link mechanism). Report every QA ticket created and its parent story.",
+              "value": "=Query the Kaneo tasks tagged `story` for {{ $node['Webhook Trigger'].json.body.body.version }} (from the previous step's output, or re-query via `GET $KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID` with bearer `$KANEO_TOKEN` and filter client-side for a `{{ $node['Webhook Trigger'].json.body.body.version }}` label and a `story` label if needed -- Kaneo has no server-side label-filter query param confirmed). Resolve the qa-engineer role account's Kaneo user id once (`GET $KANEO_URL/api/user` with bearer `$KANEO_TOKEN`, filter for email \"sdlc-qa-engineer@homelab.local\" -- // ponytail: verify this exact user-listing path against the deployed Kaneo version). For each story, if a QA ticket doesn't exist yet (check its `qa` label), create one via `POST $KANEO_URL/api/task`: `{\"projectId\": \"$KANEO_PROJECT_ID\", \"title\": \"[qa] {story short description} — test plan\", \"description\": \"{the concrete test scenarios this plan covers, 2-4 sentences}\", \"assigneeId\": \"<qa-engineer id>\", \"status\": \"Pending\"}` (bearer `$KANEO_TOKEN`), then attach the \"{{ $node['Webhook Trigger'].json.body.body.version }}\" and \"qa\" labels to it. Kaneo has no \"labels\" field on task creation at all (confirmed) -- labels are a separate resource: resolve-or-create each one via `GET $KANEO_URL/api/label/workspace/$KANEO_WORKSPACE_ID` (filter by name) then `POST $KANEO_URL/api/label` with `{\"name\": \"<label>\", \"color\": \"#888888\", \"workspaceId\": \"$KANEO_WORKSPACE_ID\", \"taskId\": \"<new task id>\"}` if it does not exist yet (creating with taskId attaches it in the same call), or `PUT $KANEO_URL/api/label/<id>/task` with `{\"taskId\": \"<new task id>\"}` if it already does -- never blind-POST a label that might already exist. -- every ticket MUST have a real description, never title-only. Then immediately link it to its story with `POST $KANEO_URL/api/task-relation`: `{\"sourceTaskId\": \"<story id>\", \"targetTaskId\": \"<new ticket id>\", \"relationType\": \"subtask\"}` (bearer `$KANEO_TOKEN` -- Kaneo confirmed parent-link mechanism). Report every QA ticket created and its parent story.",
               "type": "string"
             },
             {
@@ -305,38 +315,37 @@
               "type": "string"
             }
           ]
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "b2000002-0000-0000-0000-000000000001",
+      "name": "QA Tickets Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2704,
+        48
+      ]
     },
     {
+      "parameters": {
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "options": {}
+      },
       "id": "b2000002-0000-0000-0000-000000000002",
       "name": "QA: Create QA Tickets",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        1500,
-        40
-      ],
-      "parameters": {
-        "source": "database",
-        "workflowId": {
-          "mode": "id",
-          "value": "jAv16SAzGy9fA5G4"
-        },
-        "mode": "once"
-      }
+        2928,
+        48
+      ]
     },
     {
-      "id": "b2000003-0000-0000-0000-000000000001",
-      "name": "Security Tickets Input",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        1320,
-        120
-      ],
       "parameters": {
-        "mode": "manual",
         "assignments": {
           "assignments": [
             {
@@ -348,7 +357,7 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Query the Kaneo tasks tagged `story` for {{ $node['Webhook Trigger'].json.body.body.version }} (from the previous step's output, or re-query via `GET $KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID` with bearer `$KANEO_TOKEN` and filter client-side for a `{{ $node['Webhook Trigger'].json.body.body.version }}` label and a `story` label if needed -- Kaneo has no server-side label-filter query param confirmed). Resolve the security-engineer role account's Kaneo user id once (`GET $KANEO_URL/api/user` with bearer `$KANEO_TOKEN`, filter for email \"sdlc-security-engineer@homelab.local\" -- // ponytail: verify this exact user-listing path against the deployed Kaneo version). For each story, if a Security ticket doesn't exist yet (check its `security` label), create one via `POST $KANEO_URL/api/task`: `{\"projectId\": \"$KANEO_PROJECT_ID\", \"title\": \"[security] {story short description} — threat model\", \"description\": \"{the concrete threats/attack surface this model covers, 2-4 sentences}\", \"assigneeId\": \"<security-engineer id>\", \"status\": \"Pending\"}` (bearer `$KANEO_TOKEN`), then attach the \"{{ $node['Webhook Trigger'].json.body.body.version }}\" and \"security\" labels to it. Kaneo has no \"labels\" field on task creation at all (confirmed) -- labels are a separate resource: resolve-or-create each one via `GET $KANEO_URL/api/label/workspace/$KANEO_WORKSPACE_ID` (filter by name) then `POST $KANEO_URL/api/label` with `{\"name\": \"<label>\", \"color\": \"#888888\", \"workspaceId\": \"$KANEO_WORKSPACE_ID\", \"taskId\": \"<new task id>\"}` if it does not exist yet (creating with taskId attaches it in the same call), or `PUT $KANEO_URL/api/label/<id>/task` with `{\"taskId\": \"<new task id>\"}` if it already does -- never blind-POST a label that might already exist. -- every ticket MUST have a real description, never title-only. Then immediately link it to its story with `POST $KANEO_URL/api/task-relation`: `{\"sourceTaskId\": \"<new ticket id>\", \"targetTaskId\": \"<story id>\", \"relationType\": \"subtask\"}` (bearer `$KANEO_TOKEN` -- Kaneo confirmed parent-link mechanism). Report every security ticket created and its parent story.",
+              "value": "=Query the Kaneo tasks tagged `story` for {{ $node['Webhook Trigger'].json.body.body.version }} (from the previous step's output, or re-query via `GET $KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID` with bearer `$KANEO_TOKEN` and filter client-side for a `{{ $node['Webhook Trigger'].json.body.body.version }}` label and a `story` label if needed -- Kaneo has no server-side label-filter query param confirmed). Resolve the security-engineer role account's Kaneo user id once (`GET $KANEO_URL/api/user` with bearer `$KANEO_TOKEN`, filter for email \"sdlc-security-engineer@homelab.local\" -- // ponytail: verify this exact user-listing path against the deployed Kaneo version). For each story, if a Security ticket doesn't exist yet (check its `security` label), create one via `POST $KANEO_URL/api/task`: `{\"projectId\": \"$KANEO_PROJECT_ID\", \"title\": \"[security] {story short description} — threat model\", \"description\": \"{the concrete threats/attack surface this model covers, 2-4 sentences}\", \"assigneeId\": \"<security-engineer id>\", \"status\": \"Pending\"}` (bearer `$KANEO_TOKEN`), then attach the \"{{ $node['Webhook Trigger'].json.body.body.version }}\" and \"security\" labels to it. Kaneo has no \"labels\" field on task creation at all (confirmed) -- labels are a separate resource: resolve-or-create each one via `GET $KANEO_URL/api/label/workspace/$KANEO_WORKSPACE_ID` (filter by name) then `POST $KANEO_URL/api/label` with `{\"name\": \"<label>\", \"color\": \"#888888\", \"workspaceId\": \"$KANEO_WORKSPACE_ID\", \"taskId\": \"<new task id>\"}` if it does not exist yet (creating with taskId attaches it in the same call), or `PUT $KANEO_URL/api/label/<id>/task` with `{\"taskId\": \"<new task id>\"}` if it already does -- never blind-POST a label that might already exist. -- every ticket MUST have a real description, never title-only. Then immediately link it to its story with `POST $KANEO_URL/api/task-relation`: `{\"sourceTaskId\": \"<story id>\", \"targetTaskId\": \"<new ticket id>\", \"relationType\": \"subtask\"}` (bearer `$KANEO_TOKEN` -- Kaneo confirmed parent-link mechanism). Report every security ticket created and its parent story.",
               "type": "string"
             },
             {
@@ -370,38 +379,37 @@
               "type": "string"
             }
           ]
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "b2000003-0000-0000-0000-000000000001",
+      "name": "Security Tickets Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2704,
+        240
+      ]
     },
     {
+      "parameters": {
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "options": {}
+      },
       "id": "b2000003-0000-0000-0000-000000000002",
       "name": "Security: Create Security Tickets",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        1500,
-        120
-      ],
-      "parameters": {
-        "source": "database",
-        "workflowId": {
-          "mode": "id",
-          "value": "jAv16SAzGy9fA5G4"
-        },
-        "mode": "once"
-      }
+        2928,
+        240
+      ]
     },
     {
-      "id": "b2000004-0000-0000-0000-000000000001",
-      "name": "DevOps Tickets Input",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        1320,
-        280
-      ],
       "parameters": {
-        "mode": "manual",
         "assignments": {
           "assignments": [
             {
@@ -413,7 +421,7 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Query the Kaneo tasks tagged `story` for {{ $node['Webhook Trigger'].json.body.body.version }} (from the previous step's output, or re-query via `GET $KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID` with bearer `$KANEO_TOKEN` and filter client-side for a `{{ $node['Webhook Trigger'].json.body.body.version }}` label and a `story` label if needed -- Kaneo has no server-side label-filter query param confirmed). Resolve the devops-engineer role account's Kaneo user id once (`GET $KANEO_URL/api/user` with bearer `$KANEO_TOKEN`, filter for email \"sdlc-devops-engineer@homelab.local\" -- // ponytail: verify this exact user-listing path against the deployed Kaneo version). For each story, if a DevOps ticket doesn't exist yet (check its `devops` label), create one via `POST $KANEO_URL/api/task`: `{\"projectId\": \"$KANEO_PROJECT_ID\", \"title\": \"[devops] {story short description} — infra checklist\", \"description\": \"{the concrete infra items this story needs beyond what kickoff already provisioned, or \\\"None beyond standard provisioning\\\"}\", \"assigneeId\": \"<devops-engineer id>\", \"status\": \"Pending\"}` (bearer `$KANEO_TOKEN`), then attach the \"{{ $node['Webhook Trigger'].json.body.body.version }}\" and \"devops\" labels to it. Kaneo has no \"labels\" field on task creation at all (confirmed) -- labels are a separate resource: resolve-or-create each one via `GET $KANEO_URL/api/label/workspace/$KANEO_WORKSPACE_ID` (filter by name) then `POST $KANEO_URL/api/label` with `{\"name\": \"<label>\", \"color\": \"#888888\", \"workspaceId\": \"$KANEO_WORKSPACE_ID\", \"taskId\": \"<new task id>\"}` if it does not exist yet (creating with taskId attaches it in the same call), or `PUT $KANEO_URL/api/label/<id>/task` with `{\"taskId\": \"<new task id>\"}` if it already does -- never blind-POST a label that might already exist. -- every ticket MUST have a real description, never title-only. Then immediately link it to its story with `POST $KANEO_URL/api/task-relation`: `{\"sourceTaskId\": \"<new ticket id>\", \"targetTaskId\": \"<story id>\", \"relationType\": \"subtask\"}` (bearer `$KANEO_TOKEN` -- Kaneo confirmed parent-link mechanism). Report every DevOps ticket created and its parent story.",
+              "value": "=Query the Kaneo tasks tagged `story` for {{ $node['Webhook Trigger'].json.body.body.version }} (from the previous step's output, or re-query via `GET $KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID` with bearer `$KANEO_TOKEN` and filter client-side for a `{{ $node['Webhook Trigger'].json.body.body.version }}` label and a `story` label if needed -- Kaneo has no server-side label-filter query param confirmed). Resolve the devops-engineer role account's Kaneo user id once (`GET $KANEO_URL/api/user` with bearer `$KANEO_TOKEN`, filter for email \"sdlc-devops-engineer@homelab.local\" -- // ponytail: verify this exact user-listing path against the deployed Kaneo version). For each story, if a DevOps ticket doesn't exist yet (check its `devops` label), create one via `POST $KANEO_URL/api/task`: `{\"projectId\": \"$KANEO_PROJECT_ID\", \"title\": \"[devops] {story short description} — infra checklist\", \"description\": \"{the concrete infra items this story needs beyond what kickoff already provisioned, or \\\"None beyond standard provisioning\\\"}\", \"assigneeId\": \"<devops-engineer id>\", \"status\": \"Pending\"}` (bearer `$KANEO_TOKEN`), then attach the \"{{ $node['Webhook Trigger'].json.body.body.version }}\" and \"devops\" labels to it. Kaneo has no \"labels\" field on task creation at all (confirmed) -- labels are a separate resource: resolve-or-create each one via `GET $KANEO_URL/api/label/workspace/$KANEO_WORKSPACE_ID` (filter by name) then `POST $KANEO_URL/api/label` with `{\"name\": \"<label>\", \"color\": \"#888888\", \"workspaceId\": \"$KANEO_WORKSPACE_ID\", \"taskId\": \"<new task id>\"}` if it does not exist yet (creating with taskId attaches it in the same call), or `PUT $KANEO_URL/api/label/<id>/task` with `{\"taskId\": \"<new task id>\"}` if it already does -- never blind-POST a label that might already exist. -- every ticket MUST have a real description, never title-only. Then immediately link it to its story with `POST $KANEO_URL/api/task-relation`: `{\"sourceTaskId\": \"<story id>\", \"targetTaskId\": \"<new ticket id>\", \"relationType\": \"subtask\"}` (bearer `$KANEO_TOKEN` -- Kaneo confirmed parent-link mechanism). Report every DevOps ticket created and its parent story.",
               "type": "string"
             },
             {
@@ -435,38 +443,37 @@
               "type": "string"
             }
           ]
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "b2000004-0000-0000-0000-000000000001",
+      "name": "DevOps Tickets Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2704,
+        624
+      ]
     },
     {
+      "parameters": {
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "options": {}
+      },
       "id": "b2000004-0000-0000-0000-000000000002",
       "name": "DevOps: Create DevOps Tickets",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        1500,
-        280
-      ],
-      "parameters": {
-        "source": "database",
-        "workflowId": {
-          "mode": "id",
-          "value": "jAv16SAzGy9fA5G4"
-        },
-        "mode": "once"
-      }
+        2928,
+        624
+      ]
     },
     {
-      "id": "b2000001-0000-0000-0000-000000000001",
-      "name": "TL Input (Tasks)",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        1340,
-        200
-      ],
       "parameters": {
-        "mode": "manual",
         "assignments": {
           "assignments": [
             {
@@ -478,7 +485,7 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "First publish the effort estimate plan_release produced: `mc alias set local $MINIO_ENDPOINT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD >/dev/null && mc cat local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/estimate.md`, then publish it as a GitLab wiki page for this release (wiki lives on GitLab's own per-project wiki module now, not Taiga -- Taiga has been fully removed, see AGENT.md's \"Kaneo\" section): check whether the page {{ $node['Webhook Trigger'].json.body.body.version }}/Estimate already exists via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis/{{ $node['Webhook Trigger'].json.body.body.version }}%2FEstimate --hostname gitlab-webservice-default.gitlab.svc.cluster.local` (a 404 means it doesn't exist yet); if it doesn't exist, create it via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis --method POST -f title=\"{{ $node['Webhook Trigger'].json.body.body.version }}/Estimate\" -f format=markdown -F content=@<file> --hostname gitlab-webservice-default.gitlab.svc.cluster.local` (note -F, not -f, for content); if it exists, update it instead via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis/{{ $node['Webhook Trigger'].json.body.body.version }}%2FEstimate --method PUT -f format=markdown -F content=@<file> --hostname gitlab-webservice-default.gitlab.svc.cluster.local`. Then confirm the story tasks from the previous step actually exist by querying `GET $KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID` (bearer `$KANEO_TOKEN`) and filtering client-side for a `{{ $node['Webhook Trigger'].json.body.body.version }}` label and a `story` label (do not assume the previous step's report was accurate -- verify against Kaneo directly). If no story tasks exist yet, create them yourself first the same way PM's step does (`POST $KANEO_URL/api/task` with `{\"projectId\": \"$KANEO_PROJECT_ID\", ...}`, then attach the \"{{ $node['Webhook Trigger'].json.body.body.version }}\" and \"story\" labels the same way PM's step does) before proceeding. Resolve the backend-developer and frontend-developer role accounts' Kaneo user ids once (`GET $KANEO_URL/api/user` with bearer `$KANEO_TOKEN`, filter for email \"sdlc-backend-developer@homelab.local\" and \"sdlc-frontend-developer@homelab.local\" -- each role has its own dedicated Kaneo account, created by `helm/ansible/playbooks/role-accounts.yml`; // ponytail: verify this exact user-listing path against the deployed Kaneo version). Then, for EACH story task, break it into role-feature task tickets -- NOT one generic task per story. Identify the distinct backend/frontend/api features the story touches (e.g. a login story might be 'frontend: login page' + 'backend: login mechanism' + 'api: login endpoint contract'); create one Kaneo task per role-feature pair via `POST $KANEO_URL/api/task` with `{\"projectId\": \"$KANEO_PROJECT_ID\", \"title\": \"[{role}] {feature — short description}\", \"description\": \"{what this task covers and its concrete done-condition, 2-4 sentences — not a restatement of the title}\", \"assigneeId\": <backend-developer's id for [backend]/[api] tasks, frontend-developer's id for [frontend] tasks — api tasks fall under backend-developer, there is no separate api role account>, \"status\": \"Pending\", \"labels\": [\"{{ $node['Webhook Trigger'].json.body.body.version }}\", }` (bearer `$KANEO_TOKEN`) -- every task MUST have a real `description` and the correct role's `assigneeId` set, never orphaned and never defaulted to your own identity; then immediately link each new task to its story with `POST $KANEO_URL/api/task-relation`: `{\"sourceTaskId\": \"<new task id>\", \"targetTaskId\": \"<story task id>\", \"relationType\": \"subtask\"}` (bearer `$KANEO_TOKEN` -- Kaneo confirmed parent-link mechanism, see AGENT.md's \"Kaneo\" section). Skip any role the story genuinely doesn't touch (a pure backend migration gets no frontend task). Role lives in the title prefix ('[backend]'/'[frontend]'/'[api]') only -- there is no separate role field or label. Do not create qa/security/devops task tickets -- those roles self-create their own tickets from the story directly (see qa-engineer/security-engineer/devops-engineer SKILL.md), not Tech Lead's job. Report every created task's id, title, role, and its parent story task's id -- the branch-creation step later needs these.",
+              "value": "First publish the effort estimate plan_release produced: `mc alias set local $MINIO_ENDPOINT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD >/dev/null && mc cat local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/estimate.md`, then publish it as a GitLab wiki page for this release (wiki lives on GitLab's own per-project wiki module now, not Taiga -- Taiga has been fully removed, see AGENT.md's \"Kaneo\" section): check whether the page {{ $node['Webhook Trigger'].json.body.body.version }}/Estimate already exists via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis/{{ $node['Webhook Trigger'].json.body.body.version }}%2FEstimate --hostname gitlab-webservice-default.gitlab.svc.cluster.local` (a 404 means it doesn't exist yet); if it doesn't exist, create it via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis --method POST -f title=\"{{ $node['Webhook Trigger'].json.body.body.version }}/Estimate\" -f format=markdown -F content=@<file> --hostname gitlab-webservice-default.gitlab.svc.cluster.local` (note -F, not -f, for content); if it exists, update it instead via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis/{{ $node['Webhook Trigger'].json.body.body.version }}%2FEstimate --method PUT -f format=markdown -F content=@<file> --hostname gitlab-webservice-default.gitlab.svc.cluster.local`. Then confirm the story tasks from the previous step actually exist by querying `GET $KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID` (bearer `$KANEO_TOKEN`) and filtering client-side for a `{{ $node['Webhook Trigger'].json.body.body.version }}` label and a `story` label (do not assume the previous step's report was accurate -- verify against Kaneo directly). If no story tasks exist yet, create them yourself first the same way PM's step does (`POST $KANEO_URL/api/task` with `{\"projectId\": \"$KANEO_PROJECT_ID\", ...}`, then attach the \"{{ $node['Webhook Trigger'].json.body.body.version }}\" and \"story\" labels the same way PM's step does) before proceeding. Resolve the backend-developer and frontend-developer role accounts' Kaneo user ids once (`GET $KANEO_URL/api/user` with bearer `$KANEO_TOKEN`, filter for email \"sdlc-backend-developer@homelab.local\" and \"sdlc-frontend-developer@homelab.local\" -- each role has its own dedicated Kaneo account, created by `helm/ansible/playbooks/role-accounts.yml`; // ponytail: verify this exact user-listing path against the deployed Kaneo version). Then, for EACH story task, break it into role-feature task tickets -- NOT one generic task per story. Identify the distinct backend/frontend/api features the story touches (e.g. a login story might be 'frontend: login page' + 'backend: login mechanism' + 'api: login endpoint contract'); create one Kaneo task per role-feature pair via `POST $KANEO_URL/api/task` with `{\"projectId\": \"$KANEO_PROJECT_ID\", \"title\": \"[{role}] {feature — short description}\", \"description\": \"{what this task covers and its concrete done-condition, 2-4 sentences — not a restatement of the title}\", \"assigneeId\": <backend-developer's id for [backend]/[api] tasks, frontend-developer's id for [frontend] tasks — api tasks fall under backend-developer, there is no separate api role account>, \"status\": \"Pending\", \"labels\": [\"{{ $node['Webhook Trigger'].json.body.body.version }}\", }` (bearer `$KANEO_TOKEN`) -- every task MUST have a real `description` and the correct role's `assigneeId` set, never orphaned and never defaulted to your own identity; then immediately link each new task to its story with `POST $KANEO_URL/api/task-relation`: `{\"sourceTaskId\": \"<story task id>\", \"targetTaskId\": \"<new task id>\", \"relationType\": \"subtask\"}` (bearer `$KANEO_TOKEN` -- Kaneo confirmed parent-link mechanism, see AGENT.md's \"Kaneo\" section). Skip any role the story genuinely doesn't touch (a pure backend migration gets no frontend task). Role lives in the title prefix ('[backend]'/'[frontend]'/'[api]') only -- there is no separate role field or label. Do not create qa/security/devops task tickets -- those roles self-create their own tickets from the story directly (see qa-engineer/security-engineer/devops-engineer SKILL.md), not Tech Lead's job. Report every created task's id, title, role, and its parent story task's id -- the branch-creation step later needs these.",
               "type": "string"
             },
             {
@@ -500,38 +507,37 @@
               "type": "string"
             }
           ]
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "b2000001-0000-0000-0000-000000000001",
+      "name": "TL Input (Tasks)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2704,
+        432
+      ]
     },
     {
+      "parameters": {
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "options": {}
+      },
       "id": "b02da329-9a7e-45ca-a098-30860e5e762d",
       "name": "TL: Create Task Work Items",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        1560,
-        200
-      ],
-      "parameters": {
-        "source": "database",
-        "workflowId": {
-          "mode": "id",
-          "value": "jAv16SAzGy9fA5G4"
-        },
-        "mode": "once"
-      }
+        2928,
+        432
+      ]
     },
     {
-      "id": "b2000001-0000-0000-0000-000000000005",
-      "name": "Release Manager Input",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        1780,
-        200
-      ],
       "parameters": {
-        "mode": "manual",
         "assignments": {
           "assignments": [
             {
@@ -543,7 +549,7 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Using glab (hostname gitlab-webservice-default.gitlab.svc.cluster.local), determine the next release version number for project {{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}: list existing branches via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --hostname gitlab-webservice-default.gitlab.svc.cluster.local` and find the highest semantic version among any matching 'release/vMAJOR.MINOR.PATCH'; if none exist, start at v0.0.1, otherwise bump the patch number by 1. Create a branch named 'release/<version>' (e.g. 'release/v0.0.1') from the 'main' branch via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --method POST -f branch=release/<version> -f ref=main`. If that exact branch name already exists (400/409 conflict), treat it as success. Report the exact version number and exact branch name you created — the next step must reuse this exact name, not derive its own.",
+              "value": "=Use the exact release version requested by /kickoff: {{ $node['Webhook Trigger'].json.body.body.version }}. Validate that it matches vMAJOR.MINOR.PATCH; if missing or invalid, stop and report the error. Do not calculate or bump a version from existing branches. The only target branch is release/{{ $node['Webhook Trigger'].json.body.body.version }}. Check whether that exact branch exists using glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --hostname gitlab-webservice-default.gitlab.svc.cluster.local. If it exists, treat it as an idempotent success. If it does not exist, create exactly that branch from main with branch=release/{{ $node['Webhook Trigger'].json.body.body.version }} and ref=main. If the create call returns 400/409, re-check that exact branch and only treat it as success if it now exists. Report the requested version and exact branch name; never substitute another version.",
               "type": "string"
             },
             {
@@ -559,38 +565,37 @@
               "type": "string"
             }
           ]
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "b2000001-0000-0000-0000-000000000005",
+      "name": "Release Manager Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3152,
+        432
+      ]
     },
     {
+      "parameters": {
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "options": {}
+      },
       "id": "b2000001-0000-0000-0000-000000000006",
       "name": "RM: Create Release Branch",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        2000,
-        200
-      ],
-      "parameters": {
-        "source": "database",
-        "workflowId": {
-          "mode": "id",
-          "value": "jAv16SAzGy9fA5G4"
-        },
-        "mode": "once"
-      }
+        3376,
+        432
+      ]
     },
     {
-      "id": "b2000001-0000-0000-0000-000000000007",
-      "name": "TL Input (Branches)",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        2220,
-        200
-      ],
       "parameters": {
-        "mode": "manual",
         "assignments": {
           "assignments": [
             {
@@ -602,7 +607,7 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=First find the exact release branch name the previous step created (it reported it, formatted like 'release/v0.0.1' — a semantic version number, NOT the literal text 'release/{{ $node['Webhook Trigger'].json.body.body.version }}'; if you need to rediscover it, list branches via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --hostname gitlab-webservice-default.gitlab.svc.cluster.local` and pick the branch matching 'release/vMAJOR.MINOR.PATCH' with the highest version). Using glab, create one branch per story ticket off of that release branch (not main) named 'us/GL-<story-id>' (the story task's Kaneo id, NOT a title slug — every other role's SKILL.md already assumes this exact branch name as the task MRs' target branch; 'GL-' is kept as branch-naming vocabulary only, per AGENTS.md's Ticket & MR Conventions — the id itself is a Kaneo task id, not a GitLab issue IID) via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --method POST -f branch=us/GL-<story-id> -f ref=<release-branch-name>`, then one branch per task ticket off of its parent story's branch named 'task/GL-<task-id>' (the task's own Kaneo id) via the same call with ref=us/GL-<story-id> (use the story/task ids from the earlier steps — re-query Kaneo if you need them again). Embedding the id in the branch name (not a slug) is required — backend/frontend-developer read it straight out of their branch name to put 'Closes #<task-id>' in their task MR description; that's prose only now (the ticket lives in Kaneo, so a GitLab merge can't auto-close it on its own — Kaneo's own native GitLab integration, configured earlier in this same flow, still attaches the merge commit as a comment for the compliance trail), but the id is still how the developer pod finds which task to PATCH to Done after merge — a slug can't be reverse-parsed back to an id reliably. Immediately after creating each branch, append a clickable link to it onto its ticket's own description (not a comment -- the branch link belongs with the ticket's permanent content, see AGENTS.md's \"Ticket ↔ branch linkage\") -- not just the bare branch name, the link must resolve from a browser, so build it against the external tailnet host, never the in-cluster service address: `https://gitlab.tail60240b.ts.net/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/-/tree/us/GL-<story-id>`: GET the story ticket's current description (`GET $KANEO_URL/api/task/<story task id>` with bearer `$KANEO_TOKEN`), then `PATCH $KANEO_URL/api/task/<story task id>` with bearer `$KANEO_TOKEN` and body `{\"description\": \"<current description>\n\n**Branch:** <that full URL>\"}` (PATCH replaces description wholesale -- always append to the GET result, never clobber it); same GET-then-PATCH against each task ticket's own id with its own branch's URL -- this is the ticket-to-branch linkage. For each task branch, commit openspec pseudocode under openspec/<task-slug>.md (slug is fine for the file name, this is just a path), and PATCH the task's status to \"OpenSpec Ready\" (`PATCH $KANEO_URL/api/task/<task id>` with bearer `$KANEO_TOKEN` and body `{\"status\": \"OpenSpec Ready\"}` -- Kaneo's `status` is a plain string, not an id to resolve; F-03/F-04 already read this exact value back). Report every branch created.",
+              "value": "=Use the exact release branch requested by /kickoff: release/{{ $node['Webhook Trigger'].json.body.body.version }}. Verify that exact branch exists with glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --hostname gitlab-webservice-default.gitlab.svc.cluster.local. If it is missing, stop and report a blocker. Do not infer or select another release. Using glab, create one branch per story ticket off of that release branch (not main) named 'us/GL-<story-id>' (the story task's Kaneo id, NOT a title slug — every other role's SKILL.md already assumes this exact branch name as the task MRs' target branch; 'GL-' is kept as branch-naming vocabulary only, per AGENTS.md's Ticket & MR Conventions — the id itself is a Kaneo task id, not a GitLab issue IID) via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --method POST -f branch=us/GL-<story-id> -f ref=<release-branch-name>`, then one branch per task ticket off of its parent story's branch named 'task/GL-<task-id>' (the task's own Kaneo id) via the same call with ref=us/GL-<story-id> (use the story/task ids from the earlier steps — re-query Kaneo if you need them again). Embedding the id in the branch name (not a slug) is required — backend/frontend-developer read it straight out of their branch name to put 'Closes #<task-id>' in their task MR description; that's prose only now (the ticket lives in Kaneo, so a GitLab merge can't auto-close it on its own — Kaneo's own native GitLab integration, configured earlier in this same flow, still attaches the merge commit as a comment for the compliance trail), but the id is still how the developer pod finds which task to PATCH to Done after merge — a slug can't be reverse-parsed back to an id reliably. Immediately after creating each branch, append a clickable link to it onto its ticket's own description (not a comment -- the branch link belongs with the ticket's permanent content, see AGENTS.md's \"Ticket ↔ branch linkage\") -- not just the bare branch name, the link must resolve from a browser, so build it against the external tailnet host, never the in-cluster service address: `https://gitlab.tail60240b.ts.net/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/-/tree/us/GL-<story-id>`: GET the story ticket's current description (`GET $KANEO_URL/api/task/<story task id>` with bearer `$KANEO_TOKEN`), then `PATCH $KANEO_URL/api/task/<story task id>` with bearer `$KANEO_TOKEN` and body `{\"description\": \"<current description>\n\n**Branch:** <that full URL>\"}` (PATCH replaces description wholesale -- always append to the GET result, never clobber it); same GET-then-PATCH against each task ticket's own id with its own branch's URL -- this is the ticket-to-branch linkage. For each task branch, commit openspec pseudocode under openspec/<task-slug>.md (slug is fine for the file name, this is just a path), and PATCH the task's status to \"OpenSpec Ready\" (`PATCH $KANEO_URL/api/task/<task id>` with bearer `$KANEO_TOKEN` and body `{\"status\": \"OpenSpec Ready\"}` -- Kaneo's `status` is a plain string, not an id to resolve; F-03/F-04 already read this exact value back). Report every branch created.",
               "type": "string"
             },
             {
@@ -618,38 +623,37 @@
               "type": "string"
             }
           ]
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "b2000001-0000-0000-0000-000000000007",
+      "name": "TL Input (Branches)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3600,
+        432
+      ]
     },
     {
+      "parameters": {
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "options": {}
+      },
       "id": "b2000001-0000-0000-0000-000000000008",
       "name": "TL: Create Story/Task Branches",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        2440,
-        200
-      ],
-      "parameters": {
-        "source": "database",
-        "workflowId": {
-          "mode": "id",
-          "value": "jAv16SAzGy9fA5G4"
-        },
-        "mode": "once"
-      }
+        3824,
+        432
+      ]
     },
     {
-      "id": "b2000001-0000-0000-0000-000000000003",
-      "name": "DevOps Input",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        900,
-        480
-      ],
       "parameters": {
-        "mode": "manual",
         "assignments": {
           "assignments": [
             {
@@ -677,51 +681,51 @@
               "type": "string"
             }
           ]
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "b2000001-0000-0000-0000-000000000003",
+      "name": "DevOps Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2704,
+        832
+      ]
     },
     {
+      "parameters": {
+        "workflowId": {
+          "mode": "id",
+          "value": "jAv16SAzGy9fA5G4"
+        },
+        "options": {}
+      },
       "id": "e80b2745-2d8d-4624-b99d-17eba1e6cddd",
       "name": "DevOps: Infra + Webhook",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        1120,
-        480
-      ],
-      "parameters": {
-        "source": "database",
-        "workflowId": {
-          "mode": "id",
-          "value": "jAv16SAzGy9fA5G4"
-        },
-        "mode": "once"
-      }
+        2928,
+        832
+      ]
     },
     {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
       "id": "190355fa-88b0-41e7-ba40-da302eecf355",
       "name": "Merge 2 Tracks",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        2660,
-        340
-      ],
-      "parameters": {
-        "mode": "combine",
-        "combineBy": "combineByPosition",
-        "numberInputs": 2
-      }
+        4048,
+        608
+      ]
     },
     {
-      "id": "c6510faf-ce27-45a1-a886-63f8d1e8e394",
-      "name": "Notify: Kickoff complete",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2880,
-        340
-      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
@@ -746,24 +750,58 @@
               "value": "✅ kickoff complete — story/task work items, release+story+task branches, infra ready"
             },
             {
-              "name": "notes",
-              "value": ""
+              "name": "notes"
             }
           ]
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "c6510faf-ce27-45a1-a886-63f8d1e8e394",
+      "name": "Notify: Kickoff complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4272,
+        608
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "// ponytail: wires Kaneo's own native GitLab integration (real\n// bidirectional sync, merged upstream 2026-09-26 -- see AGENT.md's \"Kaneo\"\n// section) onto the project just ensured above, so Kaneo's board stays in\n// sync with this project's GitLab activity without a separate webhook\n// playbook (unlike Taiga's old one-way compliance webhook).\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst projectId = $json.kaneo_project_id;\nconst group = $node['Webhook Trigger'].json.body.body.group ?? 'sdlc';\nconst project = $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal';\nconst gitlabProjectPath = `${group}/${project}`;\n\n// ponytail: verify this exact Kaneo integration-config endpoint path\n// against the deployed version -- inferred from the confirmed\n// /api/project/<id>/... nesting convention, not confirmed from docs. Best\n// effort / fire-and-forget: a failure here shouldn't block the rest of\n// kickoff, Kaneo tickets still work fine without GitLab sync wired up.\nlet configured = false;\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${$env.KANEO_URL}/api/project/${projectId}/integrations/gitlab`,\n    headers: auth,\n    json: true,\n    body: {\n      gitlabUrl: 'http://gitlab-webservice-default.gitlab.svc.cluster.local:8181',\n      gitlabToken: $env.GITLAB_TOKEN,\n      projectPath: gitlabProjectPath,\n    },\n    returnFullResponse: true,\n    ignoreHttpStatusErrors: true,\n  });\n  configured = response.statusCode >= 200 && response.statusCode < 300;\n  if (!configured) console.log(`Kaneo GitLab integration config failed (non-fatal): HTTP ${response.statusCode}`);\n} catch (e) {\n  console.log(`Kaneo GitLab integration config failed (non-fatal): ${e.message}`);\n}\n\nreturn [{ json: { ...$json, kaneo_gitlab_integration_configured: configured } }];"
+      },
       "id": "c1a00001-0000-0000-0000-000000000001",
       "name": "Configure Kaneo GitLab Integration",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1195,
+        1584,
+        512
+      ]
+    },
+    {
+      "id": "f02-gitlab-group-members",
+      "name": "Add Role Members to GitLab Group",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
         60
       ],
       "parameters": {
-        "jsCode": "// ponytail: wires Kaneo's own native GitLab integration (real\n// bidirectional sync, merged upstream 2026-09-26 -- see AGENT.md's \"Kaneo\"\n// section) onto the project just ensured above, so Kaneo's board stays in\n// sync with this project's GitLab activity without a separate webhook\n// playbook (unlike Taiga's old one-way compliance webhook).\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst projectId = $json.kaneo_project_id;\nconst group = $node['Webhook Trigger'].json.body.body.group ?? 'sdlc';\nconst project = $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal';\nconst gitlabProjectPath = `${group}/${project}`;\n\n// ponytail: verify this exact Kaneo integration-config endpoint path\n// against the deployed version -- inferred from the confirmed\n// /api/project/<id>/... nesting convention, not confirmed from docs. Best\n// effort / fire-and-forget: a failure here shouldn't block the rest of\n// kickoff, Kaneo tickets still work fine without GitLab sync wired up.\ntry {\n  await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${$env.KANEO_URL}/api/project/${projectId}/integrations/gitlab`,\n    headers: auth,\n    json: true,\n    body: {\n      gitlabUrl: 'http://gitlab-webservice-default.gitlab.svc.cluster.local:8181',\n      gitlabToken: $env.GITLAB_TOKEN,\n      projectPath: gitlabProjectPath,\n    },\n    ignoreHttpStatusErrors: true,\n  });\n} catch (e) {\n  console.log(`Kaneo GitLab integration config failed (non-fatal): ${e.message}`);\n}\n\nreturn [{ json: { ...$json, kaneo_gitlab_integration_configured: true } }];"
+        "jsCode": "const api = `${$env.GITLAB_URL}/api/v4`;\nconst headers = { 'PRIVATE-TOKEN': $env.GITLAB_TOKEN };\nconst groupPath = ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc').toString();\nconst roles = [\"backend-developer\", \"data-engineer\", \"devops-engineer\", \"frontend-developer\", \"product-owner\", \"project-manager\", \"qa-engineer\", \"release-manager\", \"security-engineer\", \"solution-architect\", \"tech-lead\", \"uiux-designer\"];\nconst request = async (method, path, body) => {\n  const response = await this.helpers.httpRequest({ method, url: `${api}${path}`, headers, body, json: true, returnFullResponse: true, ignoreHttpStatusErrors: true });\n  if (response.statusCode < 200 || response.statusCode >= 300) throw new Error(`GitLab ${method} ${path} failed (${response.statusCode}): ${JSON.stringify(response.body)}`);\n  return response.body;\n};\nconst group = await request('GET', `/groups/${encodeURIComponent(groupPath)}`);\nconst members = await request('GET', `/groups/${group.id}/members/all?per_page=100`);\nconst added = [];\nfor (const username of roles) {\n  const users = await request('GET', `/users?username=${encodeURIComponent(username)}`);\n  if (!users.length) throw new Error(`GitLab role account not found: ${username}`);\n  if (members.some(member => member.id === users[0].id)) continue;\n  await request('POST', `/groups/${group.id}/members`, { user_id: users[0].id, access_level: 30 });\n  added.push(username);\n}\nreturn [{ json: { gitlab_group_id: group.id, gitlab_group_path: groupPath, gitlab_role_members_added: added } }];"
+      }
+    },
+    {
+      "id": "f02-kickoff-result-check",
+      "name": "Assert Kickoff Tracks Succeeded",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2750,
+        340
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"PM: Ensure Project Exists\", \"Architect: Scaffold Repo\", \"PM: Create Story Work Items\", \"QA: Create QA Tickets\", \"Security: Create Security Tickets\", \"TL: Create Task Work Items\", \"DevOps: Create DevOps Tickets\", \"RM: Create Release Branch\", \"TL: Create Story/Task Branches\", \"DevOps: Infra + Webhook\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Kickoff incomplete: ${failures.join('; ')}`);\nreturn $input.all();"
       }
     }
   ],
@@ -805,7 +843,7 @@
       "main": [
         [
           {
-            "node": "Ensure Kaneo Project",
+            "node": "Add Role Members to GitLab Group",
             "type": "main",
             "index": 0
           }
@@ -1001,7 +1039,7 @@
       "main": [
         [
           {
-            "node": "Notify: Kickoff complete",
+            "node": "Assert Kickoff Tracks Succeeded",
             "type": "main",
             "index": 0
           }
@@ -1040,11 +1078,1148 @@
           }
         ]
       ]
+    },
+    "Add Role Members to GitLab Group": {
+      "main": [
+        [
+          {
+            "node": "Ensure Kaneo Project",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Kickoff Tracks Succeeded": {
+      "main": [
+        [
+          {
+            "node": "Notify: Kickoff complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "active": true,
-  "tags": [],
+  "nodeGroups": [],
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "pinData": {},
+  "meta": null,
+  "tags": [],
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "FOVTz690U4aJK6aN",
+      "projectId": "4ZbBz7V4KdjbTmkh",
+      "project": {
+        "id": "4ZbBz7V4KdjbTmkh",
+        "name": "Homelab Admin <edwardlimkoksiong1994@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "d96c4f76-93d9-4356-b018-528c1fa174ba",
+        "createdAt": "2026-09-10T05:20:11.540Z",
+        "updatedAt": "2026-09-11T08:18:26.766Z"
+      },
+      "createdAt": "2026-09-11T10:02:45.838Z",
+      "updatedAt": "2026-09-11T10:02:45.838Z"
+    }
+  ],
+  "activeVersion": {
+    "versionId": "23258dc5-c837-4cc0-93a5-1527c5dbf6f3",
+    "workflowId": "FOVTz690U4aJK6aN",
+    "nodes": [
+      {
+        "id": "516ef61b-d041-49ae-824a-d528608d6980",
+        "name": "Webhook Trigger",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          240,
+          300
+        ],
+        "parameters": {
+          "path": "kickoff",
+          "httpMethod": "POST",
+          "responseMode": "onReceived",
+          "responseData": "allEntries"
+        },
+        "webhookId": "61ec943e-86b1-4118-b28b-fda8049c924d"
+      },
+      {
+        "id": "90948b75-fde9-49d4-8339-dbf4dd3edd4a",
+        "name": "Notify: Kickoff started",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          680,
+          300
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "flow_id",
+                "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
+              },
+              {
+                "name": "message",
+                "value": "🚀 kickoff started — repo+project create -> scaffold+wiki -> PM stories -> TL tasks -> release branch -> TL story/task branches, DevOps in parallel"
+              },
+              {
+                "name": "notes",
+                "value": ""
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "c1000001-0000-0000-0000-000000000001",
+        "name": "PM Project Input",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          900,
+          60
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1",
+                "name": "role",
+                "value": "pm",
+                "type": "string"
+              },
+              {
+                "id": "2",
+                "name": "prompt",
+                "value": "=Using glab (hostname gitlab-webservice-default.gitlab.svc.cluster.local), the GitLab group to use is {{ $node['Webhook Trigger'].json.body.body.group ?? 'sdlc' }} and the project to use is {{ $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal' }} — if the chat command that triggered this specified a group/project name, use those exact names; otherwise default to 'sdlc'/'hr-portal' (the dry-run fixture — every real project should name both explicitly). Never hardcode 'sdlc' or 'hr-portal' below, always use these same two values. Ensure that GitLab group exists (create it if missing) and that project exists inside that group (create it if missing — do not treat an already-existing group or project as an error). Whether or not the group was just created, ensure the user with email edwardlimkoksiong1994@gmail.com is a member of that group with Owner access (look up their user id via `glab api users?search=edwardlimkoksiong1994@gmail.com`, then add/update membership via `glab api groups/<group>/members --method POST -f user_id=<id> -f access_level=50`, ignoring a 409/already-a-member response as success) — a group recreated after deletion has no members but root, so this must run every time, not just on first creation. Report the group and project names used, the project's full path, whether the group/project were newly created or already existed, and whether the membership add succeeded — and flag explicitly if this run is defaulting to sdlc/hr-portal so it's obvious a real project name was never given. Do NOT delete or rename the group or project for any reason, even if a prior run's project seems stale or misconfigured -- every step after this one in this SAME kickoff run computes the group/project path directly from this chat command's group/project fields (not from any static env var), so treat an existing group/project as success and move on; other flows (develop, uat, etc) also prefer their own chat/event input over the static env var fallback now, with the env var kept only as a last-resort default when no chat value is given.",
+                "type": "string"
+              },
+              {
+                "id": "3",
+                "name": "story",
+                "value": "={{ $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal' }}",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "c1000001-0000-0000-0000-000000000002",
+        "name": "PM: Ensure Project Exists",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.1,
+        "position": [
+          1080,
+          60
+        ],
+        "parameters": {
+          "source": "database",
+          "workflowId": {
+            "mode": "id",
+            "value": "jAv16SAzGy9fA5G4"
+          },
+          "mode": "once"
+        }
+      },
+      {
+        "id": "c1000001-0000-0000-0000-000000000003",
+        "name": "Ensure Kaneo Project",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1170,
+          60
+        ],
+        "parameters": {
+          "jsCode": "// ponytail: mirrors the old Taiga project-creation step, adapted to\n// Kaneo's workspace -> project -> task hierarchy (no epic/userstory/issue\n// resources -- see AGENT.md's \"Kaneo\" section). One shared 'sdlc' workspace\n// holds every generated project, same role the single Taiga instance played.\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst projectName = $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal';\nconst slug = projectName.toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');\n\n// ponytail: verify this exact path against the deployed Kaneo version --\n// GET /api/workspace (list) is inferred from the confirmed GET /api/project\n// naming convention, not confirmed from docs.\nconst workspaces = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/workspace`, headers: auth, json: true, ignoreHttpStatusErrors: true });\nlet workspace = (Array.isArray(workspaces) ? workspaces : workspaces?.workspaces || []).find(w => w.slug === 'sdlc' || w.name === 'sdlc');\nif (!workspace) {\n  // ponytail: verify this exact path/body against the deployed Kaneo version.\n  workspace = await this.helpers.httpRequest({ method: 'POST', url: `${$env.KANEO_URL}/api/auth/organization/create`, headers: auth, json: true, body: { name: 'sdlc', slug: 'sdlc' } });\n}\nconst workspaceId = workspace.id;\n\n// GET /api/project -- confirmed endpoint, lists projects in a workspace.\nconst projects = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/project`, headers: auth, json: true, qs: { workspaceId }, ignoreHttpStatusErrors: true });\nconst existing = (Array.isArray(projects) ? projects : projects?.projects || []).find(p => p.slug === slug || p.name === projectName);\nif (existing) {\n  return [{ json: { kaneo_workspace_id: workspaceId, kaneo_project_id: existing.id, kaneo_project_slug: existing.slug, kaneo_project_created: false } }];\n}\n\n// ponytail: verify this exact path/body against the deployed Kaneo version\n// -- POST /api/project is inferred from the confirmed GET /api/project\n// naming convention, not confirmed from docs.\nconst created = await this.helpers.httpRequest({ method: 'POST', url: `${$env.KANEO_URL}/api/project`, headers: auth, json: true, body: { name: projectName, slug, workspaceId, description: `${projectName} \\u2014 created by /kickoff` } });\nreturn [{ json: { kaneo_workspace_id: workspaceId, kaneo_project_id: created.id, kaneo_project_slug: created.slug, kaneo_project_created: true } }];"
+        }
+      },
+      {
+        "id": "c1000001-0000-0000-0000-000000000004",
+        "name": "Add Role Members to Kaneo Project",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1220,
+          60
+        ],
+        "parameters": {
+          "jsCode": "// ponytail: one dedicated Kaneo user per SDLC role (created once by\n// helm/ansible/playbooks/role-accounts.yml, email sdlc-<role>@homelab.local)\n// so tickets can be assigned to the role that did the work instead of the\n// single shared admin identity. Kaneo membership is per-project -- same\n// per-project-at-kickoff-time call the old Taiga membership step made.\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst projectId = $json.kaneo_project_id;\nconst sdlcRoles = ['backend-developer','data-engineer','devops-engineer','frontend-developer','product-owner','project-manager','qa-engineer','release-manager','security-engineer','solution-architect','tech-lead','uiux-designer'];\n\n// confirmed: no plain /api/user listing endpoint exists, and the Better\n// Auth admin list-users route needs a cookie session (401 on Bearer) --\n// role accounts also can't exist yet while Kaneo's local sign-in stays\n// disabled (see role-accounts.yml). Degrade to \\\"skip everyone\\\" rather than\n// failing kickoff entirely -- Kaneo role membership is a nice-to-have, not\n// a kickoff blocker.\nlet userList = [];\ntry {\n  const allUsers = await this.helpers.httpRequest({ method: 'GET', url: `${$env.KANEO_URL}/api/user`, headers: auth, json: true });\n  userList = Array.isArray(allUsers) ? allUsers : (allUsers?.users || []);\n} catch (e) {\n  console.log(`Kaneo user lookup unavailable (${e.message}) -- skipping role-member assignment for this project.`);\n}\n\nconst added = [];\nconst skipped = [];\nfor (const roleName of sdlcRoles) {\n  const email = `sdlc-${roleName}@homelab.local`;\n  const user = userList.find(u => u.email === email);\n  if (!user) { skipped.push(roleName); continue; }\n  try {\n    // ponytail: verify this exact path against the deployed Kaneo version\n    // -- POST /api/project/<id>/members inferred from the confirmed\n    // /api/project naming convention.\n    await this.helpers.httpRequest({ method: 'POST', url: `${$env.KANEO_URL}/api/project/${projectId}/members`, headers: auth, json: true, body: { userId: user.id, role: 'member' } });\n    added.push(roleName);\n  } catch (e) {\n    // already a member -- tolerate like the old Taiga 400-on-duplicate path\n    added.push(roleName);\n  }\n}\nif (skipped.length) {\n  console.log(`Role accounts not found in Kaneo (run role-accounts.yml first): ${skipped.join(', ')}`);\n}\nreturn [{ json: { ...$json, role_members_added: added, role_members_skipped: skipped } }];"
+        }
+      },
+      {
+        "id": "c1000002-0000-0000-0000-000000000001",
+        "name": "Architect Input (Scaffold)",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1260,
+          60
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1",
+                "name": "role",
+                "value": "architect",
+                "type": "string"
+              },
+              {
+                "id": "2",
+                "name": "prompt",
+                "value": "=Fetch the architecture report plan_release already produced: `mc alias set local $MINIO_ENDPOINT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD >/dev/null && mc cat local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/architecture.md`. The stack was already decided there during planning — use it exactly, do not re-decide it now. Check whether the workspace is already scaffolded — for an Nx-based stack (TypeScript or Java), `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/files/nx.json?ref=main`; for a .NET/Bazel stack, check `MODULE.bazel` at the same path instead (a 404 on whichever file applies means not scaffolded — GitLab auto-inits every new project with a README commit, so do not use commit count as the signal). If not scaffolded, scaffold that stack now and commit straight to `main` before anything else below, since release/story/task branches fork from `main` next. Also write (or update) a `CLAUDE.md` at the repo root with a `## Stack` section recording the exact choices made — every role's SKILL.md reads this file for the rest of the project's life to decide which commands/conventions apply (e.g. for TypeScript: `language: typescript`, `monorepo: nx`, `backend: nestjs`, `frontend: react`, `unit-test: vitest`; a different stack records its own equivalents). When the stack says NestJS, use the @nx/nest generator for the backend app (e.g. `nx g @nx/nest:app <name> --unitTestRunner=vitest`) — never @nx/express or raw Express, even though nx's own starter preset defaults there. When the stack says Spring Boot instead, scaffold that backend module via Spring Initializr or `gradle init --type java-application` directly into apps/backend/<name>, add the `@nx/gradle` plugin (`nx g @nx/gradle:init`) once so Nx discovers it, and use Gradle (`./gradlew`) for that module's build/test — never bun/npm for it. Either way, use @nx/react for the frontend app, same `--unitTestRunner=vitest` flag (nx defaults to Jest otherwise, and this stack's convention is Vitest) — the frontend is React/bun regardless of which backend language was chosen — unless the stack is .NET, which uses neither Nx nor React/bun at all: scaffold a Bazel workspace (`MODULE.bazel` at the repo root pulling in `rules_dotnet`), an ASP.NET Core project under apps/backend/<name> and a Blazor WebAssembly project under apps/frontend/<name>, each with its own `BUILD.bazel`. This GitLab instance runs GitLab CI, not GitHub Actions — add a .gitlab-ci.yml at the repo root (an nx-affected lint/test/typecheck/build pipeline is enough on an Nx stack; a .NET/Bazel stack uses bazel build/bazel test scoped via bazel-diff instead — see the devops-engineer SKILL.md's CI template either way) and delete .github/workflows. create-nx-workspace also writes agent-skill/config directories for several coding tools we do not use — delete .codex, .cursor, .gemini, .github/agents, .github/prompts, .github/skills, .opencode, .vscode, keeping ONLY .agents and .claude. Use bun, not npm/npx, for every install and script-run step everywhere below (bun install, bunx nx, bun publish — never npm ci, npx nx, or npm publish) — this applies to the JS/TS workspace, which on a TypeScript stack is both frontend and backend, and on a Java stack is the frontend only (a Spring Boot backend module uses its own `./gradlew` instead). On a .NET stack none of this applies — there is no JS/TS workspace at all, frontend and backend are both built via `bazel build`/`bazel test`, and NuGet handles .NET package resolution. Add CI docker-build + npm-registry wiring: (1) a Dockerfile per deployable app (apps/api, apps/shop, etc), multi-stage, shape depends on app type — backend (NestJS): build stage FROM oven/bun:1 running bun install --frozen-lockfile + bunx nx build {app}, then `bun build --compile dist/apps/{app}/main.js --outfile {app}` to produce a standalone binary; final stage is a minimal base (e.g. debian:bookworm-slim or distroless) that just COPYs that one binary and runs it — no bun/node runtime, no node_modules in the final image. Backend (Spring Boot): build stage FROM a JDK+Gradle image running `./gradlew bootJar`; final stage FROM a JRE-only base that just COPYs the resulting fat JAR and runs `java -jar {app}.jar` — no Gradle/JDK build tooling in the final image. Frontend (React): build stage same bun install + nx build producing static assets; final stage serves them from a static web server (e.g. nginx) — not a compiled binary, there's no server process to compile. .NET backend: build stage runs the Bazel build then `dotnet publish -r linux-x64 --self-contained -p:PublishSingleFile=true`; final stage COPYs just that single-file executable and runs it — no .NET SDK or NuGet cache in the final image. .NET frontend (Blazor WebAssembly): build stage publishes it like any other Blazor WASM app; final stage serves the static wasm/JS/HTML output from nginx, same as the React frontend's final stage. Either way, .gitlab-ci.yml build stage below builds+pushes the resulting image; (2) a root .npmrc pointing the workspace scope at this GitLab instance's npm registry (in-cluster API host http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/api/v4/projects/${CI_PROJECT_ID}/packages/npm/, auth via ${CI_JOB_TOKEN} — do NOT use $CI_API_V4_URL/$CI_SERVER_HOST, they resolve to the external tailnet hostname which pods cannot reach); (3) extend .gitlab-ci.yml with a build stage running docker build (this GitLab runner is privileged with docker:dind already wired, kaniko is deprecated — do not use it) against the in-cluster registry host harbor.harbor.svc.cluster.local:80 (the :80 must be explicit — docker's registry client assumes https/443 for a bare hostname and this is plain http; a separate Harbor instance, not GitLab's own registry — no $CI_REGISTRY_* auto-vars apply here). The docker:24-dind SERVICE also needs telling it is plain-http, independent of the :80 port -- give it its own daemon flag: `services: - name: docker:24-dind` with `command: [\"--insecure-registry=harbor.harbor.svc.cluster.local:80\"]`, or dockerd inside that service still assumes TLS and `docker login`/`push` fail with \"server gave HTTP response to HTTPS client\" even though the port is explicit. Use `docker login ... --password-stdin` (echo the password into it), never `-p $VAR` (insecure-CLI-arg warning), authenticating with $HARBOR_USER/$HARBOR_PASSWORD (group-level CI/CD variables set on the sdlc group, inherited automatically by every project — not GitLab-provided), tagging images harbor.harbor.svc.cluster.local:80/library/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/<app>:${CI_COMMIT_SHORT_SHA}, only on main/release branches; and a publish stage that runs bun publish for packages under packages/* using the .npmrc above, only on main/release branches. The install job should rely on the pipeline cache (keyed on bun.lock) to hand node_modules to later jobs, NOT an `artifacts:` upload of node_modules/ -- a full node_modules tree as a job artifact is large enough to trip GitLab's request-size limit (413) on upload. Once scaffolding is confirmed (new or pre-existing), publish the fetched architecture report as a GitLab wiki page for this release (wiki now lives on GitLab's own per-project wiki module, not Taiga -- Taiga has been fully removed, see AGENT.md's \"Kaneo\" section): check whether the page {{ $node['Webhook Trigger'].json.body.body.version }}/Architecture already exists via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis/{{ $node['Webhook Trigger'].json.body.body.version }}%2FArchitecture --hostname gitlab-webservice-default.gitlab.svc.cluster.local` (a 404 means it doesn't exist yet); if it doesn't exist, create it via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis --method POST -f title=\"{{ $node['Webhook Trigger'].json.body.body.version }}/Architecture\" -f format=markdown -F content=@<file> --hostname gitlab-webservice-default.gitlab.svc.cluster.local` (note -F, not -f, for content -- it substitutes the file's actual content, not a literal string); if it exists, update it instead via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis/{{ $node['Webhook Trigger'].json.body.body.version }}%2FArchitecture --method PUT -f format=markdown -F content=@<file> --hostname gitlab-webservice-default.gitlab.svc.cluster.local`. Then list every per-service architecture file plan_release uploaded (`mc ls local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/ | grep -oE \"architecture-[a-z0-9-]+\\.md\"`) — for EACH one found, fetch it (`mc cat local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/architecture-<slug>.md`) and publish it as its OWN wiki page, one page per service, never combined into the overall Architecture page, using the slug {{ $node['Webhook Trigger'].json.body.body.version }}/Architecture/<service name> (GitLab wiki slugs keep '/' as a literal hierarchy separator -- percent-encode every '/' as %2F in the URL path, e.g. `{{ $node['Webhook Trigger'].json.body.body.version }}%2FArchitecture%2F<service name>`), same check-then-create-or-update shape as above. Derive <service name> from the filename slug (hyphens back to spaces, title case) unless the file's own H1 heading already names the service -- prefer that. Report whether the workspace was newly scaffolded or already existed, and confirm the overall Architecture wiki page plus every per-service wiki page was created/updated.",
+                "type": "string"
+              },
+              {
+                "id": "3",
+                "name": "story",
+                "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+                "type": "string"
+              },
+              {
+                "id": "4",
+                "name": "kaneo_project_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_project_id }}",
+                "type": "string"
+              },
+              {
+                "id": "5",
+                "name": "group",
+                "value": "={{ $node['Webhook Trigger'].json.body.body.group ?? 'sdlc' }}",
+                "type": "string"
+              },
+              {
+                "id": "6",
+                "name": "project",
+                "value": "={{ $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal' }}",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "c1000002-0000-0000-0000-000000000002",
+        "name": "Architect: Scaffold Repo",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.1,
+        "position": [
+          1260,
+          200
+        ],
+        "parameters": {
+          "source": "database",
+          "workflowId": {
+            "mode": "id",
+            "value": "jAv16SAzGy9fA5G4"
+          },
+          "mode": "once"
+        }
+      },
+      {
+        "id": "b2000001-0000-0000-0000-000000000002",
+        "name": "PM Input",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          900,
+          200
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1",
+                "name": "role",
+                "value": "pm",
+                "type": "string"
+              },
+              {
+                "id": "2",
+                "name": "prompt",
+                "value": "=First publish the PRD plan_release produced: `mc alias set local $MINIO_ENDPOINT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD >/dev/null && mc cat local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/prd.md`, then publish it as a GitLab wiki page for this release (wiki lives on GitLab's own per-project wiki module now, not Taiga -- Taiga has been fully removed, see AGENT.md's \"Kaneo\" section): check whether the page {{ $node['Webhook Trigger'].json.body.body.version }}/PRD already exists via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis/{{ $node['Webhook Trigger'].json.body.body.version }}%2FPRD --hostname gitlab-webservice-default.gitlab.svc.cluster.local` (a 404 means it doesn't exist yet); if it doesn't exist, create it via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis --method POST -f title=\"{{ $node['Webhook Trigger'].json.body.body.version }}/PRD\" -f format=markdown -F content=@<file> --hostname gitlab-webservice-default.gitlab.svc.cluster.local` (note -F, not -f, for content); if it exists, update it instead via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis/{{ $node['Webhook Trigger'].json.body.body.version }}%2FPRD --method PUT -f format=markdown -F content=@<file> --hostname gitlab-webservice-default.gitlab.svc.cluster.local`. Also create a GitLab milestone for this release via glab (this GitLab is Community Edition -- it has no Epics, do not attempt to create one; Kaneo, the ticket tracker, has no epic resource either -- see AGENT.md's \"Kaneo\" section -- so this milestone plus each story/task's own release-version label below is the only release-wide grouping needed). Then fetch the PRD back from the GitLab wiki page just published (`glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis/{{ $node['Webhook Trigger'].json.body.body.version }}%2FPRD --hostname gitlab-webservice-default.gitlab.svc.cluster.local`) and take its executive summary as context. Resolve the project-manager role account's Kaneo user id once (`GET $KANEO_URL/api/user` with bearer `$KANEO_TOKEN`, filter for email \"sdlc-project-manager@homelab.local\" -- // ponytail: verify this exact user-listing path against the deployed Kaneo version -- stories are owned by the project-manager role account, not whichever identity's token happens to be making the API call). Then create ONE Kaneo task per user story derived from the PRD, directly under the project -- Kaneo has no separate epic/userstory resource (see AGENT.md's \"Kaneo\" section: workspace -> project -> task only), so every PRD-derived story is simply a top-level Kaneo task, tagged with a label so later steps can tell it apart from the role-feature tasks Tech Lead attaches underneath it. Create each via `POST $KANEO_URL/api/task` (// ponytail: verify this exact path/body against the deployed Kaneo version -- inferred from the confirmed `GET /api/task/tasks/<projectId>` naming) with `{\"projectId\": \"$KANEO_PROJECT_ID\", \"title\": \"...\", \"assigneeId\": <pm user id>, \"status\": \"Pending\", \"description\": \"## Goal\\n{goal derived from the PRD}\\n\\n## Acceptance Criteria\\n- [ ] ...\\n\\n## Dependencies\\n{any cross-story dependency, or \\\"None\\\"}\"}` (bearer `$KANEO_TOKEN`) -- every story task MUST have a real `description` (not a placeholder), never orphaned. Kaneo's `status` is a plain string, not an id to resolve (confirmed from other flows' use of literal values like \"in-progress\") -- just set it directly. Report every created story task's id, title, and assignee -- the next step needs these ids to attach child tasks, and Release Manager needs them later to reference in the release notes.",
+                "type": "string"
+              },
+              {
+                "id": "3",
+                "name": "story",
+                "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+                "type": "string"
+              },
+              {
+                "id": "4",
+                "name": "kaneo_project_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_project_id }}",
+                "type": "string"
+              },
+              {
+                "id": "5",
+                "name": "kaneo_workspace_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_workspace_id }}",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "e1dc6899-3754-4706-ade7-ae3a5bc076ac",
+        "name": "PM: Create Story Work Items",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.1,
+        "position": [
+          1120,
+          200
+        ],
+        "parameters": {
+          "source": "database",
+          "workflowId": {
+            "mode": "id",
+            "value": "jAv16SAzGy9fA5G4"
+          },
+          "mode": "once"
+        }
+      },
+      {
+        "id": "b2000002-0000-0000-0000-000000000001",
+        "name": "QA Tickets Input",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1320,
+          40
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1",
+                "name": "role",
+                "value": "qa-engineer",
+                "type": "string"
+              },
+              {
+                "id": "2",
+                "name": "prompt",
+                "value": "=Query the Kaneo tasks tagged `story` for {{ $node['Webhook Trigger'].json.body.body.version }} (from the previous step's output, or re-query via `GET $KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID` with bearer `$KANEO_TOKEN` and filter client-side for a `{{ $node['Webhook Trigger'].json.body.body.version }}` label and a `story` label if needed -- Kaneo has no server-side label-filter query param confirmed). Resolve the qa-engineer role account's Kaneo user id once (`GET $KANEO_URL/api/user` with bearer `$KANEO_TOKEN`, filter for email \"sdlc-qa-engineer@homelab.local\" -- // ponytail: verify this exact user-listing path against the deployed Kaneo version). For each story, if a QA ticket doesn't exist yet (check its `qa` label), create one via `POST $KANEO_URL/api/task`: `{\"projectId\": \"$KANEO_PROJECT_ID\", \"title\": \"[qa] {story short description} — test plan\", \"description\": \"{the concrete test scenarios this plan covers, 2-4 sentences}\", \"assigneeId\": \"<qa-engineer id>\", \"status\": \"Pending\"}` (bearer `$KANEO_TOKEN`), then attach the \"{{ $node['Webhook Trigger'].json.body.body.version }}\" and \"qa\" labels to it. Kaneo has no \"labels\" field on task creation at all (confirmed) -- labels are a separate resource: resolve-or-create each one via `GET $KANEO_URL/api/label/workspace/$KANEO_WORKSPACE_ID` (filter by name) then `POST $KANEO_URL/api/label` with `{\"name\": \"<label>\", \"color\": \"#888888\", \"workspaceId\": \"$KANEO_WORKSPACE_ID\", \"taskId\": \"<new task id>\"}` if it does not exist yet (creating with taskId attaches it in the same call), or `PUT $KANEO_URL/api/label/<id>/task` with `{\"taskId\": \"<new task id>\"}` if it already does -- never blind-POST a label that might already exist. -- every ticket MUST have a real description, never title-only. Then immediately link it to its story with `POST $KANEO_URL/api/task-relation`: `{\"sourceTaskId\": \"<story id>\", \"targetTaskId\": \"<new ticket id>\", \"relationType\": \"subtask\"}` (bearer `$KANEO_TOKEN` -- Kaneo confirmed parent-link mechanism). Report every QA ticket created and its parent story.",
+                "type": "string"
+              },
+              {
+                "id": "3",
+                "name": "story",
+                "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+                "type": "string"
+              },
+              {
+                "id": "4",
+                "name": "kaneo_project_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_project_id }}",
+                "type": "string"
+              },
+              {
+                "id": "5",
+                "name": "kaneo_workspace_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_workspace_id }}",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "b2000002-0000-0000-0000-000000000002",
+        "name": "QA: Create QA Tickets",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.1,
+        "position": [
+          1500,
+          40
+        ],
+        "parameters": {
+          "source": "database",
+          "workflowId": {
+            "mode": "id",
+            "value": "jAv16SAzGy9fA5G4"
+          },
+          "mode": "once"
+        }
+      },
+      {
+        "id": "b2000003-0000-0000-0000-000000000001",
+        "name": "Security Tickets Input",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1320,
+          120
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1",
+                "name": "role",
+                "value": "security-engineer",
+                "type": "string"
+              },
+              {
+                "id": "2",
+                "name": "prompt",
+                "value": "=Query the Kaneo tasks tagged `story` for {{ $node['Webhook Trigger'].json.body.body.version }} (from the previous step's output, or re-query via `GET $KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID` with bearer `$KANEO_TOKEN` and filter client-side for a `{{ $node['Webhook Trigger'].json.body.body.version }}` label and a `story` label if needed -- Kaneo has no server-side label-filter query param confirmed). Resolve the security-engineer role account's Kaneo user id once (`GET $KANEO_URL/api/user` with bearer `$KANEO_TOKEN`, filter for email \"sdlc-security-engineer@homelab.local\" -- // ponytail: verify this exact user-listing path against the deployed Kaneo version). For each story, if a Security ticket doesn't exist yet (check its `security` label), create one via `POST $KANEO_URL/api/task`: `{\"projectId\": \"$KANEO_PROJECT_ID\", \"title\": \"[security] {story short description} — threat model\", \"description\": \"{the concrete threats/attack surface this model covers, 2-4 sentences}\", \"assigneeId\": \"<security-engineer id>\", \"status\": \"Pending\"}` (bearer `$KANEO_TOKEN`), then attach the \"{{ $node['Webhook Trigger'].json.body.body.version }}\" and \"security\" labels to it. Kaneo has no \"labels\" field on task creation at all (confirmed) -- labels are a separate resource: resolve-or-create each one via `GET $KANEO_URL/api/label/workspace/$KANEO_WORKSPACE_ID` (filter by name) then `POST $KANEO_URL/api/label` with `{\"name\": \"<label>\", \"color\": \"#888888\", \"workspaceId\": \"$KANEO_WORKSPACE_ID\", \"taskId\": \"<new task id>\"}` if it does not exist yet (creating with taskId attaches it in the same call), or `PUT $KANEO_URL/api/label/<id>/task` with `{\"taskId\": \"<new task id>\"}` if it already does -- never blind-POST a label that might already exist. -- every ticket MUST have a real description, never title-only. Then immediately link it to its story with `POST $KANEO_URL/api/task-relation`: `{\"sourceTaskId\": \"<story id>\", \"targetTaskId\": \"<new ticket id>\", \"relationType\": \"subtask\"}` (bearer `$KANEO_TOKEN` -- Kaneo confirmed parent-link mechanism). Report every security ticket created and its parent story.",
+                "type": "string"
+              },
+              {
+                "id": "3",
+                "name": "story",
+                "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+                "type": "string"
+              },
+              {
+                "id": "4",
+                "name": "kaneo_project_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_project_id }}",
+                "type": "string"
+              },
+              {
+                "id": "5",
+                "name": "kaneo_workspace_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_workspace_id }}",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "b2000003-0000-0000-0000-000000000002",
+        "name": "Security: Create Security Tickets",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.1,
+        "position": [
+          1500,
+          120
+        ],
+        "parameters": {
+          "source": "database",
+          "workflowId": {
+            "mode": "id",
+            "value": "jAv16SAzGy9fA5G4"
+          },
+          "mode": "once"
+        }
+      },
+      {
+        "id": "b2000004-0000-0000-0000-000000000001",
+        "name": "DevOps Tickets Input",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1320,
+          280
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1",
+                "name": "role",
+                "value": "devops-engineer",
+                "type": "string"
+              },
+              {
+                "id": "2",
+                "name": "prompt",
+                "value": "=Query the Kaneo tasks tagged `story` for {{ $node['Webhook Trigger'].json.body.body.version }} (from the previous step's output, or re-query via `GET $KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID` with bearer `$KANEO_TOKEN` and filter client-side for a `{{ $node['Webhook Trigger'].json.body.body.version }}` label and a `story` label if needed -- Kaneo has no server-side label-filter query param confirmed). Resolve the devops-engineer role account's Kaneo user id once (`GET $KANEO_URL/api/user` with bearer `$KANEO_TOKEN`, filter for email \"sdlc-devops-engineer@homelab.local\" -- // ponytail: verify this exact user-listing path against the deployed Kaneo version). For each story, if a DevOps ticket doesn't exist yet (check its `devops` label), create one via `POST $KANEO_URL/api/task`: `{\"projectId\": \"$KANEO_PROJECT_ID\", \"title\": \"[devops] {story short description} — infra checklist\", \"description\": \"{the concrete infra items this story needs beyond what kickoff already provisioned, or \\\"None beyond standard provisioning\\\"}\", \"assigneeId\": \"<devops-engineer id>\", \"status\": \"Pending\"}` (bearer `$KANEO_TOKEN`), then attach the \"{{ $node['Webhook Trigger'].json.body.body.version }}\" and \"devops\" labels to it. Kaneo has no \"labels\" field on task creation at all (confirmed) -- labels are a separate resource: resolve-or-create each one via `GET $KANEO_URL/api/label/workspace/$KANEO_WORKSPACE_ID` (filter by name) then `POST $KANEO_URL/api/label` with `{\"name\": \"<label>\", \"color\": \"#888888\", \"workspaceId\": \"$KANEO_WORKSPACE_ID\", \"taskId\": \"<new task id>\"}` if it does not exist yet (creating with taskId attaches it in the same call), or `PUT $KANEO_URL/api/label/<id>/task` with `{\"taskId\": \"<new task id>\"}` if it already does -- never blind-POST a label that might already exist. -- every ticket MUST have a real description, never title-only. Then immediately link it to its story with `POST $KANEO_URL/api/task-relation`: `{\"sourceTaskId\": \"<story id>\", \"targetTaskId\": \"<new ticket id>\", \"relationType\": \"subtask\"}` (bearer `$KANEO_TOKEN` -- Kaneo confirmed parent-link mechanism). Report every DevOps ticket created and its parent story.",
+                "type": "string"
+              },
+              {
+                "id": "3",
+                "name": "story",
+                "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+                "type": "string"
+              },
+              {
+                "id": "4",
+                "name": "kaneo_project_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_project_id }}",
+                "type": "string"
+              },
+              {
+                "id": "5",
+                "name": "kaneo_workspace_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_workspace_id }}",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "b2000004-0000-0000-0000-000000000002",
+        "name": "DevOps: Create DevOps Tickets",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.1,
+        "position": [
+          1500,
+          280
+        ],
+        "parameters": {
+          "source": "database",
+          "workflowId": {
+            "mode": "id",
+            "value": "jAv16SAzGy9fA5G4"
+          },
+          "mode": "once"
+        }
+      },
+      {
+        "id": "b2000001-0000-0000-0000-000000000001",
+        "name": "TL Input (Tasks)",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1340,
+          200
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1",
+                "name": "role",
+                "value": "tech-lead",
+                "type": "string"
+              },
+              {
+                "id": "2",
+                "name": "prompt",
+                "value": "First publish the effort estimate plan_release produced: `mc alias set local $MINIO_ENDPOINT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD >/dev/null && mc cat local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/estimate.md`, then publish it as a GitLab wiki page for this release (wiki lives on GitLab's own per-project wiki module now, not Taiga -- Taiga has been fully removed, see AGENT.md's \"Kaneo\" section): check whether the page {{ $node['Webhook Trigger'].json.body.body.version }}/Estimate already exists via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis/{{ $node['Webhook Trigger'].json.body.body.version }}%2FEstimate --hostname gitlab-webservice-default.gitlab.svc.cluster.local` (a 404 means it doesn't exist yet); if it doesn't exist, create it via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis --method POST -f title=\"{{ $node['Webhook Trigger'].json.body.body.version }}/Estimate\" -f format=markdown -F content=@<file> --hostname gitlab-webservice-default.gitlab.svc.cluster.local` (note -F, not -f, for content); if it exists, update it instead via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/wikis/{{ $node['Webhook Trigger'].json.body.body.version }}%2FEstimate --method PUT -f format=markdown -F content=@<file> --hostname gitlab-webservice-default.gitlab.svc.cluster.local`. Then confirm the story tasks from the previous step actually exist by querying `GET $KANEO_URL/api/task/tasks/$KANEO_PROJECT_ID` (bearer `$KANEO_TOKEN`) and filtering client-side for a `{{ $node['Webhook Trigger'].json.body.body.version }}` label and a `story` label (do not assume the previous step's report was accurate -- verify against Kaneo directly). If no story tasks exist yet, create them yourself first the same way PM's step does (`POST $KANEO_URL/api/task` with `{\"projectId\": \"$KANEO_PROJECT_ID\", ...}`, then attach the \"{{ $node['Webhook Trigger'].json.body.body.version }}\" and \"story\" labels the same way PM's step does) before proceeding. Resolve the backend-developer and frontend-developer role accounts' Kaneo user ids once (`GET $KANEO_URL/api/user` with bearer `$KANEO_TOKEN`, filter for email \"sdlc-backend-developer@homelab.local\" and \"sdlc-frontend-developer@homelab.local\" -- each role has its own dedicated Kaneo account, created by `helm/ansible/playbooks/role-accounts.yml`; // ponytail: verify this exact user-listing path against the deployed Kaneo version). Then, for EACH story task, break it into role-feature task tickets -- NOT one generic task per story. Identify the distinct backend/frontend/api features the story touches (e.g. a login story might be 'frontend: login page' + 'backend: login mechanism' + 'api: login endpoint contract'); create one Kaneo task per role-feature pair via `POST $KANEO_URL/api/task` with `{\"projectId\": \"$KANEO_PROJECT_ID\", \"title\": \"[{role}] {feature — short description}\", \"description\": \"{what this task covers and its concrete done-condition, 2-4 sentences — not a restatement of the title}\", \"assigneeId\": <backend-developer's id for [backend]/[api] tasks, frontend-developer's id for [frontend] tasks — api tasks fall under backend-developer, there is no separate api role account>, \"status\": \"Pending\", \"labels\": [\"{{ $node['Webhook Trigger'].json.body.body.version }}\", }` (bearer `$KANEO_TOKEN`) -- every task MUST have a real `description` and the correct role's `assigneeId` set, never orphaned and never defaulted to your own identity; then immediately link each new task to its story with `POST $KANEO_URL/api/task-relation`: `{\"sourceTaskId\": \"<story task id>\", \"targetTaskId\": \"<new task id>\", \"relationType\": \"subtask\"}` (bearer `$KANEO_TOKEN` -- Kaneo confirmed parent-link mechanism, see AGENT.md's \"Kaneo\" section). Skip any role the story genuinely doesn't touch (a pure backend migration gets no frontend task). Role lives in the title prefix ('[backend]'/'[frontend]'/'[api]') only -- there is no separate role field or label. Do not create qa/security/devops task tickets -- those roles self-create their own tickets from the story directly (see qa-engineer/security-engineer/devops-engineer SKILL.md), not Tech Lead's job. Report every created task's id, title, role, and its parent story task's id -- the branch-creation step later needs these.",
+                "type": "string"
+              },
+              {
+                "id": "3",
+                "name": "story",
+                "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+                "type": "string"
+              },
+              {
+                "id": "4",
+                "name": "kaneo_project_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_project_id }}",
+                "type": "string"
+              },
+              {
+                "id": "5",
+                "name": "kaneo_workspace_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_workspace_id }}",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "b02da329-9a7e-45ca-a098-30860e5e762d",
+        "name": "TL: Create Task Work Items",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.1,
+        "position": [
+          1560,
+          200
+        ],
+        "parameters": {
+          "source": "database",
+          "workflowId": {
+            "mode": "id",
+            "value": "jAv16SAzGy9fA5G4"
+          },
+          "mode": "once"
+        }
+      },
+      {
+        "id": "b2000001-0000-0000-0000-000000000005",
+        "name": "Release Manager Input",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1780,
+          200
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1",
+                "name": "role",
+                "value": "release-manager",
+                "type": "string"
+              },
+              {
+                "id": "2",
+                "name": "prompt",
+                "value": "=Using glab (hostname gitlab-webservice-default.gitlab.svc.cluster.local), determine the next release version number for project {{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}: list existing branches via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --hostname gitlab-webservice-default.gitlab.svc.cluster.local` and find the highest semantic version among any matching 'release/vMAJOR.MINOR.PATCH'; if none exist, start at v0.0.1, otherwise bump the patch number by 1. Create a branch named 'release/<version>' (e.g. 'release/v0.0.1') from the 'main' branch via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --method POST -f branch=release/<version> -f ref=main`. If that exact branch name already exists (400/409 conflict), treat it as success. Report the exact version number and exact branch name you created — the next step must reuse this exact name, not derive its own.",
+                "type": "string"
+              },
+              {
+                "id": "3",
+                "name": "story",
+                "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+                "type": "string"
+              },
+              {
+                "id": "4",
+                "name": "kaneo_project_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_project_id }}",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "b2000001-0000-0000-0000-000000000006",
+        "name": "RM: Create Release Branch",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.1,
+        "position": [
+          2000,
+          200
+        ],
+        "parameters": {
+          "source": "database",
+          "workflowId": {
+            "mode": "id",
+            "value": "jAv16SAzGy9fA5G4"
+          },
+          "mode": "once"
+        }
+      },
+      {
+        "id": "b2000001-0000-0000-0000-000000000007",
+        "name": "TL Input (Branches)",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          2220,
+          200
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1",
+                "name": "role",
+                "value": "tech-lead",
+                "type": "string"
+              },
+              {
+                "id": "2",
+                "name": "prompt",
+                "value": "=First find the exact release branch name the previous step created (it reported it, formatted like 'release/v0.0.1' — a semantic version number, NOT the literal text 'release/{{ $node['Webhook Trigger'].json.body.body.version }}'; if you need to rediscover it, list branches via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --hostname gitlab-webservice-default.gitlab.svc.cluster.local` and pick the branch matching 'release/vMAJOR.MINOR.PATCH' with the highest version). Using glab, create one branch per story ticket off of that release branch (not main) named 'us/GL-<story-id>' (the story task's Kaneo id, NOT a title slug — every other role's SKILL.md already assumes this exact branch name as the task MRs' target branch; 'GL-' is kept as branch-naming vocabulary only, per AGENTS.md's Ticket & MR Conventions — the id itself is a Kaneo task id, not a GitLab issue IID) via `glab api projects/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '%2F' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/repository/branches --method POST -f branch=us/GL-<story-id> -f ref=<release-branch-name>`, then one branch per task ticket off of its parent story's branch named 'task/GL-<task-id>' (the task's own Kaneo id) via the same call with ref=us/GL-<story-id> (use the story/task ids from the earlier steps — re-query Kaneo if you need them again). Embedding the id in the branch name (not a slug) is required — backend/frontend-developer read it straight out of their branch name to put 'Closes #<task-id>' in their task MR description; that's prose only now (the ticket lives in Kaneo, so a GitLab merge can't auto-close it on its own — Kaneo's own native GitLab integration, configured earlier in this same flow, still attaches the merge commit as a comment for the compliance trail), but the id is still how the developer pod finds which task to PATCH to Done after merge — a slug can't be reverse-parsed back to an id reliably. Immediately after creating each branch, append a clickable link to it onto its ticket's own description (not a comment -- the branch link belongs with the ticket's permanent content, see AGENTS.md's \"Ticket ↔ branch linkage\") -- not just the bare branch name, the link must resolve from a browser, so build it against the external tailnet host, never the in-cluster service address: `https://gitlab.tail60240b.ts.net/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/-/tree/us/GL-<story-id>`: GET the story ticket's current description (`GET $KANEO_URL/api/task/<story task id>` with bearer `$KANEO_TOKEN`), then `PATCH $KANEO_URL/api/task/<story task id>` with bearer `$KANEO_TOKEN` and body `{\"description\": \"<current description>\n\n**Branch:** <that full URL>\"}` (PATCH replaces description wholesale -- always append to the GET result, never clobber it); same GET-then-PATCH against each task ticket's own id with its own branch's URL -- this is the ticket-to-branch linkage. For each task branch, commit openspec pseudocode under openspec/<task-slug>.md (slug is fine for the file name, this is just a path), and PATCH the task's status to \"OpenSpec Ready\" (`PATCH $KANEO_URL/api/task/<task id>` with bearer `$KANEO_TOKEN` and body `{\"status\": \"OpenSpec Ready\"}` -- Kaneo's `status` is a plain string, not an id to resolve; F-03/F-04 already read this exact value back). Report every branch created.",
+                "type": "string"
+              },
+              {
+                "id": "3",
+                "name": "story",
+                "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+                "type": "string"
+              },
+              {
+                "id": "4",
+                "name": "kaneo_project_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_project_id }}",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "b2000001-0000-0000-0000-000000000008",
+        "name": "TL: Create Story/Task Branches",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.1,
+        "position": [
+          2440,
+          200
+        ],
+        "parameters": {
+          "source": "database",
+          "workflowId": {
+            "mode": "id",
+            "value": "jAv16SAzGy9fA5G4"
+          },
+          "mode": "once"
+        }
+      },
+      {
+        "id": "b2000001-0000-0000-0000-000000000003",
+        "name": "DevOps Input",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          900,
+          480
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1",
+                "name": "role",
+                "value": "devops-engineer",
+                "type": "string"
+              },
+              {
+                "id": "2",
+                "name": "prompt",
+                "value": "=Register the GitLab group webhook (idempotent), set CI env vars, and verify the SIT cluster is healthy for {{ $node['Webhook Trigger'].json.body.body.version }}. Then, idempotently ensure GitOps wiring exists for this project (skip any step already done — check before creating): (1) for each deployable app under apps/, if no helm/<app> chart exists on main yet, scaffold one (Chart.yaml, templates/deployment.yaml + service.yaml — templates only, no environment-specific values in helm/<app>/values.yaml, that file holds chart defaults only) and commit to main; (2) for each app x each environment this project deploys to (sit/uat/production at minimum), if env/<environment>/<app>/values.yaml doesn't exist yet, create it (image harbor.harbor.svc.cluster.local:80/library/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/<app>:v<current main package.json version> — do not use :latest, ArgoCD Image Updater below owns the tag on SIT from here on) and commit to main — this is the ONLY place values live, per repo convention (`env/{environment-name}/{application-name}/values.yaml`, never inline in the ArgoCD Application, never environment-specific data inside helm/<app>/values.yaml); (3) check `kubectl get application -n argocd {{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '-' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}-<app>-<environment>` for each app x environment — if missing, `kubectl apply` an ArgoCD Application (repoURL http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}.git, targetRevision main, source.path helm/<app>, source.helm.valueFiles [../../env/<environment>/<app>/values.yaml], destination this same in-cluster namespace, automated syncPolicy) — on SIT only, carry these annotations so ArgoCD Image Updater (already deployed in the argocd namespace) picks it up: `argocd-image-updater.argoproj.io/image-list: <app>=harbor.harbor.svc.cluster.local:80/library/{{ ($node['Webhook Trigger'].json.body.body.group ?? 'sdlc') + '/' + ($node['Webhook Trigger'].json.body.body.project ?? 'hr-portal') }}/<app>`, `argocd-image-updater.argoproj.io/<app>.update-strategy: latest`, `argocd-image-updater.argoproj.io/<app>.allow-tags: regexp:^v[0-9]+\\.[0-9]+\\.[0-9]+-rc[0-9]+$` (matches the CI build stage's `v{package.json version}` rc tags), `argocd-image-updater.argoproj.io/<app>.pull-secret: secret:argocd/argocd-image-updater-registry`, `argocd-image-updater.argoproj.io/write-back-method: argocd` (the CI docker-build stage tagging images `v{X}.{Y}.{Z}-rc{N}` on every us/* or release/* merge is what image-updater then polls and auto-bumps on SIT — no manual tag edits, no re-running this flow per release; UAT/staging/production use explicit ArgoCD sync instead, no image-updater annotations there — UAT's tag comes from `/uat`'s pre-deploy step reading QA's tested-tag record on each story MR, never from image-updater). If an existing Application already exists but is missing these annotations or still points at a deploy/ path from before this convention, patch it to the helm/<app> + valueFiles form rather than skipping. This is one-time infra registration per project x environment, not per release — always check existence first so repeat kickoffs don't duplicate or fight ArgoCD's own reconciliation.",
+                "type": "string"
+              },
+              {
+                "id": "3",
+                "name": "story",
+                "value": "={{ $node['Webhook Trigger'].json.body.body.version }}",
+                "type": "string"
+              },
+              {
+                "id": "4",
+                "name": "kaneo_project_id",
+                "value": "={{ $node['Ensure Kaneo Project'].json.kaneo_project_id }}",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "e80b2745-2d8d-4624-b99d-17eba1e6cddd",
+        "name": "DevOps: Infra + Webhook",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.1,
+        "position": [
+          1120,
+          480
+        ],
+        "parameters": {
+          "source": "database",
+          "workflowId": {
+            "mode": "id",
+            "value": "jAv16SAzGy9fA5G4"
+          },
+          "mode": "once"
+        }
+      },
+      {
+        "id": "190355fa-88b0-41e7-ba40-da302eecf355",
+        "name": "Merge 2 Tracks",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3,
+        "position": [
+          2660,
+          340
+        ],
+        "parameters": {
+          "mode": "combine",
+          "combineBy": "combineByPosition",
+          "numberInputs": 2
+        }
+      },
+      {
+        "id": "c6510faf-ce27-45a1-a886-63f8d1e8e394",
+        "name": "Notify: Kickoff complete",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2880,
+          340
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.OPENWEBUI_CALLBACK_URL }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "flow_id",
+                "value": "={{ $json.body?.flow_id ?? $json.flow_id ?? '' }}"
+              },
+              {
+                "name": "message",
+                "value": "✅ kickoff complete — story/task work items, release+story+task branches, infra ready"
+              },
+              {
+                "name": "notes",
+                "value": ""
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "c1a00001-0000-0000-0000-000000000001",
+        "name": "Configure Kaneo GitLab Integration",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1195,
+          60
+        ],
+        "parameters": {
+          "jsCode": "// ponytail: wires Kaneo's own native GitLab integration (real\n// bidirectional sync, merged upstream 2026-09-26 -- see AGENT.md's \"Kaneo\"\n// section) onto the project just ensured above, so Kaneo's board stays in\n// sync with this project's GitLab activity without a separate webhook\n// playbook (unlike Taiga's old one-way compliance webhook).\nconst auth = { Authorization: `Bearer ${$env.KANEO_TOKEN}` };\nconst projectId = $json.kaneo_project_id;\nconst group = $node['Webhook Trigger'].json.body.body.group ?? 'sdlc';\nconst project = $node['Webhook Trigger'].json.body.body.project ?? 'hr-portal';\nconst gitlabProjectPath = `${group}/${project}`;\n\n// ponytail: verify this exact Kaneo integration-config endpoint path\n// against the deployed version -- inferred from the confirmed\n// /api/project/<id>/... nesting convention, not confirmed from docs. Best\n// effort / fire-and-forget: a failure here shouldn't block the rest of\n// kickoff, Kaneo tickets still work fine without GitLab sync wired up.\ntry {\n  await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${$env.KANEO_URL}/api/project/${projectId}/integrations/gitlab`,\n    headers: auth,\n    json: true,\n    body: {\n      gitlabUrl: 'http://gitlab-webservice-default.gitlab.svc.cluster.local:8181',\n      gitlabToken: $env.GITLAB_TOKEN,\n      projectPath: gitlabProjectPath,\n    },\n    ignoreHttpStatusErrors: true,\n  });\n} catch (e) {\n  console.log(`Kaneo GitLab integration config failed (non-fatal): ${e.message}`);\n}\n\nreturn [{ json: { ...$json, kaneo_gitlab_integration_configured: true } }];"
+        }
+      }
+    ],
+    "connections": {
+      "Webhook Trigger": {
+        "main": [
+          [
+            {
+              "node": "Notify: Kickoff started",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Notify: Kickoff started": {
+        "main": [
+          [
+            {
+              "node": "PM Project Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "PM Project Input": {
+        "main": [
+          [
+            {
+              "node": "PM: Ensure Project Exists",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "PM: Ensure Project Exists": {
+        "main": [
+          [
+            {
+              "node": "Ensure Kaneo Project",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Architect Input (Scaffold)": {
+        "main": [
+          [
+            {
+              "node": "Architect: Scaffold Repo",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Architect: Scaffold Repo": {
+        "main": [
+          [
+            {
+              "node": "PM Input",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "DevOps Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "PM Input": {
+        "main": [
+          [
+            {
+              "node": "PM: Create Story Work Items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "PM: Create Story Work Items": {
+        "main": [
+          [
+            {
+              "node": "TL Input (Tasks)",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "QA Tickets Input",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Security Tickets Input",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "DevOps Tickets Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "QA Tickets Input": {
+        "main": [
+          [
+            {
+              "node": "QA: Create QA Tickets",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Security Tickets Input": {
+        "main": [
+          [
+            {
+              "node": "Security: Create Security Tickets",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "DevOps Tickets Input": {
+        "main": [
+          [
+            {
+              "node": "DevOps: Create DevOps Tickets",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "TL Input (Tasks)": {
+        "main": [
+          [
+            {
+              "node": "TL: Create Task Work Items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "TL: Create Task Work Items": {
+        "main": [
+          [
+            {
+              "node": "Release Manager Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Release Manager Input": {
+        "main": [
+          [
+            {
+              "node": "RM: Create Release Branch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "RM: Create Release Branch": {
+        "main": [
+          [
+            {
+              "node": "TL Input (Branches)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "TL Input (Branches)": {
+        "main": [
+          [
+            {
+              "node": "TL: Create Story/Task Branches",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "TL: Create Story/Task Branches": {
+        "main": [
+          [
+            {
+              "node": "Merge 2 Tracks",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "DevOps Input": {
+        "main": [
+          [
+            {
+              "node": "DevOps: Infra + Webhook",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "DevOps: Infra + Webhook": {
+        "main": [
+          [
+            {
+              "node": "Merge 2 Tracks",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Merge 2 Tracks": {
+        "main": [
+          [
+            {
+              "node": "Notify: Kickoff complete",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Add Role Members to Kaneo Project": {
+        "main": [
+          [
+            {
+              "node": "Configure Kaneo GitLab Integration",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Configure Kaneo GitLab Integration": {
+        "main": [
+          [
+            {
+              "node": "Architect Input (Scaffold)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ensure Kaneo Project": {
+        "main": [
+          [
+            {
+              "node": "Add Role Members to Kaneo Project",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "Homelab Admin",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-10T12:16:55.322Z",
+    "updatedAt": "2026-10-10T12:16:55.322Z",
+    "workflowPublishHistory": [
+      {
+        "id": 3757,
+        "workflowId": "FOVTz690U4aJK6aN",
+        "versionId": "23258dc5-c837-4cc0-93a5-1527c5dbf6f3",
+        "event": "activated",
+        "userId": "d96c4f76-93d9-4356-b018-528c1fa174ba",
+        "createdAt": "2026-10-10T12:16:55.488Z"
+      },
+      {
+        "id": 3769,
+        "workflowId": "FOVTz690U4aJK6aN",
+        "versionId": "23258dc5-c837-4cc0-93a5-1527c5dbf6f3",
+        "event": "deactivated",
+        "userId": "d96c4f76-93d9-4356-b018-528c1fa174ba",
+        "createdAt": "2026-10-14T09:53:00.360Z"
+      },
+      {
+        "id": 3770,
+        "workflowId": "FOVTz690U4aJK6aN",
+        "versionId": "23258dc5-c837-4cc0-93a5-1527c5dbf6f3",
+        "event": "activated",
+        "userId": "d96c4f76-93d9-4356-b018-528c1fa174ba",
+        "createdAt": "2026-10-14T09:53:00.425Z"
+      }
+    ]
   }
 }

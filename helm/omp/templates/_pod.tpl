@@ -47,14 +47,6 @@ containers:
       - name: {{ $k }}
         value: {{ $v | quote }}
       {{- end }}
-    {{- if $root.Values.claudeAuth.secretName }}
-    # ponytail: CLAUDE_CODE_OAUTH_TOKEN for pods running `claude` instead of
-    # omp. optional:true so a missing/empty Secret never blocks startup.
-    envFrom:
-      - secretRef:
-          name: {{ $root.Values.claudeAuth.secretName }}
-          optional: true
-    {{- end }}
     volumeMounts:
       - name: workspace
         mountPath: /workspace
@@ -73,6 +65,12 @@ containers:
       {{- if $root.Values.dockerSocket.enabled }}
       - name: docker-sock
         mountPath: /var/run/docker.sock
+      {{- end }}
+      {{- if $root.Values.codexAuth.secretName }}
+      - name: codex-auth
+        mountPath: /root/.codex/auth.json
+        subPath: auth.json
+        readOnly: true
       {{- end }}
     resources:
       {{- toYaml $root.Values.resources | nindent 6 }}
@@ -98,5 +96,11 @@ volumes:
     hostPath:
       path: {{ $root.Values.dockerSocket.hostPath }}
       type: Socket
+  {{- end }}
+  {{- if $root.Values.codexAuth.secretName }}
+  - name: codex-auth
+    secret:
+      secretName: {{ $root.Values.codexAuth.secretName }}
+      optional: true
   {{- end }}
 {{- end -}}

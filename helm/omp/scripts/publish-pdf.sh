@@ -2,7 +2,8 @@
 # publish-pdf.sh <project> <version> <revision> <markdown-file> [image-file ...]
 #
 # Converts <markdown-file> to PDF and uploads it to Nextcloud at
-# /projects/<project>-<version>-<revision>.pdf, using a throwaway Kubernetes
+# /projects/<project>/<project>-<version>-<revision>.pdf, creating missing
+# directories, using a throwaway Kubernetes
 # Job (this pod's image has pandoc but no PDF engine, deliberately — keeps
 # the always-resident image small). Requires nothing but this pod's own
 # ServiceAccount token; the sub-Job pulls Nextcloud creds itself via
@@ -77,12 +78,16 @@ api_curl -H "Content-Type: application/json" -X POST \
 python3 - "$ID" "$NS" "$PROJECT" "$VERSION" "$REVISION" > /tmp/job.json <<'PY'
 import json, sys
 id_, ns, project, version, revision = sys.argv[1:6]
-dest = f"/projects/{project}-{version}-{revision}.pdf"
+dest = f"/projects/{project}/{project}-{version}-{revision}.pdf"
 upload_script = (
-    'curl -sf -u "$NEXTCLOUD_USER:$NEXTCLOUD_PASSWORD" -X MKCOL '
-    '"$NEXTCLOUD_URL/remote.php/dav/files/$NEXTCLOUD_USER/projects/" || true; '
-    'curl -sf -u "$NEXTCLOUD_USER:$NEXTCLOUD_PASSWORD" -T /output/development-plan.pdf '
-    f'"$NEXTCLOUD_URL/remote.php/dav/files/$NEXTCLOUD_USER{dest}"'
+    'set -eu; base="$NEXTCLOUD_URL/remote.php/dav/files/$NEXTCLOUD_USER"; '
+    'ensure_dir() { code=$(curl -sS -u "$NEXTCLOUD_USER:$NEXTCLOUD_PASSWORD" -o /dev/null -w "%{http_code}" -X MKCOL "$1") || return; '
+    'case "$code" in 201) ;; 405) curl -sf -u "$NEXTCLOUD_USER:$NEXTCLOUD_PASSWORD" -X PROPFIND -H "Depth: 0" "$1" -o /dev/null ;; '
+    '*) echo "Nextcloud MKCOL failed ($code): $1" >&2; return 1 ;; esac; }; '
+    'ensure_dir "$base/projects/"; '
+    'ensure_dir "$base/projects/$PROJECT/"; '
+    f'curl -sf -u "$NEXTCLOUD_USER:$NEXTCLOUD_PASSWORD" -T /output/development-plan.pdf '
+    f'"$base{dest}"'
 )
 print(json.dumps({
     "apiVersion": "batch/v1", "kind": "Job",
@@ -129,6 +134,7 @@ print(json.dumps({
                     "image": "curlimages/curl:8.10.1",
                     "volumeMounts": [{"name": "output", "mountPath": "/output"}],
                     "env": [
+                        {"name": "PROJECT", "value": project},
                         {"name": "NEXTCLOUD_URL", "valueFrom": {"secretKeyRef": {"name": "omp-agent-secrets", "key": "nextcloud_url"}}},
                         {"name": "NEXTCLOUD_USER", "valueFrom": {"secretKeyRef": {"name": "omp-agent-secrets", "key": "nextcloud_user"}}},
                         {"name": "NEXTCLOUD_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "omp-agent-secrets", "key": "nextcloud_password"}}},
@@ -151,7 +157,7 @@ while [ "$i" -lt 30 ]; do
   SUCC=$(echo "$STATUS" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status',{}).get('succeeded',0))")
   FAIL=$(echo "$STATUS" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status',{}).get('failed',0))")
   if [ "$SUCC" = "1" ]; then
-    echo "PDF published: /projects/${PROJECT}-${VERSION}-${REVISION}.pdf"
+    echo "PDF published: /projects/${PROJECT}/${PROJECT}-${VERSION}-${REVISION}.pdf"
     exit 0
   fi
   if [ "$FAIL" != "0" ]; then

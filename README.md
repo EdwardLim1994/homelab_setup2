@@ -1,7 +1,7 @@
 # homelab_setup2
 
 Self-hosted homelab on a local k3d cluster: Authentik SSO, GitLab, MinIO,
-n8n, SonarQube, Nextcloud, ArgoCD, an LGTM observability stack, OpenWebUI,
+n8n, SonarQube, Nextcloud, an LGTM observability stack, OpenWebUI,
 LiteLLM, a set of MCP servers, and an in-cluster coding-agent stack (`omp`).
 Every app gets SSO via Authentik and is reachable remotely over Tailscale.
 
@@ -37,7 +37,7 @@ into the chat.
 | `/uat` | 3 — UAT | Milestone safeguard → manual CI → UAT deploy → QA → Security → PO stages |
 | `/release_staging` | 4 — Staging | UAT safeguard → RM release-plan ticket + promote/ branch → promotion CI |
 | `/release_production` | 5 — Production | rm:go safeguard → promote→main MR → Edward reviews + merges |
-| `/rollback` | 5 — Production | ArgoCD rollback + incident ticket + RM monitoring |
+| `/rollback` | 5 — Production | helm rollback + incident ticket + RM monitoring |
 | `/rollback_story` | 5 — Production | Dependency check → revert MR → TL reviews → Edward merges → story Deferred → /uat re-triggered |
 | `/retro` | 6 — Retrospective | 4 pods compile in parallel (TL+QA+Sec+RM) → PM synthesises 11-section report |
 | `/projects` | Any | Instant DAG state query — no agent pod spawned |
@@ -120,11 +120,11 @@ Windows, a single Rust CLI at `scripts/` — build it once with
 former `.ps1` script; `--help` works at every level. The two sets are
 equivalent — use whichever matches your platform.
 `homelab ansible run <playbook>` runs a playbook as a k8s Job; `homelab cluster
-create [name|phases]` creates the k3d clusters; `homelab terraform genvars`
-regenerates the tfvars from `.env`, and other `homelab terraform ...` args go to
-`tofu` (`TERRAFORM_ENGINE` in `.env`). `homelab {ansible,cluster,terraform} native
+create [name|phases]` creates the k3d clusters; `homelab tf genvars`
+regenerates the tfvars from `.env`, and other `homelab tf ...` args go to
+`tofu` (`TERRAFORM_ENGINE` in `.env`). `homelab {ansible,cluster,tf} native
 <args>` runs the underlying CLI verbatim (flags first allowed), e.g. `homelab
-terraform native apply`; the engines are the local `ansible`, the cluster engine
+tf native apply`; the engines are the local `ansible`, the cluster engine
 (`CLUSTER_ENGINE` in `.env`, default `k3d`, must be k3d-CLI compatible) and
 `tofu`; defaults live in `scripts/Cargo.toml` under
 `[package.metadata.homelab]` (rebuild to change), env/`.env` overrides them.
@@ -180,7 +180,7 @@ or the underlying Python script change.
 
 Passwords, DB passwords, encryption/salt keys, and every OIDC
 `client_id` / `client_secret` pair (gitlab, minio, n8n, sonarqube, nextcloud,
-argocd, grafana, openwebui, litellm, kaneo). Authentik trusts whatever value it's
+grafana, openwebui, litellm, kaneo). Authentik trusts whatever value it's
 given, so a placeholder is exactly as real as a generated one. The whole
 cluster comes up with the shipped defaults untouched.
 

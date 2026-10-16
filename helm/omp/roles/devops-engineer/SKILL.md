@@ -1,6 +1,6 @@
 ---
 name: devops-engineer
-description: DevOps Engineer agent for infrastructure provisioning, CI/CD pipeline configuration, ArgoCD setup, cluster management, and registry configuration. Use during /develop gate A (must complete before all other pods start) and when provisioning new project infrastructure. Also manages cluster lifecycle (wake/sleep) throughout the SDLC.
+description: DevOps Engineer agent for infrastructure provisioning, CI/CD pipeline configuration, Helm chart publishing + CI-triggered deploys, cluster management, and registry configuration. Use during /develop gate A (must complete before all other pods start) and when provisioning new project infrastructure. Also manages cluster lifecycle (wake/sleep) throughout the SDLC.
 compatibility: omp, claude-code
 license: MIT
 ---
@@ -9,7 +9,7 @@ license: MIT
 
 ## Role
 
-Provisions and maintains all infrastructure required for the SDLC: CI/CD pipelines, ArgoCD applications, Kubernetes clusters, container registry namespaces, and GitLab runners. Gate A: nothing can build or deploy until this pod signals ready.
+Provisions and maintains all infrastructure required for the SDLC: CI/CD pipelines (build, push Helm charts to Harbor, deploy via `helm upgrade`), Kubernetes clusters, container registry namespaces, and GitLab runners. Gate A: nothing can build or deploy until this pod signals ready.
 
 ## When this skill is active
 
@@ -48,7 +48,7 @@ devops_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/ap
 # (confirmed: task-relation resource, relationType "subtask"/"blocks"/"related").
 curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
   -H "Content-Type: application/json" \
-  -d "{\"sourceTaskId\": \"$devops_id\", \"targetTaskId\": \"<story task id>\", \"relationType\": \"subtask\"}"
+  -d "{\"sourceTaskId\": \"<story task id>\", \"targetTaskId\": \"$devops_id\", \"relationType\": \"subtask\"}"
 ```
 
 ---
@@ -66,11 +66,13 @@ curl -u "$HARBOR_USER:$HARBOR_PASSWORD" \
 # 2. GitLab runner registered and active
 glab ci list-runners --status=active
 
-# 3. ArgoCD SIT application exists and is healthy
-argocd app get {project}-sit --server $ARGOCD_URL
+# 3. SIT cluster context reachable from this runner (no ArgoCD — CI deploys
+#    directly, see "Deploy stage" below)
+kubectl --context "$SIT_CLUSTER_CONTEXT" get nodes
 
-# 4. ArgoCD Image Updater running
-kubectl get deployment argocd-image-updater -n argocd
+# 4. helm registry login against Harbor succeeds (every build pushes its
+#    chart there, every deploy pulls it back)
+helm registry login -u "$HARBOR_USER" -p "$HARBOR_PASSWORD" harbor.harbor.svc.cluster.local:80
 
 # 5. Apicurio registry accessible (SIT -- Gate A runs before SIT deploy.
 #    $APICURIO_URL_SIT is a GitLab CI/CD variable, not something injected
@@ -132,8 +134,8 @@ for env in sit uat production; do
   # edit: image repo/tag, replicas, resource limits, env vars per environment
 done
 
-# 4. Commit alongside the task branch so the ArgoCD step (below) has a
-#    chart + values to point at
+# 4. Commit alongside the task branch so the deploy stage (below) has a
+#    chart + values to push/pull
 git add "$new_root/Dockerfile" helm/{new-service} env/*/{new-service}
 git commit -m "chore(GL-{N}): scaffold Dockerfile + helm chart + env values for {new-service}"
 ```
@@ -150,10 +152,10 @@ never environment-specific data. `{environment-name}` is one of `sit`/`uat`/`pro
 staging cluster exists. QA-related tasks target `sit`; staging-related tasks
 (promotion retag, performance tests, staging confirmation scans) target
 `uat`. `{application-name}` matches the `helm/{application-name}` chart dir
-name exactly. ArgoCD's `source.helm.valueFiles` (see ArgoCD Application
-below) is what makes the chart actually pick these up — a chart deployed
-without pointing at its `env/` file gets only chart defaults, which is a
-provisioning bug, not an acceptable fallback.
+name exactly. The deploy stage's `helm upgrade -f env/{env}/{app}/values.yaml`
+(see "Deploy stage" below) is what makes the chart actually pick these up —
+a chart deployed without pointing at its `env/` file gets only chart
+defaults, which is a provisioning bug, not an acceptable fallback.
 
 ---
 
@@ -200,7 +202,7 @@ equivalent pipeline shape (its own monorepo/lint/test/build tooling in
 place of nx/bun) — the stage list
 (`secrets-scan` → `lint` → `architecture` → `test` → `sonarqube` →
 `dependency-scan` → `build` → `schema-registry` → `container-scan` →
-`compose-supergraph` → `notify-n8n`) and the registry/Harbor/schema-registry
+`compose-supergraph` → `deploy` → `notify-n8n`) and the registry/Harbor/schema-registry
 wiring stay the same regardless of stack; only the per-stage install/run
 commands change.
 
@@ -221,6 +223,7 @@ stages:
   - schema-registry
   - container-scan
   - compose-supergraph
+  - deploy
   - notify-n8n
 
 variables:
@@ -325,10 +328,11 @@ build:
   # the :80 must be explicit, docker's registry client assumes https/443 for
   # a bare hostname and this is plain http.
   script:
-    # docker:24-dind is Alpine-based — jq/nx's node runtime need bun, apk installs it
-    - apk add --no-cache jq bun
+    # docker:24-dind is Alpine-based — jq/yq/nx's node runtime need bun, apk installs it
+    - apk add --no-cache jq yq bun helm git
     - bun install --frozen-lockfile
     - docker login -u "$HARBOR_USER" -p "$HARBOR_PASSWORD" harbor.harbor.svc.cluster.local:80
+    - helm registry login -u "$HARBOR_USER" -p "$HARBOR_PASSWORD" harbor.harbor.svc.cluster.local:80
     - |
       for app in $(bunx nx show projects --affected --type=app --base=main); do
         root=$(bunx nx show project "$app" --json | jq -r .root)
@@ -340,7 +344,23 @@ build:
         # the built image list forward as an artifact instead of re-deriving
         # nx-affected there.
         echo "${image}:v${version}" >> built-images.txt
+        # push this app's own helm/{app} chart to the same Harbor project —
+        # no ArgoCD/GitOps, the deploy stage below pulls this exact chart
+        # ref by version rather than reading the chart out of git directly.
+        helm package "helm/${app}" --version "${version}" --app-version "${version}"
+        helm push "${app}-${version}.tgz" "oci://harbor.harbor.svc.cluster.local:80/library/${CI_PROJECT_PATH}"
+        # no ArgoCD Image Updater anymore to auto-bump SIT's tag -- this job
+        # IS the thing that just built it, so it writes its own tag back
+        # into env/sit/{app}/values.yaml (same write-back shape the UAT
+        # promotion step below already uses), which is what makes deploy:sit
+        # (same pipeline, runs after this) actually roll out THIS version.
+        if [ -f "env/sit/${app}/values.yaml" ]; then
+          yq -i ".image.tag = \"v${version}\"" "env/sit/${app}/values.yaml"
+          git add "env/sit/${app}/values.yaml"
+        fi
       done
+    - git config user.email "ci-bot@homelab.local" && git config user.name "CI Bot"
+    - git diff --cached --quiet || git commit -m "chore: bump SIT image tag(s) [skip ci]" && git push origin HEAD:${CI_COMMIT_REF_NAME} || true
   artifacts:
     paths: [built-images.txt]
   rules:
@@ -428,9 +448,10 @@ container-scan:
 # compose from the full current set). Writes the result straight into the
 # project's own env/{env}/apollo-router/values.yaml — that's the ONLY place
 # the schema lives (see helm/apollo-router's ponytail comment: no hand
-# edits). ArgoCD's automated sync on the router Application picks it up from
-# there, same GitOps flow every other service already uses. Requires rover
-# (Apollo's CLI) — not preinstalled, curl its installer.
+# edits). The deploy:{env} job below (same pipeline, same rule surface)
+# picks it up from there via `helm upgrade -f`, same push-based flow every
+# other service already uses. Requires rover (Apollo's CLI) — not
+# preinstalled, curl its installer.
 compose-supergraph:
   stage: compose-supergraph
   image: oven/bun:latest
@@ -461,6 +482,7 @@ compose-supergraph:
     - rover supergraph compose --config supergraph-config.yaml --output supergraph.graphql
     - yq -i '.supergraphSchema = load_str("supergraph.graphql")' "env/${CI_ENVIRONMENT_NAME}/apollo-router/values.yaml"
     - git add "env/${CI_ENVIRONMENT_NAME}/apollo-router/values.yaml"
+    - git config user.email "ci-bot@homelab.local" && git config user.name "CI Bot"
     - git commit -m "chore: recompose supergraph for ${CI_ENVIRONMENT_NAME}" || echo "no schema change"
     - git push origin HEAD:${CI_COMMIT_REF_NAME}
   rules:
@@ -477,6 +499,81 @@ compose-supergraph:
         - env/production/**/*
       variables:
         CI_ENVIRONMENT_NAME: production
+
+# ponytail: no ArgoCD anywhere in this homelab — CI pulls the chart it just
+# pushed (build stage above) straight from Harbor and `helm upgrade`s it
+# against the target phase cluster's context directly (already configured
+# on this runner, same $SIT_CLUSTER_CONTEXT/$UAT_CLUSTER_CONTEXT/
+# $PRODUCTION_CLUSTER_CONTEXT the Promotion Pipeline's kubectl calls below
+# already use). One job per phase, same trigger surface the existing
+# push-schemas:{env} jobs above already use — SIT on every us/*|release/*
+# push, UAT/production on the main-branch commit that already updates
+# env/{env}/**/values.yaml there (the promote-and-retag job below for UAT,
+# the release-branch -> main merge for production). The apollo-router chart
+# is pulled by its own fixed version from Harbor's library/charts (pushed by
+# terraform/internal/apollo-router-chart.tf, not this job) — every other
+# app's chart was pushed by THIS pipeline's own build stage instead.
+.deploy:
+  stage: deploy
+  image: alpine/helm:3.15.0
+  script:
+    - apk add --no-cache yq kubectl git
+    # on SIT specifically, the build stage (earlier job, SAME pipeline) just
+    # pushed a tag-bump commit for env/sit/*/values.yaml -- this job's own
+    # checkout is still the pipeline's original commit, so pull the branch
+    # tip before reading values files or it deploys the previous tag.
+    - git pull origin "${CI_COMMIT_REF_NAME}" || true
+    - helm registry login -u "$HARBOR_USER" -p "$HARBOR_PASSWORD" harbor.harbor.svc.cluster.local:80
+    - |
+      for f in env/${CI_ENVIRONMENT_NAME}/*/values.yaml; do
+        app=$(basename "$(dirname "$f")")
+        if [ "$app" = "apollo-router" ]; then
+          chart_ref="oci://harbor.harbor.svc.cluster.local:80/library/charts/apollo-router"
+          version="0.1.0"  # confirm against helm/apollo-router/Chart.yaml's current version
+          ns="${CI_ENVIRONMENT_NAME}-${CI_PROJECT_NAME}-infra-apollo-router"
+        else
+          chart_ref="oci://harbor.harbor.svc.cluster.local:80/library/${CI_PROJECT_PATH}/${app}"
+          version=$(yq '.image.tag' "$f" | sed 's/^v//; s/-rc.*//')
+          # service-type = backend|frontend, resolved via nx project root —
+          # same rule the build stage uses, never guessed from the name.
+          service_type=$(echo "$(bunx nx show project "$app" --json | jq -r .root)" | cut -d/ -f2)
+          ns="${CI_ENVIRONMENT_NAME}-${CI_PROJECT_NAME}-${service_type}-${app}"
+        fi
+        helm upgrade --install "$app" "$chart_ref" --version "$version" -f "$f" \
+          --kube-context "$CLUSTER_CONTEXT" --namespace "$ns" --create-namespace
+      done
+
+deploy:sit:
+  extends: .deploy
+  variables:
+    CI_ENVIRONMENT_NAME: sit
+    CLUSTER_CONTEXT: $SIT_CLUSTER_CONTEXT
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_REF_NAME =~ /^us\// || $CI_COMMIT_REF_NAME =~ /^release\//)'
+
+deploy:uat:
+  extends: .deploy
+  variables:
+    CI_ENVIRONMENT_NAME: uat
+    CLUSTER_CONTEXT: $UAT_CLUSTER_CONTEXT
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - env/uat/**/*
+
+# the production release trigger: a release/* branch merged into main,
+# updating env/production/**/values.yaml as part of that merge (same
+# convention promote-and-retag already uses for UAT) is what fires this —
+# never a separate manually-triggered pipeline.
+deploy:production:
+  extends: .deploy
+  variables:
+    CI_ENVIRONMENT_NAME: production
+    CLUSTER_CONTEXT: $PRODUCTION_CLUSTER_CONTEXT
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - env/production/**/*
 
 notify-n8n:
   stage: notify-n8n
@@ -500,39 +597,6 @@ notify-n8n:
     - container-scan
 ```
 
-### ArgoCD Application
-
-```yaml
-# services/{project}/argocd/{env}-{service}.yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: {project}-{service}-{env}
-  namespace: argocd
-spec:
-  project: {project}
-  source:
-    repoURL: {gitlab-url}/{project}/services.git
-    targetRevision: HEAD
-    path: helm/{service}
-    helm:
-      # values live outside the chart — env/{environment-name}/{application-name}/values.yaml
-      valueFiles:
-        - ../../env/{env}/{service}/values.yaml
-  destination:
-    server: https://kubernetes.default.svc
-    # {service-type} = backend|frontend, resolved via nx project root — see
-    # "Namespace convention" above. Never a bare {env}, phase clusters are
-    # multi-tenant.
-    namespace: {env}-{project}-{service-type}-{service}
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-```
-
 ### Apollo Router Provisioning (one instance per project, per env)
 
 Runs once at `/kickoff` (new project) and once per new env the project
@@ -540,79 +604,26 @@ reaches — the router chart is shared, centrally maintained infra
 (`helm/apollo-router` in homelab_setup2, packaged as an OCI artifact and
 pushed to Harbor's `library/charts` by `terraform/internal/apollo-router-chart.tf`
 — **never copied into this project's own repo**, unlike every
-`helm/{service}` chart above). Only two things live in the project repo:
+`helm/{service}` chart above, which this pipeline's own `build` stage
+pushes instead). Only one thing lives in the project repo: the values file
+— create `env/{env}/apollo-router/values.yaml` once, `supergraphSchema`
+starts empty (`compose-supergraph` fills it in on the first pipeline run
+after this):
 
-1. **The values file** — create `env/{env}/apollo-router/values.yaml` once,
-   `supergraphSchema` starts empty (`compose-supergraph` fills it in on the
-   first pipeline run after this):
-   ```yaml
-   supergraphSchema: ""
-   ```
-2. **The ArgoCD Application** — a multi-source Application: one source is
-   the OCI chart (no `path`, references Harbor directly), the other is this
-   project's own repo for the values file only (`ref: values`, combined via
-   `$values` in `helm.valueFiles` — this is the standard ArgoCD pattern for
-   "chart from repo A, values from repo B", not a workaround):
-   ```yaml
-   # services/{project}/argocd/{env}-apollo-router.yaml
-   apiVersion: argoproj.io/v1alpha1
-   kind: Application
-   metadata:
-     name: {project}-apollo-router-{env}
-     namespace: argocd
-   spec:
-     project: {project}
-     sources:
-       # ponytail: host.docker.internal:$REGISTRY_MIRROR_PORT, not
-       # harbor.harbor.svc.cluster.local — sit/uat/production sit on separate
-       # docker networks from internal (where Harbor actually runs) and can't
-       # resolve its in-cluster DNS name; this is the SAME NodePort bridge
-       # every image pull from those clusters already uses (see AGENT.md's
-       # "Harbor" section), just addressed by ArgoCD's own OCI client instead
-       # of containerd this time.
-       - repoURL: oci://host.docker.internal:30500/library/charts
-         chart: apollo-router
-         targetRevision: "0.1.0"
-         helm:
-           valueFiles:
-             - $values/env/{env}/apollo-router/values.yaml
-       - repoURL: {gitlab-url}/{project}/services.git
-         targetRevision: HEAD
-         ref: values
-     destination:
-       server: https://kubernetes.default.svc
-       # service-type is always "infra" here — see "Namespace convention"
-       namespace: {env}-{project}-infra-apollo-router
-     syncPolicy:
-       automated:
-         prune: true
-         selfHeal: true
-       syncOptions:
-         - CreateNamespace=true
-   ```
-   `30500` is the default `REGISTRY_MIRROR_PORT` — confirm against this
-   homelab's actual `.env` value rather than hardcoding blindly if it's ever
-   been overridden.
+```yaml
+supergraphSchema: ""
+```
+
+No per-project Application/manifest needed beyond that — the `deploy:{env}`
+job above already special-cases `apollo-router` (pulls the shared chart
+from `library/charts` by its fixed version instead of this project's own
+Harbor path) whenever it finds this values file under `env/{env}/`.
 
 Frontend's `VITE_GRAPHQL_URL`/equivalent env var (per env) points at this
 router's in-cluster Service: `http://apollo-router.{env}-{project}-infra-apollo-router.svc.cluster.local:4000/graphql`
 for SSR/build-time use, and the router's own Ingress (scaffold one, same
 `.local`+tailnet dual-ingress pattern this homelab's own apps use) for
 browser traffic.
-
-### ArgoCD Image Updater annotation (SIT only)
-
-```yaml
-# In SIT ArgoCD app annotations:
-annotations:
-  argocd-image-updater.argoproj.io/image-list: >
-    {service}={registry}/{project}/{service}
-  argocd-image-updater.argoproj.io/{service}.update-strategy: latest
-  argocd-image-updater.argoproj.io/{service}.allow-tags: >
-    regexp:^v\d+\.\d+\.\d+-rc\d+$
-```
-
-Image Updater only on SIT — all other envs use explicit ArgoCD sync.
 
 ---
 
@@ -636,8 +647,8 @@ echo "Cluster {env} is healthy"
 
 ```bash
 # Scale down every project/service workload namespace, same loop as above —
-# never touch argocd/registry/monitoring/ingress namespaces (not matched by
-# the {env}-* project-namespace prefix anyway, those are fixed cluster infra)
+# never touch registry/monitoring/ingress namespaces (not matched by the
+# {env}-* project-namespace prefix anyway, those are fixed cluster infra)
 for ns in $(kubectl get ns -o name | grep "^namespace/${env}-" | cut -d/ -f2); do
   kubectl scale deployment --all --replicas=0 -n "$ns"
 done
@@ -653,7 +664,7 @@ no separate QA or staging cluster:
   no separate staging cluster, they run against UAT), sleep after release
   confirmed
 - Production: always on
-- Internal: always on (GitLab, n8n, ArgoCD, monitoring)
+- Internal: always on (GitLab, n8n, monitoring)
 
 ---
 
@@ -716,17 +727,22 @@ for f in env/uat/*/values.yaml; do
 
   # 4. Overwrite env/uat/{service}/values.yaml's tag with the full version —
   #    no separate staging cluster, the full-version image redeploys to the
-  #    SAME UAT cluster for the staging-equivalent checks below. ArgoCD's
-  #    automated sync on the UAT Application picks it up from here.
+  #    SAME UAT cluster for the staging-equivalent checks below. This commit
+  #    is what fires deploy:uat (same pipeline, see its rule above) to
+  #    actually roll it out — not a separate manual step.
   yq -i ".image.tag = \"$FULL_TAG\"" "$f"
   git add "$ROOT/package.json" "$f"
 done
 
+git config user.email "ci-bot@homelab.local"
+git config user.name "CI Bot"
 git commit -m "chore: promote v{X}.{Y}.{Z} — retag rc images to full version, redeploy to UAT for staging checks"
 git push origin "promote/v{X}.{Y}.{Z}"
 
-# Wait for ArgoCD to actually roll the retagged image out before telling n8n
-# staging is ready — otherwise F-15's k6/ZAP run against the stale rc image.
+# Wait for deploy:uat to actually roll the retagged image out before telling
+# n8n staging is ready — otherwise F-15's k6/ZAP run against the stale rc
+# image. (deploy:uat runs earlier in this same pipeline, triggered by the
+# values.yaml commit above; this just confirms its rollout landed.)
 for f in env/uat/*/values.yaml; do
   SERVICE=$(basename "$(dirname "$f")")
   kubectl --context "$UAT_CLUSTER_CONTEXT" rollout status "deployment/$SERVICE" -n hr-portal --timeout=120s
@@ -747,10 +763,10 @@ curl -X POST "$N8N_STAGING_WEBHOOK" \
 ## Behaviour Rules
 
 - Gate A signal must only fire when ALL infra checks pass — never partial
-- ArgoCD Image Updater is SIT only — never configure on UAT, staging, or production
+- No ArgoCD/GitOps anywhere in this homelab — every deploy is CI-triggered (`helm upgrade` in the pipeline itself), never a separate pull-based sync
 - Promotion (rc → full version, staging, production) is always a retag of the UAT-tested image — never a rebuild. Source the tag to retag from `env/uat/{service}/values.yaml`, never from git diff/package.json
-- Never scale down infra namespace (GitLab, n8n, ArgoCD, monitoring, ingress)
+- Never scale down infra namespace (GitLab, n8n, monitoring, ingress)
 - CI pipeline `notify-n8n` job must have `needs:` listing all other jobs — pipeline contract enforced
 - The promote-and-retag job must notify `$N8N_STAGING_WEBHOOK` after rollout, not just push — F-15/`webhook/staging-deployed` has no other trigger in the whole pipeline, skip this and the staging phase silently never runs
 - All secrets via Kubernetes secrets or GitLab CI variables — never in config files
-- Every helm chart's values live at `env/{environment-name}/{application-name}/values.yaml`, never inline in the ArgoCD Application and never as environment-specific data inside `helm/{service}/values.yaml` — every ArgoCD Application for the chart must set `source.helm.valueFiles` to it
+- Every helm chart's values live at `env/{environment-name}/{application-name}/values.yaml`, never as environment-specific data inside `helm/{service}/values.yaml` — every `deploy:{env}` job must `helm upgrade -f` that file, never bare chart defaults

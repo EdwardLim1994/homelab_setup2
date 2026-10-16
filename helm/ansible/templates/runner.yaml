@@ -18,6 +18,18 @@ metadata:
 data:
 {{ (.Files.Glob "playbooks/*.yml").AsConfig | indent 2 }}
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-playbook-files
+  namespace: {{ .Release.Namespace }}
+data:
+  # ponytail: helper scripts a playbook's own `ansible.builtin.script`/
+  # `copy` task reaches for (e.g. role-accounts.yml's kaneo-role-auth.py) --
+  # mounted as its own dir since the main playbooks ConfigMap only globs
+  # top-level *.yml.
+{{ (.Files.Glob "playbooks/files/*").AsConfig | indent 2 }}
+---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -35,10 +47,10 @@ spec:
         spec:
           restartPolicy: Never
           serviceAccountName: {{ .Release.Name }}-runner
-          # ponytail: argocd-clusters.yml only. `host.docker.internal` resolves
-          # to both an IPv6 and IPv4 address on Docker Desktop; pods have no
-          # IPv6 route and the k8s Python client doesn't fall back — pin it to
-          # the IPv4 literal so that lookup doesn't even happen.
+          # ponytail: `host.docker.internal` resolves to both an IPv6 and
+          # IPv4 address on Docker Desktop; pods have no IPv6 route and the
+          # k8s Python client doesn't fall back — pin it to the IPv4 literal
+          # so that lookup doesn't even happen.
           hostAliases:
             - ip: "192.168.65.254"
               hostnames: ["host.docker.internal"]
@@ -75,16 +87,20 @@ spec:
               volumeMounts:
                 - name: playbooks
                   mountPath: /playbooks
+                - name: playbook-files
+                  mountPath: /playbooks/files
                 - name: flows
                   mountPath: /flows
                 - name: pipe
                   mountPath: /pipe
-                - name: external-kubeconfig
-                  mountPath: /kube
           volumes:
             - name: playbooks
               configMap:
                 name: {{ .Release.Name }}-playbooks
+            - name: playbook-files
+              configMap:
+                name: {{ .Release.Name }}-playbook-files
+                defaultMode: 0755
             - name: flows
               # ponytail: the n8n SDLC flows live with the n8n chart; terraform
               # (ansible.tf) mounts the same files here so they aren't duplicated.
@@ -95,11 +111,3 @@ spec:
               # terraform's kubernetes_config_map.ansible_pipe.
               configMap:
                 name: ansible-pipe
-            - name: external-kubeconfig
-              # argocd-clusters.yml only. Not terraform-managed — k3d contexts
-              # are host-machine kubeconfig data, not something tofu apply can
-              # generate. Create by hand once (see argocd-clusters.yml header),
-              # optional so every other playbook still runs without it.
-              secret:
-                secretName: external-cluster-kubeconfig
-                optional: true

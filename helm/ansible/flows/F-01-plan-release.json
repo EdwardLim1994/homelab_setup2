@@ -567,7 +567,7 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Report compiler — planning stage only, do NOT touch GitLab or Kaneo. `mc alias set local $MINIO_ENDPOINT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD >/dev/null`, then download EVERYTHING uploaded for {{ $node['Webhook Trigger'].json.body.body.version }} in one shot (markdown sections AND every diagram PNG they reference): `mc cp --recursive local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/ .` — architecture.md/schema-impact.md/qa-risk.md/security-threat.md/ux-review.md/prd.md/estimate.md and their PNGs land in the current directory together, so the markdown's `![](<name>.png)` references resolve as relative paths once you assemble combined.md here. Some sections may be missing if an earlier step failed; skip missing ones and note the gap, don't fail the whole compile over it.\n\nAssemble combined.md as a fixed proposal template — these 20 sections, in this exact order, each its own `# <N>. <Section>` markdown heading (source material in brackets; where no generated section maps to it, write the standard short paragraph given, don't leave it blank or invent unsupported specifics):\n1. Cover Page — project name, version, revision, today's date (from the webhook vars, no source file needed).\n2. Table of Contents — body is exactly one fenced raw-LaTeX block and nothing else:\n```{=latex}\n\\tableofcontents\n```\n(no --toc flag is passed to pandoc -- that auto-inserts the TOC at the very top of the document with no title to anchor after, which is what pushed the Cover Page off page 1 last time; this raw block is how the real table of contents renders in the right place, right after the Cover Page).\n3. Executive Summary — 2-3 sentences synthesized from prd.md's own opening/goal, not copied verbatim.\n4. Project Objectives — extract the measurable goals/KPIs from prd.md.\n5. Scope of Work — extract in-scope features by user type and any explicit out-of-scope items from prd.md.\n6. Technical Approach / Solution Architecture — architecture.md in full, including its diagram image references as-is (these are real rendered diagram PNGs, not Mermaid source — see `publish-pdf.sh` invocation below for how they get bundled into the PDF).\n7. Technology Stack — pull the stack choices already stated in architecture.md into a short table (frontend/backend/database/hosting/CI-CD); if architecture.md doesn't break it out this cleanly, say so and give the best table extractable from it rather than fabricating entries.\n8. Non-Functional Requirements — performance/scalability/security/availability points pulled from architecture.md and security-threat.md.\n9. Team Composition & Roles — static: list the SDLC roles this pipeline runs (Architect, Data Engineer, PM, Tech Lead, Backend/Frontend Developer, QA, Security, DevOps, UX, Product Owner, Release Manager) with a one-line responsibility each; this is a fixed pipeline roster, not a staffing plan.\n10. Project Timeline/Milestones — the phase breakdown and durations from estimate.md.\n11. Deliverables — the concrete outputs listed in estimate.md and prd.md (source code, docs, deployed services).\n12. Assumptions & Dependencies — any cross-story/external dependency noted in prd.md; if none, write \"No external dependencies identified at planning time.\"\n13. Risk Analysis & Mitigation Plan — qa-risk.md and security-threat.md combined, each risk with impact/likelihood/mitigation as those reports already structure it.\n14. Change Management Process — static boilerplate: \"Scope changes are raised as new Kaneo tasks against this release's epic and re-estimated by Tech Lead; they do not retroactively alter this proposal.\"\n15. Communication & Reporting Plan — static boilerplate: \"This is an automated SDLC pipeline (n8n-orchestrated agent pods) — there are no standing meetings; progress is tracked live in Kaneo, and sign-off gates notify via the project's configured channel.\"\n16. Testing & Quality Assurance — qa-risk.md's testing approach and acceptance criteria.\n17. Deployment & Release Strategy — derived from architecture.md's deployment section plus the pipeline's own SIT -> UAT -> staging -> production flow (ArgoCD-managed, ArgoCD Image Updater promotes tags).\n18. Maintenance & Support Plan — static boilerplate: \"Post-release monitoring runs through the shared Grafana/Loki/Tempo stack; see F-21/F-22's rollback flow for incident response.\"\n19. Cost Estimate/Pricing — estimate.md's effort breakdown (this homelab pipeline has no $ pricing — present it as effort/time, not currency).\n20. Appendices — ux-review.md in full, plus schema-impact.md if it wasn't already folded into section 8.\n\nThen run: `publish-pdf.sh {{ $node['Webhook Trigger'].json.body.body.project }} {{ $node['Webhook Trigger'].json.body.body.version }} {{ $node['Webhook Trigger'].json.body.body.revision ?? '1' }} combined.md *.png` — this is a pre-built script already on this image, it converts combined.md to PDF in a throwaway Kubernetes Job (pandoc lives there, not on this always-resident pod), bundling every trailing PNG argument alongside it so pandoc can resolve combined.md's image references, and uploads the PDF to Nextcloud, then cleans the Job up itself. It prints the uploaded path on success, or a Job failure/timeout message plus the pandoc/upload container logs on stderr on failure — do not try to reimplement any of this yourself, just run the script (with every downloaded `.png` passed after combined.md) and report exactly what it printed.",
+              "value": "=Report compiler — planning stage only, do NOT touch GitLab or Kaneo. `mc alias set local $MINIO_ENDPOINT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD >/dev/null`, then download EVERYTHING uploaded for {{ $node['Webhook Trigger'].json.body.body.version }} in one shot (markdown sections AND every diagram PNG they reference): `mc cp --recursive local/release-reports/{{ $node['Webhook Trigger'].json.body.body.version }}/ .` — architecture.md/schema-impact.md/qa-risk.md/security-threat.md/ux-review.md/prd.md/estimate.md and their PNGs land in the current directory together, so the markdown's `![](<name>.png)` references resolve as relative paths once you assemble combined.md here. Some sections may be missing if an earlier step failed; skip missing ones and note the gap, don't fail the whole compile over it.\n\nAssemble combined.md as a fixed proposal template — these 20 sections, in this exact order, each its own `# <N>. <Section>` markdown heading (source material in brackets; where no generated section maps to it, write the standard short paragraph given, don't leave it blank or invent unsupported specifics):\n1. Cover Page — project name, version, revision, today's date (from the webhook vars, no source file needed).\n2. Table of Contents — body is exactly one fenced raw-LaTeX block and nothing else:\n```{=latex}\n\\tableofcontents\n```\n(no --toc flag is passed to pandoc -- that auto-inserts the TOC at the very top of the document with no title to anchor after, which is what pushed the Cover Page off page 1 last time; this raw block is how the real table of contents renders in the right place, right after the Cover Page).\n3. Executive Summary — 2-3 sentences synthesized from prd.md's own opening/goal, not copied verbatim.\n4. Project Objectives — extract the measurable goals/KPIs from prd.md.\n5. Scope of Work — extract in-scope features by user type and any explicit out-of-scope items from prd.md.\n6. Technical Approach / Solution Architecture — architecture.md in full, including its diagram image references as-is (these are real rendered diagram PNGs, not Mermaid source — see `publish-pdf.sh` invocation below for how they get bundled into the PDF).\n7. Technology Stack — pull the stack choices already stated in architecture.md into a short table (frontend/backend/database/hosting/CI-CD); if architecture.md doesn't break it out this cleanly, say so and give the best table extractable from it rather than fabricating entries.\n8. Non-Functional Requirements — performance/scalability/security/availability points pulled from architecture.md and security-threat.md.\n9. Team Composition & Roles — static: list the SDLC roles this pipeline runs (Architect, Data Engineer, PM, Tech Lead, Backend/Frontend Developer, QA, Security, DevOps, UX, Product Owner, Release Manager) with a one-line responsibility each; this is a fixed pipeline roster, not a staffing plan.\n10. Project Timeline/Milestones — the phase breakdown and durations from estimate.md.\n11. Deliverables — the concrete outputs listed in estimate.md and prd.md (source code, docs, deployed services).\n12. Assumptions & Dependencies — any cross-story/external dependency noted in prd.md; if none, write \"No external dependencies identified at planning time.\"\n13. Risk Analysis & Mitigation Plan — qa-risk.md and security-threat.md combined, each risk with impact/likelihood/mitigation as those reports already structure it.\n14. Change Management Process — static boilerplate: \"Scope changes are raised as new Kaneo tasks against this release's epic and re-estimated by Tech Lead; they do not retroactively alter this proposal.\"\n15. Communication & Reporting Plan — static boilerplate: \"This is an automated SDLC pipeline (n8n-orchestrated agent pods) — there are no standing meetings; progress is tracked live in Kaneo, and sign-off gates notify via the project's configured channel.\"\n16. Testing & Quality Assurance — qa-risk.md's testing approach and acceptance criteria.\n17. Deployment & Release Strategy — derived from architecture.md's deployment section plus the pipeline's own SIT -> UAT -> staging -> production flow (CI-managed -- each phase's deploy:{env} job pulls the project's Helm chart from Harbor and deploys it directly, no GitOps).\n18. Maintenance & Support Plan — static boilerplate: \"Post-release monitoring runs through the shared Grafana/Loki/Tempo stack; see F-21/F-22's rollback flow for incident response.\"\n19. Cost Estimate/Pricing — estimate.md's effort breakdown (this homelab pipeline has no $ pricing — present it as effort/time, not currency).\n20. Appendices — ux-review.md in full, plus schema-impact.md if it wasn't already folded into section 8.\n\nThen run: `publish-pdf.sh {{ $node['Webhook Trigger'].json.body.body.project }} {{ $node['Webhook Trigger'].json.body.body.version }} {{ $node['Webhook Trigger'].json.body.body.revision ?? '1' }} combined.md <only the PNGs combined.md actually references>` — this is a pre-built script already on this image, it converts combined.md to PDF in a throwaway Kubernetes Job (pandoc lives there, not on this always-resident pod), bundling every trailing PNG argument alongside it so pandoc can resolve combined.md's image references, and uploads the PDF to Nextcloud at `/projects/<project>/<project>-<version>-<revision>.pdf`, creating `/projects/` and the project folder first if either is missing, then cleans the Job up itself. PASS ONLY the PNGs combined.md's own `![]()` references actually name — NOT every PNG you downloaded. The script bundles every trailing PNG argument into one Kubernetes ConfigMap alongside combined.md, which has a hard 1MiB total size limit; passing all of them (this project likely has far more diagrams than the 20-section template embeds — only architecture.md's 2 top-level diagrams go into Section 6, never the per-service ones) silently exceeds that limit, the ConfigMap POST 422s, and the spawned Job hangs forever waiting on a ConfigMap that was never created, with no useful error surfaced until the script's own 150s poll times out. Grep combined.md for `![](` to get the exact list before calling the script. It prints the uploaded path on success, or a Job failure/timeout message plus the pandoc/upload container logs on stderr on failure — do not try to reimplement any of this yourself, just run the script (with exactly those referenced PNGs passed after combined.md) and report exactly what it printed.\n\nCRITICAL: run publish-pdf.sh in the FOREGROUND and WAIT for it to exit before ending your turn. Do NOT background it (no trailing `&`), and do NOT end your turn while it's still running with a plan to check back later — you cannot check back later, your pod is destroyed the moment your turn ends, which kills any backgrounded child process and deletes the Job's ConfigMap via the script's own cleanup trap before the Job can finish. The script's internal ~150-second poll is expected; that wait is the entire point of running it synchronously.",
               "type": "string"
             },
             {
@@ -636,6 +636,71 @@
             }
           ]
         }
+      }
+    },
+    {
+      "id": "40cb3c37-a400-4b93-aace-24ac5d527e0c",
+      "name": "Assert Gate A Workflows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        220
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"Architect Analysis\", \"DE Schema Impact\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nreturn $input.all();"
+      }
+    },
+    {
+      "id": "3a09e4d3-627c-4725-a1f9-b624542bfa79",
+      "name": "Assert Gate B Workflows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        220
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"QA Risk Assessment\", \"Security Threat Model\", \"UX Review\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nreturn $input.all();"
+      }
+    },
+    {
+      "id": "16024b67-a623-4f45-8d6e-eb5a6b417b4c",
+      "name": "Assert PM PRD",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2100,
+        420
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"PM PRD\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nreturn $input.all();"
+      }
+    },
+    {
+      "id": "0747c8a6-f9e6-41e3-a267-baa587e8e752",
+      "name": "Assert TL Estimate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2520,
+        420
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"TL Estimate\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nreturn $input.all();"
+      }
+    },
+    {
+      "id": "140e1235-eb58-4b6c-a9ea-9bddad4b5295",
+      "name": "Assert Planning Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3000,
+        420
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"PM: Compile Development Plan\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nreturn $input.all();"
       }
     }
   ],
@@ -715,7 +780,7 @@
       "main": [
         [
           {
-            "node": "Notify: Gate A done",
+            "node": "Assert Gate A Workflows",
             "type": "main",
             "index": 0
           }
@@ -813,7 +878,7 @@
       "main": [
         [
           {
-            "node": "Notify: Gate B done",
+            "node": "Assert Gate B Workflows",
             "type": "main",
             "index": 0
           }
@@ -846,7 +911,7 @@
       "main": [
         [
           {
-            "node": "TL Input (Estimate)",
+            "node": "Assert PM PRD",
             "type": "main",
             "index": 0
           }
@@ -868,7 +933,7 @@
       "main": [
         [
           {
-            "node": "PM Input (Compile)",
+            "node": "Assert TL Estimate",
             "type": "main",
             "index": 0
           }
@@ -887,6 +952,61 @@
       ]
     },
     "PM: Compile Development Plan": {
+      "main": [
+        [
+          {
+            "node": "Assert Planning Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Gate A Workflows": {
+      "main": [
+        [
+          {
+            "node": "Notify: Gate A done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Gate B Workflows": {
+      "main": [
+        [
+          {
+            "node": "Notify: Gate B done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert PM PRD": {
+      "main": [
+        [
+          {
+            "node": "TL Input (Estimate)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert TL Estimate": {
+      "main": [
+        [
+          {
+            "node": "PM Input (Compile)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Planning Complete": {
       "main": [
         [
           {

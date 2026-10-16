@@ -9,6 +9,16 @@ resource "helm_release" "authentik" {
   chart             = "${path.module}/../../helm/authentik"
   namespace         = kubernetes_namespace.authentik.metadata[0].name
   dependency_update = true
+  # The Helm provider doesn't hash local chart contents; make chart updates
+  # visible to Terraform, including dependency and packaged subchart changes.
+  set {
+    name  = "chartHash"
+    value = sha1(join(",", [
+      for f in fileset("${path.module}/../../helm/authentik", "**") :
+      filesha1("${path.module}/../../helm/authentik/${f}")
+    ]))
+  }
+
   # ponytail: fresh-DB first boot runs migrations + blueprint import, blows past
   # the 300s helm default. Match the other DB-backed apps.
   timeout = 900
@@ -108,8 +118,6 @@ resource "null_resource" "authentik_app_providers" {
     sonarqube_secret = var.sonarqube_oidc_client_secret
     nextcloud_id     = var.nextcloud_oidc_client_id
     nextcloud_secret = var.nextcloud_oidc_client_secret
-    argocd_id        = var.argocd_oidc_client_id
-    argocd_secret    = var.argocd_oidc_client_secret
     grafana_id       = var.grafana_oidc_client_id
     grafana_secret   = var.grafana_oidc_client_secret
     litellm_id       = var.litellm_oidc_client_id
@@ -124,6 +132,7 @@ resource "null_resource" "authentik_app_providers" {
     kaneo_secret     = var.kaneo_oidc_client_secret
     admin_email      = var.admin_email
     app_domain       = local.tailnet_domain
+    role_pw_seed     = var.sdlc_role_password_seed
     script_hash      = filesha1("${path.module}/../../helm/authentik/provision-app-providers.py")
     # ponytail: re-run on a fresh Authentik deploy (DB wiped on cluster rebuild).
     authentik_release = helm_release.authentik.metadata[0].revision
@@ -155,7 +164,6 @@ resource "local_file" "authentik_app_providers_script" {
     "  N8N_OIDC_CLIENT_ID='${var.n8n_oidc_client_id}' N8N_OIDC_CLIENT_SECRET='${var.n8n_oidc_client_secret}' \\",
     "  SONARQUBE_OIDC_CLIENT_ID='${var.sonarqube_oidc_client_id}' SONARQUBE_OIDC_CLIENT_SECRET='${var.sonarqube_oidc_client_secret}' \\",
     "  NEXTCLOUD_OIDC_CLIENT_ID='${var.nextcloud_oidc_client_id}' NEXTCLOUD_OIDC_CLIENT_SECRET='${var.nextcloud_oidc_client_secret}' \\",
-    "  ARGOCD_OIDC_CLIENT_ID='${var.argocd_oidc_client_id}' ARGOCD_OIDC_CLIENT_SECRET='${var.argocd_oidc_client_secret}' \\",
     "  GRAFANA_OIDC_CLIENT_ID='${var.grafana_oidc_client_id}' GRAFANA_OIDC_CLIENT_SECRET='${var.grafana_oidc_client_secret}' \\",
     "  LITELLM_OIDC_CLIENT_ID='${var.litellm_oidc_client_id}' LITELLM_OIDC_CLIENT_SECRET='${var.litellm_oidc_client_secret}' \\",
     "  OPENWEBUI_OIDC_CLIENT_ID='${var.openwebui_oidc_client_id}' OPENWEBUI_OIDC_CLIENT_SECRET='${var.openwebui_oidc_client_secret}' \\",
@@ -163,6 +171,7 @@ resource "local_file" "authentik_app_providers_script" {
     "  HARBOR_OIDC_CLIENT_ID='${var.harbor_oidc_client_id}' HARBOR_OIDC_CLIENT_SECRET='${var.harbor_oidc_client_secret}' \\",
     "  KANEO_OIDC_CLIENT_ID='${var.kaneo_oidc_client_id}' KANEO_OIDC_CLIENT_SECRET='${var.kaneo_oidc_client_secret}' \\",
     "  ADMIN_EMAIL='${var.admin_email}' APP_DOMAIN='${local.tailnet_domain}' \\",
+    "  SDLC_ROLE_PASSWORD_SEED='${var.sdlc_role_password_seed}' \\",
     "  ak shell < '${abspath(path.module)}/../../helm/authentik/provision-app-providers.py'",
     "",
   ])

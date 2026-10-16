@@ -2,7 +2,7 @@ namespace: sdlc
 
 image:
   # ponytail: reuses the image built for helm/omp's (now-decommissioned) standing
-  # chat pod — it already bakes in omp + opencode + claude CLIs and every role's
+  # chat pod — it already bakes in omp + opencode + codex CLIs and every role's
   # skill dir (helm/omp/Dockerfile). registry.homelab/omp:latest was never built
   # anywhere (no Dockerfile in this chart, no build step in terraform/omp-agent.tf)
   # — any Job using it would ImagePullBackOff.
@@ -16,7 +16,7 @@ backoffLimit: 1
 # Populated from .env / terraform at deploy time
 secrets:
   gitlabToken: ""
-  claudeCodeToken: ""
+  codexAuth: ""
   gitlabRepoUrl: ""
   kaneoToken: ""
   kaneoUrl: ""

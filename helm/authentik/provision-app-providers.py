@@ -1,4 +1,4 @@
-from authentik.providers.oauth2.models import OAuth2Provider, ClientTypes, RedirectURI, RedirectURIMatchingMode, ScopeMapping
+from authentik.providers.oauth2.models import OAuth2Provider, ClientType, RedirectURI, RedirectURIMatchingMode, ScopeMapping
 from authentik.core.models import Application, PropertyMapping, User, Group, UserTypes
 from authentik.flows.models import Flow
 from authentik.crypto.models import CertificateKeyPair
@@ -96,9 +96,6 @@ apps = [
     dict(name='Nextcloud', slug='nextcloud',
          client_id=os.environ['NEXTCLOUD_OIDC_CLIENT_ID'], client_secret=os.environ['NEXTCLOUD_OIDC_CLIENT_SECRET'],
          redirect_uris=[app_url('nextcloud') + '/apps/sociallogin/custom_oidc/authentik']),
-    dict(name='ArgoCD', slug='argocd',
-         client_id=os.environ['ARGOCD_OIDC_CLIENT_ID'], client_secret=os.environ['ARGOCD_OIDC_CLIENT_SECRET'],
-         redirect_uris=[app_url('argocd') + '/auth/callback']),
     dict(name='Grafana', slug='grafana',
          client_id=os.environ['GRAFANA_OIDC_CLIENT_ID'], client_secret=os.environ['GRAFANA_OIDC_CLIENT_SECRET'],
          redirect_uris=[app_url('grafana') + '/login/generic_oauth']),
@@ -128,7 +125,7 @@ for a in apps:
         defaults=dict(
             client_id=a['client_id'],
             client_secret=a['client_secret'],
-            client_type=ClientTypes.CONFIDENTIAL,
+            client_type=ClientType.CONFIDENTIAL,
             authorization_flow=auth_flow,
             invalidation_flow=inval_flow,
             signing_key=signing_key,
@@ -166,17 +163,23 @@ sdlc_roles = [
     'security-engineer', 'solution-architect', 'tech-lead', 'uiux-designer',
 ]
 sdlc_roles_group, _ = Group.objects.get_or_create(name='sdlc-roles')
-import secrets as _secrets
+# ponytail: password = HMAC-SHA256(seed, role) -- deterministic, so any
+# script holding SDLC_ROLE_PASSWORD_SEED (e.g. ansible's Kaneo OIDC login
+# step) can recompute the same password without it ever being persisted or
+# printed anywhere. Set every run (not just on creation) so rotating the
+# seed var rotates every role's password on the next apply.
+import hashlib, hmac
+_seed = os.environ['SDLC_ROLE_PASSWORD_SEED'].encode()
 for role in sdlc_roles:
     u, created = User.objects.get_or_create(
         username=role,
         defaults=dict(name=role, email=f'sdlc-{role}@homelab.local', type=UserTypes.INTERNAL),
     )
-    if created:
-        u.set_password(_secrets.token_urlsafe(24))
-        u.save()
+    u.set_password(hmac.new(_seed, role.encode(), hashlib.sha256).hexdigest())
+    u.save()
     sdlc_roles_group.users.add(u)
     print('authentik role user ready:', role, 'created=', created)
+
 sdlc_roles_group.save()
 print('all role users done')
 

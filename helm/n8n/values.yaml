@@ -108,6 +108,11 @@ n8n:
       # the SDLC flows + F-28 read config from $env in expressions; n8n blocks
       # that by default.
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      # ponytail: default Code-node task runner timeout is 60s — too short
+      # for any flow step that polls a Deployment rollout or calls an omp
+      # pod's /v1/chat/completions (can legitimately take minutes). Found via
+      # TMP-kaneo-authentik-login-probe.json getting hard-killed mid-poll.
+      N8N_RUNNERS_TASK_TIMEOUT: "900"
       # F-00 verifies the GitLab webhook's X-GitLab-Token against this. Must
       # match what playbooks/gitlab-webhook.yml registers the hook with.
       # GITLAB_WEBHOOK_SECRET injected by terraform set_sensitive.
@@ -117,19 +122,19 @@ n8n:
       # var.omp_gitlab_token (terraform set_sensitive) — same token the agent
       # pods use, reused here since it's already scoped to this project.
       GITLAB_URL: "http://gitlab-webservice-default.gitlab.svc.cluster.local:8181"
-      # ponytail: these 4 vars (+ ARGOCD_PROJECT/DEPLOY_NAMESPACE below) are
-      # only the FALLBACK now — F-03/04/05/06/07/10/14/17/24/27 each check
-      # gitlab_project_path/id, argocd_project, deploy_namespace from the
+      # ponytail: these vars (+ DEPLOY_NAMESPACE below) are only the
+      # FALLBACK now — F-03/04/05/06/07/10/14/17/24/27 each check
+      # gitlab_project_path/id, deploy_namespace from the
       # triggering call first (chat body for chat-invoked flows, the GitLab
       # webhook payload itself for F-04/05/07, forwarded flow-to-flow where
       # one flow calls another — e.g. F-05 -> F-06). Only falls back to these
       # static values when a caller omits them, so "one project in flight"
       # still works with zero chat args for the dry-run fixture below. A new
-      # flow reading $env.GITLAB_PROJECT_PATH/_ID/ARGOCD_PROJECT/
+      # flow reading $env.GITLAB_PROJECT_PATH/_ID/
       # DEPLOY_NAMESPACE directly needs the same $node['Webhook
       # Trigger'].json.body.<field> ?? $env.<VAR> pattern, not a bare $env read.
-      GITLAB_PROJECT_PATH: "sdlc-gI5Dt%2Fhr-portal-dryrun"
-      GITLAB_PROJECT_ID: "4"
+      GITLAB_PROJECT_PATH: "sdlc/hr-portal-dryrun"
+      GITLAB_PROJECT_ID: "9"
       RELEASE_VERSION: "v0.1.0"
       # Ticket calls moved off GitLab issues onto Kaneo (wiki moved to
       # GitLab's own wiki module instead — see AGENTS.md's "GitLab
@@ -159,13 +164,13 @@ n8n:
       MINIO_ROOT_USER: "admin"
       # sit/uat/qa/staging/production are now separate k3d clusters (k3d-sit,
       # k3d-uat, ...), each on its own docker network — NOT reachable from
-      # n8n/argocd (running in k3d-internal) via in-cluster service DNS. Argo
-      # itself lives in k3d-internal alongside n8n, so ARGOCD_URL stays
-      # in-cluster; ARGOCD_TOKEN is a per-account API token (mint by hand:
-      # `argocd account generate-token --account n8n`, see README env-var
-      # table), var.argocd_token (terraform set_sensitive).
-      ARGOCD_URL: "http://argocd-server.argocd.svc.cluster.local"
-      ARGOCD_PROJECT: "sdlc-hr-portal"
+      # n8n (running in k3d-internal) via in-cluster service DNS. Production
+      # rollout is no longer n8n-initiated GitOps sync (ArgoCD removed) —
+      # each project's own GitLab CI pipeline pulls the right Helm chart
+      # version from Harbor and runs `helm upgrade` against the target
+      # cluster directly on a release-branch -> main merge (devops-engineer
+      # SKILL.md's CI template). n8n's role here is just reporting on that
+      # pipeline (F-10/F-21/F-27), not triggering or syncing it.
       # F-27 cluster-lifecycle's kubectl step and any devops-engineer pod CLI
       # work need real context names, not the old single-cluster "{cluster}-ctx"
       # guess. Each context's API server resolves via host.docker.internal —

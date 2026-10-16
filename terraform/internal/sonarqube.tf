@@ -52,6 +52,16 @@ resource "helm_release" "sonarqube" {
   timeout           = 900
   dependency_update = true
 
+  # The Helm provider doesn't hash local chart contents; make chart updates
+  # visible to Terraform, including dependency and packaged subchart changes.
+  set {
+    name  = "chartHash"
+    value = sha1(join(",", [
+      for f in fileset("${path.module}/../../helm/sonarqube", "**") :
+      filesha1("${path.module}/../../helm/sonarqube/${f}")
+    ]))
+  }
+
   values = [
     replace(replace(replace(replace(
       file("${path.module}/../../helm/sonarqube/values.yaml"),

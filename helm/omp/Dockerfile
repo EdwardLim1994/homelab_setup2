@@ -58,15 +58,13 @@ RUN ARCH=$(dpkg --print-architecture) \
     && tar -C /usr/local -xzf /tmp/glab.tgz bin/glab \
     && rm /tmp/glab.tgz
 
-# --- npm-global CLIs: nx, openspec, codegraph, claude code ---
-# ponytail: claude-code ships here too so a pod can run `claude` when the omp
-# agent is not wanted (scripts/omp-shell.sh). Auth is the CLAUDE_CODE_OAUTH_TOKEN
-# env the chart injects — no `claude login` in the pod.
+# --- npm-global CLIs: nx, openspec, codegraph, codex ---
 RUN npm install -g \
       nx \
       @fission-ai/openspec \
       @colbymchenry/codegraph \
-      @anthropic-ai/claude-code \
+      @openai/codex \
+      context-mode \
     && npm cache clean --force
 
 # --- omp (oh-my-pi): the coding agent ---
@@ -113,7 +111,8 @@ RUN mkdir -p /root/.omp/agent/skills /opt/src \
 # real AGENTS.md, but caveman's AGENTS.md is that repo's own dev file (internal
 # routing notes) — its actual ruleset is skills/caveman/SKILL.md, so strip that
 # file's YAML frontmatter and append the body instead.
-RUN git clone --depth 1 https://github.com/juliusbrussee/caveman /opt/src/caveman \
+RUN mkdir -p /root/.codex \
+    && git clone --depth 1 https://github.com/juliusbrussee/caveman /opt/src/caveman \
     && git clone --depth 1 https://github.com/dietrichgebert/ponytail /opt/src/ponytail \
     && for f in $(find /opt/src -maxdepth 4 -name SKILL.md); do \
          d=$(dirname "$f"); ln -sfn "$d" "/root/.omp/agent/skills/$(basename "$d")"; \
@@ -121,25 +120,18 @@ RUN git clone --depth 1 https://github.com/juliusbrussee/caveman /opt/src/cavema
     && { cat /opt/src/ponytail/AGENTS.md; echo; \
          awk 'p;/^---$/{c++;if(c==2)p=1}' /opt/src/caveman/skills/caveman/SKILL.md; echo; \
        } >> /root/.omp/agent/RULES.md; true
+# ponytail: codex CLI has no RULES.md concept — it reads AGENTS.md (repo-level
+# + this global one). Same combined ruleset, copied not generated twice.
+RUN cp /root/.omp/agent/RULES.md /root/.codex/AGENTS.md
 
-# --- claude code: skip first-run onboarding in a headless pod ---
-# ponytail: without this, `claude` blocks the TUI on the theme picker /
-# "trust this folder" dialog on first launch. Auth still comes from the
-# CLAUDE_CODE_OAUTH_TOKEN env the chart injects.
-RUN printf '%s\n' \
-      '{' \
-      '  "hasCompletedOnboarding": true,' \
-      '  "theme": "dark",' \
-      '  "autoUpdaterStatus": "disabled"' \
-      '}' > /root/.claude.json
-
-# --- SDLC role skills: baked into BOTH the omp and claude-code skill dirs ---
+# --- SDLC role skills: baked into omp's skill dirs ---
 # ponytail: the per-role ConfigMap in roles.yaml ships only the top-level
 # roles/<role>/SKILL.md; the curated sub-skill packs (with their references/)
-# come from here. Every SKILL.md dir is linked into omp's dir AND
-# /root/.claude/skills/ so `claude` discovers the same set. Duplicate sub-skill
-# names across roles (spec-miner, database-optimizer, api-designer) are byte
-# identical copies — ln -sfn just takes the last one.
+# come from here. omp also reads ~/.claude/skills, so keep links there for its
+# Claude-compatible skill discovery; no Claude CLI is installed. Duplicate
+# sub-skill names across roles (spec-miner,
+# database-optimizer, api-designer) are byte-identical copies — ln -sfn just
+# takes the last one.
 COPY roles/ /opt/roles/
 RUN mkdir -p /root/.claude/skills /root/.omp/agent/skills \
     && for f in $(find /opt/roles -maxdepth 3 -name SKILL.md); do \

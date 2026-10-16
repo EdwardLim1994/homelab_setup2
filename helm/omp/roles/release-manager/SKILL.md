@@ -71,11 +71,11 @@ Stories in this release: {list GL-N with one-line description}
 
 ## Rollback target
 Previous stable: v{X}.{Y}.{Z-1}
-Rollback procedure: argocd rollback {project}-{service}-production
+Rollback procedure: helm rollback {service} --kube-context $PRODUCTION_CLUSTER_CONTEXT -n production-{project}-{service-type}-{service}
 
 ## Deployment window
 Planned: {date and time window}
-Duration estimate: {N} minutes (ArgoCD sync + health gate)
+Duration estimate: {N} minutes (helm upgrade + health gate)
 
 ## Staging sign-offs
 - [ ] staging-qa:passed
@@ -265,7 +265,7 @@ When a threshold is breached:
 
 ### Recommended action
 **Option A (recommended):** Rollback to v{X}.{Y}.{Z-1}
-- Command: argocd rollback {project}-{service}-production
+- Command: helm rollback {service} --kube-context $PRODUCTION_CLUSTER_CONTEXT -n production-{project}-{service-type}-{service}
 - Risk: {minutes} downtime during rollback
 - Confidence: high — known stable baseline
 

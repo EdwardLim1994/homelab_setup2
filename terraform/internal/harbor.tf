@@ -28,6 +28,29 @@ resource "helm_release" "harbor" {
   depends_on = [kubernetes_namespace.harbor, helm_release.postgres, helm_release.redis]
 }
 
+# Phase-cluster containerd resolves this registry host through the k3d
+# internal load balancer, which maps REGISTRY_MIRROR_PORT to this NodePort.
+resource "kubernetes_service" "harbor_registry_nodeport" {
+  metadata {
+    name      = "harbor-registry-nodeport"
+    namespace = kubernetes_namespace.harbor.metadata[0].name
+  }
+  spec {
+    type = "NodePort"
+    selector = {
+      app       = "harbor"
+      component = "nginx"
+      release   = "harbor"
+    }
+    port {
+      port        = 80
+      target_port = 8080
+      node_port   = var.registry_mirror_port
+    }
+  }
+  depends_on = [helm_release.harbor]
+}
+
 # ponytail: no chart-owned Ingress (see helm/harbor/values.yaml) — both
 # ingresses point at the chart's single unified `harbor` Service,
 # same as every consumer (CI push, image-updater, phase-cluster mirror).

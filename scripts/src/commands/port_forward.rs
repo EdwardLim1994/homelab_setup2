@@ -30,7 +30,6 @@ const APPS: &[App] = &[
     App { name: "n8n", ns: "n8n", svc: "n8n", svc_port: 5678, local_port: 5678, slug: "n8n", path: "" },
     App { name: "sonarqube", ns: "sonarqube", svc: "sonarqube-sonarqube", svc_port: 9000, local_port: 9010, slug: "sonarqube", path: "" },
     App { name: "nextcloud", ns: "nextcloud", svc: "nextcloud", svc_port: 8080, local_port: 8082, slug: "nextcloud", path: "" },
-    App { name: "argocd", ns: "argocd", svc: "argocd-server", svc_port: 80, local_port: 9001, slug: "argocd", path: "" },
     App { name: "grafana", ns: "observability", svc: "observability-grafana", svc_port: 80, local_port: 3000, slug: "grafana", path: "" },
     App { name: "litellm", ns: "litellm", svc: "litellm", svc_port: 4000, local_port: 4000, slug: "litellm", path: "/ui" },
 ];

@@ -112,7 +112,7 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Promote the exact tested images for release {{ $env.RELEASE_VERSION }} to UAT — using glab against gitlab-webservice-default.gitlab.svc.cluster.local (project {{ $node['Webhook Trigger'].json.body.gitlab_project_path ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }}). Step 1: list merged story MRs targeting `release/{{ $env.RELEASE_VERSION }}` (`glab api \"projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/merge_requests?target_branch=release/{{ $env.RELEASE_VERSION }}&state=merged&labels=type:story\"`). Step 2: for each, fetch its notes (`glab api projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/merge_requests/<iid>/notes`) and find QA's comment containing a 'Tested image tags:' block (format `- {service}: v{X}.{Y}.{Z}-rc{N}` per line, one per changed service — see qa-engineer SKILL.md). If a merged story MR has no such comment, STOP and signal n8n blocked with `{\"status\": \"blocked\", \"reason\": \"no tested image tags recorded\", \"mr_iid\": \"<iid>\"}` — never fall back to whatever is currently on SIT, never guess a tag. Step 3: for every {service}:{tag} pair collected across all story MRs, edit `env/uat/{service}/values.yaml` on `main` (create the file if this is the service's first UAT deploy — copy the shape of an existing `env/uat/*/values.yaml` in the repo) setting the image tag field to the exact tag from the comment. Step 4: commit all edited files in one commit (`chore: promote tested images to UAT for {{ $env.RELEASE_VERSION }}`) and push to main — ArgoCD's automated syncPolicy on each `{{ $node['Webhook Trigger'].json.body.argocd_project ?? $env.ARGOCD_PROJECT }}-<service>-uat` Application picks up the change from there, no image-updater involved (UAT is explicit-sync only). Report which services were updated and to which tags.",
+              "value": "=Promote the exact tested images for release {{ $env.RELEASE_VERSION }} to UAT — using glab against gitlab-webservice-default.gitlab.svc.cluster.local (project {{ $node['Webhook Trigger'].json.body.gitlab_project_path ?? $env.GITLAB_PROJECT_PATH.replace('%2F', '/') }}). Step 1: list merged story MRs targeting `release/{{ $env.RELEASE_VERSION }}` (`glab api \"projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/merge_requests?target_branch=release/{{ $env.RELEASE_VERSION }}&state=merged&labels=type:story\"`). Step 2: for each, fetch its notes (`glab api projects/{{ $node['Webhook Trigger'].json.body.gitlab_project_path?.replaceAll('/','%2F') ?? $env.GITLAB_PROJECT_PATH }}/merge_requests/<iid>/notes`) and find QA's comment containing a 'Tested image tags:' block (format `- {service}: v{X}.{Y}.{Z}-rc{N}` per line, one per changed service — see qa-engineer SKILL.md). If a merged story MR has no such comment, STOP and signal n8n blocked with `{\"status\": \"blocked\", \"reason\": \"no tested image tags recorded\", \"mr_iid\": \"<iid>\"}` — never fall back to whatever is currently on SIT, never guess a tag. Step 3: for every {service}:{tag} pair collected across all story MRs, edit `env/uat/{service}/values.yaml` on `main` (create the file if this is the service's first UAT deploy — copy the shape of an existing `env/uat/*/values.yaml` in the repo) setting the image tag field to the exact tag from the comment. Step 4: commit all edited files in one commit (`chore: promote tested images to UAT for {{ $env.RELEASE_VERSION }}`) and push to main — this same push triggers the pipeline's own deploy:uat job (CI-managed, no GitOps) for every service whose env/uat/*/values.yaml changed. Report which services were updated and to which tags.",
               "type": "string"
             },
             {
@@ -165,29 +165,6 @@
             {
               "name": "cluster",
               "value": "uat"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "dea28236-790c-4e23-9457-aa3686060a62",
-      "name": "ArgoCD: Sync UAT",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1340,
-        200
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.ARGOCD_URL }}/api/v1/applications/{{ $node['Webhook Trigger'].json.body.argocd_project ?? $env.ARGOCD_PROJECT }}-uat/sync",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "Bearer {{ $env.ARGOCD_TOKEN }}"
             }
           ]
         }
@@ -255,6 +232,19 @@
           ]
         }
       }
+    },
+    {
+      "id": "2f87481c-70b0-4575-89b9-bf3ac9f2f79b",
+      "name": "Assert UAT Deploy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2100,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"Deploy Tested Images to UAT\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nreturn $input.all();"
+      }
     }
   ],
   "connections": {
@@ -313,7 +303,7 @@
       "main": [
         [
           {
-            "node": "Wake UAT Cluster",
+            "node": "Assert UAT Deploy",
             "type": "main",
             "index": 0
           }
@@ -321,17 +311,6 @@
       ]
     },
     "Wake UAT Cluster": {
-      "main": [
-        [
-          {
-            "node": "ArgoCD: Sync UAT",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "ArgoCD: Sync UAT": {
       "main": [
         [
           {
@@ -347,6 +326,17 @@
         [
           {
             "node": "→ F-11 QA UAT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert UAT Deploy": {
+      "main": [
+        [
+          {
+            "node": "Wake UAT Cluster",
             "type": "main",
             "index": 0
           }

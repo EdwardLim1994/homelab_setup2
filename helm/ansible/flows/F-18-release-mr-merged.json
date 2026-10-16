@@ -80,7 +80,7 @@
             {
               "id": "2",
               "name": "prompt",
-              "value": "=Deploy release {{ $env.RELEASE_VERSION }} to production — no rebuild, the full-version image was already retagged and pushed during promotion, and already redeployed to UAT for staging checks. For every service under env/uat/*, read its current image tag from env/uat/{service}/values.yaml, and write that same tag into env/production/{service}/values.yaml on main (create the file if this is the service's first production deploy — copy the shape of an existing env/production/*/values.yaml, or env/uat/*/values.yaml if none exists yet). Commit all edited files in one commit ('chore: deploy {{ $env.RELEASE_VERSION }} to production') and push to main — ArgoCD's automated syncPolicy on each production Application picks it up from there (no image-updater on production, explicit sync only, same as UAT). Then wait for each service's production Deployment rollout to complete (kubectl --context $PRODUCTION_CLUSTER_CONTEXT rollout status deployment/<service> -n hr-portal --timeout=120s) before reporting done — do not report success until rollout is actually confirmed, not just committed.",
+              "value": "=Deploy release {{ $env.RELEASE_VERSION }} to production — no rebuild, the full-version image was already retagged and pushed during promotion, and already redeployed to UAT for staging checks. For every service under env/uat/*, read its current image tag from env/uat/{service}/values.yaml, and write that same tag into env/production/{service}/values.yaml on main (create the file if this is the service's first production deploy — copy the shape of an existing env/production/*/values.yaml, or env/uat/*/values.yaml if none exists yet). Commit all edited files in one commit ('chore: deploy {{ $env.RELEASE_VERSION }} to production') and push to main — this same push triggers the pipeline's own deploy:production job (CI-managed, no GitOps -- same mechanism as UAT, no separate sync call needed). Then wait for each service's production Deployment rollout to complete (kubectl --context $PRODUCTION_CLUSTER_CONTEXT rollout status deployment/<service> -n hr-portal --timeout=120s) before reporting done — do not report success until rollout is actually confirmed, not just committed.",
               "type": "string"
             },
             {
@@ -133,6 +133,19 @@
           ]
         }
       }
+    },
+    {
+      "id": "bebce29c-bb9f-4086-90e5-02cb2a7b8887",
+      "name": "Assert Production Deploy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1450,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const names = [\"DevOps: Deploy Production\"];\nconst failures = names.flatMap(name => {\n  const result = $(name).first().json;\n  return result.failed === true || result.succeeded === false ? [`${name}: ${result.error || result.message || JSON.stringify(result)}`] : [];\n});\nif (failures.length) throw new Error(`Child flow failed: ${failures.join(\"; \")}`);\nreturn $input.all();"
+      }
     }
   ],
   "connections": {
@@ -170,6 +183,17 @@
       ]
     },
     "DevOps: Deploy Production": {
+      "main": [
+        [
+          {
+            "node": "Assert Production Deploy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Production Deploy": {
       "main": [
         [
           {

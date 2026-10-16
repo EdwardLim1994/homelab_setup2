@@ -47,7 +47,7 @@ qa_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/ta
 # (confirmed: task-relation resource, relationType "subtask"/"blocks"/"related").
 curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
   -H "Content-Type: application/json" \
-  -d "{\"sourceTaskId\": \"$qa_id\", \"targetTaskId\": \"<story task id>\", \"relationType\": \"subtask\"}"
+  -d "{\"sourceTaskId\": \"<story task id>\", \"targetTaskId\": \"$qa_id\", \"relationType\": \"subtask\"}"
 ```
 
 ---
@@ -214,7 +214,7 @@ bug_id=$(curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/t
 
 curl -sH "Authorization: Bearer $KANEO_TOKEN" -X POST "$KANEO_URL/api/task-relation" \
   -H "Content-Type: application/json" \
-  -d "{\"sourceTaskId\": \"$bug_id\", \"targetTaskId\": \"<story task id>\", \"relationType\": \"subtask\"}"
+  -d "{\"sourceTaskId\": \"<story task id>\", \"targetTaskId\": \"$bug_id\", \"relationType\": \"subtask\"}"
 ```
 
 ### Sign-off: tick the checkbox, record exact tested image tags

@@ -137,15 +137,6 @@ variable "omp_gitlab_token" {
   default   = "" # GitLab token pushed into every omp pod by ansible omp.yml
 }
 
-variable "argocd_token" {
-  type      = string
-  sensitive = true
-  # external-service token, minted by hand once ArgoCD is up:
-  # argocd login <argocd-url> --username admin --password <initial-admin-secret>
-  # argocd account generate-token --account n8n
-  default = ""
-}
-
 variable "omp_gitlab_repo_url" {
   type    = string
   default = "" # clone URL microservice-rnd1 — omp-agent Job pods git-clone this
@@ -213,24 +204,6 @@ variable "nextcloud_oidc_client_secret" {
 }
 
 
-variable "argocd_oidc_client_id" {
-  type      = string
-  sensitive = true
-  default   = "dev-argocd-oidc-client-id"
-}
-
-variable "argocd_oidc_client_secret" {
-  type      = string
-  sensitive = true
-  default   = "dev-argocd-oidc-client-secret-not-for-prod-use"
-}
-
-variable "argocd_server_secret_key" {
-  type      = string
-  sensitive = true
-  default   = "dev-argocd-server-secret-key-not-for-prod-use"
-}
-
 variable "grafana_admin_password" {
   type      = string
   sensitive = true
@@ -292,6 +265,17 @@ variable "kaneo_admin_password" {
   type      = string
   sensitive = true
   default   = "dev-kaneo-admin-password-not-for-prod-use"
+}
+
+variable "sdlc_role_password_seed" {
+  # ponytail: deterministic password = HMAC-SHA256(seed, role), computed by
+  # provision-app-providers.py AND by any script that needs to log in as a
+  # role's real Authentik account (e.g. ansible's Kaneo OIDC bootstrap) --
+  # avoids persisting 12 random per-role passwords anywhere, both sides just
+  # recompute the same value from this one shared seed.
+  type      = string
+  sensitive = true
+  default   = "dev-sdlc-role-password-seed-not-for-prod-use"
 }
 
 variable "kaneo_auth_secret" {
@@ -413,9 +397,10 @@ variable "openwebui_api_key" {
   default   = ""
 }
 
-# Long-lived Claude Code OAuth token (`claude setup-token`) for the `claude` CLI
-# inside omp pods. Blank = pods still start, `claude` just has no auth.
-variable "claude_code_token" {
+# ponytail: whole minified auth.json from `codex login` (not a single
+# token — JSON blob with id_token/access_token/refresh_token). See
+# .env.example for how to regenerate it.
+variable "omp_codex_token" {
   type      = string
   sensitive = true
   default   = ""
@@ -443,4 +428,10 @@ variable "loki_push_port" {
 variable "tempo_push_port" {
   type    = number
   default = 30512
+}
+
+# Must match REGISTRY_MIRROR_PORT used by scripts/create-cluster.*.
+variable "registry_mirror_port" {
+  type    = number
+  default = 30500
 }

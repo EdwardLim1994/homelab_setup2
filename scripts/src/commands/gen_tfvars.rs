@@ -3,7 +3,7 @@ use crate::dotenv::raw_tf_var_lines;
 use crate::util::{repo_root, tf_engine};
 use std::fs;
 
-// ponytail: bare `homelab terraform ...` just execs the configured IaC binary.
+// ponytail: bare `homelab tf ...` just execs the configured IaC binary.
 pub fn native(args: Vec<String>) -> anyhow::Result<i32> {
     Ok(std::process::Command::new(tf_engine()).args(args).status()?.code().unwrap_or(1))
 }
@@ -22,7 +22,7 @@ pub fn run() -> anyhow::Result<i32> {
         let lines: Vec<String> = env_lines
             .iter()
             .filter(|(name, _)| declared.contains(name))
-            .map(|(name, value)| format!("{name} = \"{value}\""))
+            .map(|(name, value)| format!("{name} = \"{}\"", escape_hcl_string(value)))
             .collect();
 
         let out = env_dir.join("local.auto.tfvars");
@@ -34,6 +34,13 @@ pub fn run() -> anyhow::Result<i32> {
         println!("Generated {} ({} vars)", out.display(), lines.len());
     }
     Ok(0)
+}
+
+/// Escape a value for embedding in an HCL quoted string literal — needed
+/// now that TF_VAR_omp_codex_token carries raw JSON (embedded `"`), which
+/// previously broke the generated .tfvars with an unterminated string.
+fn escape_hcl_string(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
 /// Collect every `variable "<name>"` declaration across the *.tf files in a

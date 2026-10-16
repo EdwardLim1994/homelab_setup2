@@ -205,7 +205,7 @@ pub fn run_cmd(cluster_name: Option<String>) -> anyhow::Result<i32> {
         println!("already-running phase cluster still points at whatever this script said");
         println!("when it was created; recreate it to pick up this change (see AGENT.md).");
     } else {
-        println!("Next: load .env (copy from .env.example if you haven't), homelab terraform genvars, then (cd terraform/internal; tofu apply).");
+        println!("Next: load .env (copy from .env.example if you haven't), homelab tf genvars, then (cd terraform/internal; tofu apply).");
     }
 
     Ok(0)

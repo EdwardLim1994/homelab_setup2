@@ -18,7 +18,7 @@
 #       # reach the per-app Tailscale Services it advertises
 #       { "src": ["autogroup:member"],
 #         "dst": ["svc:authentik","svc:gitlab","svc:minio","svc:minio-console",
-#                 "svc:n8n","svc:sonarqube","svc:nextcloud","svc:argocd",
+#                 "svc:n8n","svc:sonarqube","svc:nextcloud",
 #                 "svc:grafana","svc:litellm","svc:openwebui","svc:kafka-ui"],
 #         "ip":  ["*"] }
 #     The svc: grant alone is NOT enough — the host netmap gets the service
